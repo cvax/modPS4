@@ -1,0 +1,25 @@
+Shoutout: TheLastWitcher for original modPS4Icons
+
+CHANGELOG:
+-- v2.10 --
+Thanks a lot CDPR for suddenly redoing all the InputManager stuff after I spent hours figuring the old method out...
+You managed to do a decent initial job this time around for switching between Xbox, PS4, and Steam controller on PC,
+but you missed many use cases and corner cases causing many bugs of wrong icons showing!
+
+Added: Witcher 3 v1.22 support
+Added: Many, many, many CDPR controller/gamepad switching bugs fixed
+
+-- v2.00 --
+Completely trashed the old approach of trying to modify redswf files. That approach had significant limitations.
+Improved: PS4 icons supported everywhere!
+Added: PS4 controller shown in "Controller Scheme" options menu!
+
+
+-- v1.00 --
+Updated: Forked from TheLastWitcher's modPS4Icons v1.2.1 release
+Added: PS4 icons on Meditation screen
+Added: PS4 icons on "Quit to Main Menu" popup screen
+Added: PS4 icons on "Exit" popup screen
+Added: PS4 icons on Character stats screen
+Added: PS4 icons on inventory sorting popup screen
+Added: PS4 icons on Gwent screens
