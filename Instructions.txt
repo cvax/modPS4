@@ -1,0 +1,29 @@
+1. Open Sarcen's Mod Editor
+2. Add "gameplay\gui_new\swf\mainmenu\panel_ingamemenu.redswf"
+3. Select "CSwfResource#1"
+4. Find "swfResource" in Properties on bottom and Export it
+5. Open the exported .swf (say no to importing gfxfontlib.swf)
+6. Go to scripts\red\game\witcher3\menus\mainmenu\GamepadMappingModule
+
+Find the area in code that goes:
+
+	case CommonConstants.PLATFORM_PC:
+	   gotoAndStop("pc");
+	   break;
+	case CommonConstants.PLATFORM_XBOX1:
+	   gotoAndStop("xbox");
+	   break;
+	case CommonConstants.PLATFORM_PS4:
+	   gotoAndStop("ps");
+
+Find the hex for PLATFORM_PC and PLATFORM_PS4. Flip the two.
+
+7. Use HxD and hex edit the .swf, replacing PLATFORM_PS4 with PLATFORM_PC.
+- Type in the hex value search of the hex string before PLATFORM_PS4
+- Replace the hex for PLATFORM_PS4 with the PLATFORM_PC hex
+- Save
+
+8. Import the .swf back into Mod Editor's swfResource (try compressed first, if it doesn't work do uncompressed. Can only check in-game later)
+9. Import again and save the file
+10. Pack and Install mod via Mod Editor
+11. Add other scripts and DONE
