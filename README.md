@@ -5,8 +5,7 @@ Witcher 3 mod for showing PS4 game icons when using a DS3/DS4 controller on PC.
 ![Alt Text](https://staticdelivery.nexusmods.com/mods/952/images/1657-1-1465691575.png)
 
 # Packing / Building the Mod
-You will first need the Mod Kit to completely build this mod. If you wish to modify this mod's bundles, you will also need the Mod Editor.  
-See [Instructions.txt](../master/Instructions.txt) for more info.
+You will first need the Mod Kit to completely build this mod. If you wish to modify this mod's bundles, you will also need the Mod Editor. See [Instructions.txt](../master/Instructions.txt) for more info.
 
 [Witcher 3 Mod Kit](http://www.nexusmods.com/witcher3/news/12625/?)  
 [Sarcen's Mod Editor](https://drive.google.com/file/d/0B3axqSlhNHOOYmpkWk83TXRkZmM/view?usp=sharing)
