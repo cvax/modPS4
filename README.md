@@ -22,10 +22,13 @@ Use the build script relevant to your current task.
 
 Build | Description
 --- | ---
-[Full Build.bat](../master/Full Build.bat) | Packages the bundles and scripts. Auto installs to Witcher 3
-[Script Build.bat](../master/Script Build.bat) | Only copies the scripts
+[Full Build.bat](https://github.com/cvax/modPS4/blob/master/Full%20Build.bat) | Packages the bundles and scripts. Auto installs to Witcher 3
+[Script Build.bat](https://github.com/cvax/modPS4/blob/master/Script%20Build.bat) | Only copies the scripts
 
 # Changelog
+v2.20
+- Added: Witcher 3 v1.31 support
+
 v2.10
 - Added: Witcher 3 v1.22 support
 - Added: Many, many, many CDPR controller/gamepad switching bugs fixed

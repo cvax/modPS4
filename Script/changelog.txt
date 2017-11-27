@@ -1,6 +1,9 @@
 Shoutout: TheLastWitcher for original modPS4Icons
 
 CHANGELOG:
+-- v2.20 --
+Added: Witcher 3 v1.31 support
+
 -- v2.10 --
 Thanks a lot CDPR for suddenly redoing all the InputManager stuff after I spent hours figuring the old method out...
 You managed to do a decent initial job this time around for switching between Xbox, PS4, and Steam controller on PC,
