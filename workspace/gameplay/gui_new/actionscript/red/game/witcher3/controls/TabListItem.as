@@ -17,6 +17,8 @@ package red.game.witcher3.controls
 	import flash.events.MouseEvent;
 	import red.game.witcher3.menus.common.TabListItemIconsContainer;
 	import flash.events.Event;
+	import red.core.events.GameEvent;
+	import flash.utils.setTimeout;
 	
 	public class TabListItem extends BaseListItem
 	{
@@ -36,6 +38,16 @@ package red.game.witcher3.controls
 		protected override function configUI():void
 		{
 			super.configUI();
+			addEventListener(MouseEvent.CLICK, onMouseClickOnThis)
+		}
+
+		protected function onMouseClickOnThis(event:MouseEvent)
+		{
+			setTimeout(function()
+			{
+			dispatchEvent(new GameEvent(GameEvent.CALL, "OnKeyUpOnW3ScrollingList", [name]));
+			}, 100
+			) //#lt delay because it is faster than OnTabChanged
 		}
 		
 		

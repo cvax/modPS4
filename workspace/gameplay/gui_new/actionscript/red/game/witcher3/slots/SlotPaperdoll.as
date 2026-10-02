@@ -18,6 +18,7 @@ package red.game.witcher3.slots
 	import red.game.witcher3.menus.common.ItemDataStub;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.gfx.MouseEventEx;
+	import flash.events.GestureEvent;
 	
 	/**
 	 * Slot in the paperdoll
@@ -29,10 +30,12 @@ package red.game.witcher3.slots
 		public var defaultIcon:MovieClip;
 		public var iconLock:MovieClip;
 		public var mcPreviewIcon:MovieClip;
+		public var mcTransmogIcon:MovieClip;
 		
 		public var sectionId:int = -1;
 		
 		protected var _slotTag:String;
+		protected var _slotTagOverride:String = "";
 		protected var _slotTypeID:int;
 		protected var _equipID:int;
 		
@@ -92,6 +95,9 @@ package red.game.witcher3.slots
 				case SlotDragAvatar.ACTION_REPAIR:
 					dispatchEvent( new GameEvent( GameEvent.CALL, "OnApplyRepairKit", [ itemData.id, slotTagToType(slotTag) ]) );
 					break;
+				case SlotDragAvatar.ACTION_SHARPEN:
+					dispatchEvent( new GameEvent( GameEvent.CALL, "OnApplySharpstone", [ itemData.id, slotTagToType(slotTag) ]) );
+					break;
 				case SlotDragAvatar.ACTION_DIY:
 					dispatchEvent( new GameEvent( GameEvent.CALL, "OnApplyDye", [ itemData.id, slotTagToType(slotTag) ]) );
 					break;
@@ -149,18 +155,19 @@ package red.game.witcher3.slots
 											  slotData.slotType == InventorySlotType.Pants;
 						var canBeUpgraded:Boolean = slotData.socketsCount > slotData.socketsUsedCount && !slotData.enchanted;
 						
+						// dye
 						if(slotData.quality == ItemQuality.SET && itemData.isDye && isArmor && slotData.canBeDyed)
 						{
 							_currentDropAction = SlotDragAvatar.ACTION_DIY;
 							return true;
 						}
+						// oil, enhance, repair
 						if (itemData.isSteelOil && isSteelSword)
 						{
 							_currentDropAction = SlotDragAvatar.ACTION_OIL;
 							return true;
 						}
-						else
-						if (itemData.isSilverOil && isSilverSword)
+						else if (itemData.isSilverOil && isSilverSword)
 						{
 							_currentDropAction = SlotDragAvatar.ACTION_OIL;
 							return true;
@@ -183,6 +190,12 @@ package red.game.witcher3.slots
 						else if (itemData.isArmorRepairKit && isArmor && slotData.durability < 100)
 						{
 							_currentDropAction = SlotDragAvatar.ACTION_REPAIR;
+							return true;
+						}
+						// sharpen
+						else if (itemData.isSharpener && (isSteelSword || isSilverSword))
+						{
+							_currentDropAction = SlotDragAvatar.ACTION_SHARPEN;
 							return true;
 						}
 					}
@@ -336,6 +349,13 @@ package red.game.witcher3.slots
 			{
 				mcPreviewIcon.visible = false;
 			}
+
+			if(mcTransmogIcon)
+			{
+				mcTransmogIcon.visible = false;
+			}
+
+			dispatchEvent( new GameEvent(GameEvent.REGISTER, "slot.paperdoll.override.tag", [setOverrideTag]));
 		}
 		
 		protected function initDropTarget():void
@@ -399,14 +419,35 @@ package red.game.witcher3.slots
 		public function set slotTag( value:String ):void
 		{
 			_slotTag = value;
+
+			setSlotNameText();
 			
+			if (_slotTag)
+			{
+				defaultIcon.gotoAndStop(_slotTag);
+				defaultIcon.visible = true;
+			}
+			else
+			{
+				defaultIcon.visible = false;
+			}
+		}
+
+		private function setSlotNameText():void
+		{
 			if (tfSlotName)
 			{
+				
 				if (!_slotTag)
 				{
 					tfSlotName.htmlText = "";
 				}
-				if ( _slotTag.indexOf("quick") != -1)
+
+				if(_slotTagOverride.length > 0)
+				{
+					tfSlotName.htmlText = _slotTagOverride;
+				}
+				else if ( _slotTag.indexOf("quick") != -1)
 				{
 					tfSlotName.htmlText = "";
 				}
@@ -423,15 +464,21 @@ package red.game.witcher3.slots
 					tfSlotName.htmlText = "[[panel_inventory_paperdoll_slotname_"+_slotTag+"]]";
 				}
 			}
-			
-			if (_slotTag)
+		}
+
+		public function setOverrideTag(arr:Array)
+		{
+			for(var i : int; i < arr.length; i++)
 			{
-				defaultIcon.gotoAndStop(_slotTag);
-				defaultIcon.visible = true;
-			}
-			else
-			{
-				defaultIcon.visible = false;
+				var obj : Object = arr[i];
+				var currentTag:String = obj.currentTag;
+				var overrideTag:String = obj.overrideTag;
+
+				if(_slotTag == currentTag)
+				{
+					_slotTagOverride = overrideTag;
+					setSlotNameText();
+				}
 			}
 		}
 		
@@ -460,7 +507,7 @@ package red.game.witcher3.slots
 					loadIcon("icons\\inventory\\slots\\mask2.png");
 				// NGE
 			}
-			if (_selected && InputManager.getInstance().isGamepad())
+			if (_selected && !InputManager.getInstance().isMouse())
 			{
 				// show empty tooltip on unequip
 				fireTooltipShowEvent();
@@ -580,7 +627,7 @@ package red.game.witcher3.slots
 			//trace("GFX [SLOT] fireTooltipShowEvent; isMouseTooltip: ", isMouseTooltip, "; ", _data);
 			var displayEvent:GridEvent;
 			
-			if (!(activeSelectionEnabled || !InputManager.getInstance().isGamepad()) && isParentEnabled())
+			if (!(activeSelectionEnabled || InputManager.getInstance().isMouse()) && isParentEnabled())
 			{
 				return;
 			}
@@ -694,6 +741,8 @@ package red.game.witcher3.slots
 		{
 			return "SlotPaperdoll [" + this.name + "] ";
 		}
+
+		override protected function handleGesturePress( event : GestureEvent ) : void { }
 	}
 
 }

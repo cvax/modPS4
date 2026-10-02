@@ -13,11 +13,14 @@
 	import red.core.constants.KeyCode;
 	import red.core.CoreMenu;
 	import red.core.events.GameEvent;
+	import red.game.witcher3.constants.EInputDeviceType;
 	import red.game.witcher3.constants.InventoryActionType;
 	import red.game.witcher3.controls.InputFeedbackButton;
+	import red.game.witcher3.events.ControllerChangeEvent;
 	import red.game.witcher3.events.SlotActionEvent;
 	import red.game.witcher3.managers.ContextInfoManager;
 	import red.game.witcher3.managers.InputFeedbackManager;
+	import red.game.witcher3.managers.InputManager;
 	import red.game.witcher3.menus.common.PlayerStatsModule;
 	import red.game.witcher3.menus.overlay.BookPopup;
 	import red.game.witcher3.slots.SlotBase;
@@ -35,6 +38,13 @@
 	import scaleform.clik.interfaces.IListItemRenderer;
 	import scaleform.clik.ui.InputDetails;
 	import scaleform.gfx.Extensions;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
+	import flash.utils.setTimeout;
+	import red.game.witcher3.events.ItemDragEvent;
+	import flash.events.TransformGestureEvent;
+	import red.game.witcher3.slots.SlotsListBase;
+	import flash.utils.setTimeout;
 
 	/**
 	 * Character development menu
@@ -73,17 +83,18 @@
 		
 		private var _btn_mutation : int = -1;
 		private var _btn_switch_sections    : int = -1;
-		
+
 		public function MenuCharacter()
 		{
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
 			moduleSkillTabList.noDelay = true;
 			applyMode.deactivate();
-			
 			
 			//btnMutationMode = moduleSkillSlot.btnMutationMode;
 			btnMutationMode.visible = true;
 			//btnMutationMode.label = "[[mutation_title_mutations]]";
-			btnMutationMode.setDataFromStage(NavigationCode.GAMEPAD_Y, KeyCode.C);
+			btnMutationMode.setDataFromStage(isSwitchPlatform ? NavigationCode.GAMEPAD_X : NavigationCode.GAMEPAD_Y, KeyCode.C);
 			btnMutationMode.clickable = false;
 			btnMutationMode.mouseChildren = btnMutationMode.mouseEnabled = false;
 			
@@ -93,9 +104,9 @@
 				mcMasterMutation.selectable = false;
 				mcMasterMutation.visible = false;
 				mcMasterMutation.mouseChildren = mcMasterMutation.mouseEnabled = false;
-				mcMasterMutation.addEventListener(MouseEvent.CLICK, handleMasterMutationClick, false, 0, true);
+				mcMasterMutation.addEventListener(MouseEvent.CLICK, handleMasterMutationTapOrClick, false, 0, true);
+				mcMasterMutation.addEventListener(GestureEventEx.GESTURE_TAP, handleMasterMutationTapOrClick, false, 0, true);
 			}
-			
 		}
 		
 		override protected function get menuName():String { return "CharacterMenu"	}
@@ -137,14 +148,20 @@
 			
 			moduleSkillTabList.addEventListener(SlotActionEvent.EVENT_ACTIVATE, handleSkillAction, false, 0, true);
 			moduleSkillSlot.addEventListener(SlotActionEvent.EVENT_ACTIVATE, handleSlotAction, false, 0, true);
-			moduleSkillSlot.socketsList.addEventListener(ListEvent.INDEX_CHANGE, onSlotSelected, false, 0, true);
 			moduleSkillSlot.addEventListener(SlotActionEvent.EVENT_SELECT, handleSlotActivate, false, 0, true);
 			
 			moduleSkillTabList.addEventListener(SlotActionEvent.EVENT_SECONDARY_ACTION, handleSkillSecondaryAction, false, 0, true);
 			moduleSkillSlot.addEventListener(SlotActionEvent.EVENT_SECONDARY_ACTION, handleSkillSecondaryAction, false, 0, true);
-			
+
+			moduleSkillTabList.mcSkillSlotList.addEventListener( SlotsListBase.EVENT_SELECTED_TAPPED, onSkillTappedTwice, false, 0, true );
+			moduleSkillTabList.mcMutagenSlotList.addEventListener( SlotsListBase.EVENT_SELECTED_TAPPED, onMutagenTappedTwice, false, 0, true );
+			moduleSkillSlot.socketsList.addEventListener( SlotsListBase.EVENT_SELECTED_TAPPED, onSocketTappedTwice, false, 0, true);
+
 			applyMode.addEventListener(CharacterModeBackground.CANCEL, handleApplyModeCancel, false, 0, true);
 			applyMode.addEventListener(CharacterModeBackground.ACCEPT, handleApplyModeAccept, false, 0, true);
+
+			var inputMgr:InputManager = InputManager.getInstance();
+			inputMgr.addEventListener(ControllerChangeEvent.CONTROLLER_CHANGE, handleControllerChanged, false, 0, true);
 			
 			_contextMgr.defaultAnchor = tooltipAnchor;
 			_contextMgr.addGridEventsTooltipHolder(stage);
@@ -156,13 +173,67 @@
 			
 			dispatchEvent( new GameEvent( GameEvent.CALL, "OnConfigUI" ) );
 			
-			if (_btn_switch_sections == -1 )
+			if (_btn_switch_sections == -1 && InputManager.getInstance().gamepadType != EInputDeviceType.IDT_Switch2_Mouser)
 			{
 				_btn_switch_sections = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_R3, -1 , "panel_button_common_jump_sections");
 			}
 			InputFeedbackManager.updateButtons(this);
+
+			SlotsTransferManager.getInstance().enableDragWithPan( true );
 		}
-		
+
+		private function onSkillTappedTwice( event : Event ) : void
+		{
+			var selected : SlotBase = event.target.getSelectedRenderer() as SlotBase;
+			trace( "MenuCharacter::onSkillTappedTwice : ", moduleSkillTabList.hasFocus, selected, event );
+
+			//Since we disabled focus handling (mcPlayerGrid.focusable = false in super) We have to check if we are in focus manually.
+			if ( moduleSkillTabList.hasFocus && selected )
+			{
+				var selectedSkill : SlotSkillGrid = selected as SlotSkillGrid;
+				if ( selectedSkill )
+				{
+					skillSlotSecondaryAction( selectedSkill );
+				}
+			}
+		}
+
+		private function onMutagenTappedTwice( event : Event ) : void
+		{
+			var selected : SlotBase = event.target.getSelectedRenderer() as SlotBase;
+			trace( "MenuCharacter::onMutagenTappedTwice : ", moduleSkillTabList.hasFocus, selected, event );
+
+			//Since we disabled focus handling (mcPlayerGrid.focusable = false in super) We have to check if we are in focus manually.
+			if ( moduleSkillTabList.hasFocus && selected )
+			{
+				var selectedMutagen : SlotInventoryGrid = selected as SlotInventoryGrid;
+				if ( selectedMutagen )
+				{
+					trace( "MenuCharacter::onMutagenTappedTwice B");
+					startApplyMode( selectedMutagen );
+				}
+			}
+		}
+
+		private function onSocketTappedTwice( event : Event ) : void
+		{
+			var selected : SlotBase = event.target.getSelectedRenderer() as SlotBase;
+			trace( "MenuCharacter::onSocketTappedTwice : ", moduleSkillSlot.hasFocus, selected, event );
+
+			//Since we disabled focus handling (mcPlayerGrid.focusable = false in super) We have to check if we are in focus manually.
+			if ( moduleSkillSlot.hasFocus && selected )
+			{
+				var mutSocket:SlotSkillMutagen = selected as SlotSkillMutagen;
+				var skillSocket:SlotSkillSocket = selected as SlotSkillSocket;
+
+				//We have to send a dummy event, so EVENT_SELECT will fire for the tab change
+				if ( mutSocket || skillSocket )
+				{
+					selected.executeAction( KeyCode.PAD_A_CROSS, new InputEvent( "dummy", null ) );
+				}
+			}
+		}
+
 		private var _isMutationInited:Boolean = false;
 		public function get mcMutationPanel():MutationsPanel
 		{
@@ -217,13 +288,15 @@
 				{
 					btnMutationMode.visible = false;
 					mcMasterMutation.visible = false;
-					mcMasterMutation.mouseChildren = mcMasterMutation.mouseEnabled = false;
+					mcMasterMutation.mouseChildren = false; 
+					mcMasterMutation.mouseEnabled = false;
 				}
 				else
 				{
 					if (_btn_mutation == -1)
 					{
-						_btn_mutation = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_Y, KeyCode.C, "mutation_title_mutations");
+						var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+						_btn_mutation = InputFeedbackManager.appendButton(this, isSwitchPlatform ? NavigationCode.GAMEPAD_X : NavigationCode.GAMEPAD_Y, KeyCode.C, "mutation_title_mutations");
 					}
 					btnMutationMode.visible = !mcMutationPanel.active;
 					mcMutationPanel.setDataList(value);
@@ -253,7 +326,8 @@
 							mcMasterMutation.visible = true;
 							mcMasterMutation.enabled = false;
 							mcMasterMutation.selectable = false;
-							mcMasterMutation.mouseChildren = mcMasterMutation.mouseEnabled = true;
+							mcMasterMutation.mouseChildren = true;
+							mcMasterMutation.mouseEnabled = true;
 							isMasterFound = true;
 							
 							if (isMutationEquipped)
@@ -358,9 +432,31 @@
 			_holdY_triggered = true;
 			dispatchEvent( new GameEvent( GameEvent.CALL, "OnUnequipMutation"));
 		}
+
+		override protected function handleControllerChanged(event:ControllerChangeEvent):void
+		{
+			super.handleControllerChanged(event);
+
+			if (mcMutationPanel.active)
+				return;
+
+			if (_btn_switch_sections == -1 && InputManager.getInstance().gamepadType != EInputDeviceType.IDT_Switch2_Mouser)
+			{
+				_btn_switch_sections = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_R3, -1 , "panel_button_common_jump_sections");
+			}
+			else if (_btn_switch_sections != -1)
+			{
+				InputFeedbackManager.removeButton(this, _btn_switch_sections);
+				_btn_switch_sections = -1;
+			}
+
+			InputFeedbackManager.updateButtons(this);
+		}
 		
 		protected function startApplyMode(targetSlot:SlotBase) : void
 		{
+			trace ( "MenuCharacter::startApplyMode : ", targetSlot );
+
 			if (_inCombat)
 			{
 				dispatchEvent( new GameEvent( GameEvent.CALL, "OnSendNotification", ["menu_cannot_perform_action_combat"] ) );
@@ -368,7 +464,11 @@
 			else
 			{
 				dispatchEvent( new GameEvent( GameEvent.CALL, "OnStartApplyMode"));
-				
+
+				//Disable inputevents from common menu, to avoid event generation when the
+				//bottom inputFeedbackButtos overlap with the apply mode modal.
+				enableForeignInputEvent( false );
+
 				applyMode.activate(targetSlot);
 
 				moduleSkillTabList._inputEnabled = false;
@@ -418,16 +518,24 @@
 			//enableMutationButton(_isMutationBonusMode);
 			
 			_contextMgr.enableInputFeedbackShowing(true);
+
+			//Enable inputevents from common menu
+			enableForeignInputEvent( true );
 		}
 		
 		override protected function handleInputNavigate(event:InputEvent):void
 		{
 			var details:InputDetails = event.details;
 			var inputEnabled:Boolean = details.value == InputValue.KEY_UP && !event.handled;
-			
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
+			CommonUtils.fixupKeyCode( details );
 			//trace("GFX handleInputNavigate ", details.value, details.navEquivalent, _holdY_triggered );
 			
-			if( details.value == InputValue.KEY_UP && details.navEquivalent == NavigationCode.GAMEPAD_Y && _holdY_triggered )
+			if( details.value == InputValue.KEY_UP &&
+				_holdY_triggered && 
+				((isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X) ||		// X on switch
+				(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y)) )		// Y on other platforms
 			{
 				_holdY_triggered = false;
 				event.handled = true;
@@ -439,15 +547,19 @@
 				switch (details.navEquivalent)
 				{
 					case NavigationCode.GAMEPAD_Y:
-						
-						//trace("GFX handleInputNavigate ", btnMutationMode.getCurrentHoldProgress());
-						
-						if (_isMutationEnabled && btnMutationMode.getCurrentHoldProgress() < .1 && !applyMode.isActive()) // 0..1 progress // ignore holdinginput
+					case NavigationCode.GAMEPAD_X:
+						if ((isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X) ||	// X on switch
+							(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y))	// Y on all other platforms
 						{
-							mcMutationPanel.active = !mcMutationPanel.active;
-							event.handled = true;
-							event.stopImmediatePropagation();
-							
+							//trace("GFX handleInputNavigate ", btnMutationMode.getCurrentHoldProgress());
+						
+							if (_isMutationEnabled && btnMutationMode.getCurrentHoldProgress() < .1 && !applyMode.isActive()) // 0..1 progress // ignore holdinginput
+							{
+								mcMutationPanel.active = !mcMutationPanel.active;
+								event.handled = true;
+								event.stopImmediatePropagation();
+								
+							}
 						}
 						
 						break;
@@ -512,7 +624,7 @@
 			super.handleInputNavigate(event);
 		}
 		
-		private function handleMasterMutationClick(event:Event):void
+		private function handleMasterMutationTapOrClick( event : Event ) : void
 		{
 			if (_isMutationEnabled && !mcMutationPanel.active && !applyMode.isActive())
 			{
@@ -568,10 +680,11 @@
 				
 				if (_btn_mutation == -1)
 				{
-					_btn_mutation = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_Y, KeyCode.C, "mutation_title_mutations");
+					var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+					_btn_mutation = InputFeedbackManager.appendButton(this, isSwitchPlatform ? NavigationCode.GAMEPAD_X : NavigationCode.GAMEPAD_Y, KeyCode.C, "mutation_title_mutations");
 					
 				}
-				if (_btn_switch_sections == -1)
+				if (_btn_switch_sections == -1 && InputManager.getInstance().gamepadType != EInputDeviceType.IDT_Switch2_Mouser)
 				{
 					_btn_switch_sections = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_R3, -1 , "panel_button_common_jump_sections");
 				}
@@ -640,25 +753,6 @@
 		{
 			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnShowFullStats' ));
 		}
-		
-		protected function onSlotSelected( event:ListEvent ):void
-		{
-			/*if (moduleSkillTabList.isOpen)
-			{
-				return;
-			}
-
-			var targetSlot:SlotBase = moduleSkillSlot.socketsList.getSelectedRenderer() as SlotBase;
-
-			if (targetSlot is SlotSkillMutagen)
-			{
-				moduleSkillTabList.mcTabList.selectedIndex = CharacterTabbedListModule.TabIndex_Mutagens;
-			}
-			else
-			{
-				moduleSkillTabList.mcTabList.selectedIndex = targetSlot.data.tabId;
-			}*/
-		}
 
 		// Start slot selection mode
 		protected function handleSkillAction(event:SlotActionEvent):void
@@ -695,7 +789,7 @@
 		// Equip / Unequp skill
 		protected function handleSlotAction(event:SlotActionEvent):void
 		{
-			//trace("GFX --------- handleSlotAction,  is mut: ", (event.targetSlot as SlotSkillMutagen), applyMode.isActive());
+			//trace("MenuCharacter::handleSlotAction : ", (event.targetSlot as SlotSkillMutagen), applyMode.isActive());
 			
 			if ( applyMode.isActive() )
 			{
@@ -706,14 +800,14 @@
 			var mutSocket:SlotSkillMutagen = event.targetSlot as SlotSkillMutagen;
 			if (mutSocket && !mutSocket.isLocked())
 			{
-				mutagenSlotAction(event.targetSlot as SlotSkillMutagen);
+				mutagenSlotAction( mutSocket );
 			}
 			else
 			{
 				var skillSocket:SlotSkillSocket = event.targetSlot as SlotSkillSocket;
-				if (event.targetSlot.data.skillPath != SlotSkillSocket.NULL_SKILL || applyMode.isActive())
+				if ( skillSocket.data.skillPath != SlotSkillSocket.NULL_SKILL || applyMode.isActive() )
 				{
-					skillSlotAction(event.targetSlot as SlotSkillGrid);
+					skillSlotAction( skillSocket );
 				}
 				else if (skillSocket && skillSocket.data && !skillSocket.isLocked)
 				{
@@ -732,7 +826,7 @@
 		{
 			var targetSlot:SlotSkillGrid = event.targetSlot as SlotSkillGrid;
 			
-			//trace("GFX ## MenuCharacter :: handleSkillSecondaryAction event.actionType ", event.actionType, "; targetSlot ", targetSlot);
+			//trace("MenuCharacter::handleSkillSecondaryAction event.actionType ", event.actionType, "; targetSlot ", targetSlot);
 			
 			if ( applyMode.isActive() )
 			{
@@ -777,11 +871,13 @@
 
 		protected function skillSlotSecondaryAction(targetSlot:SlotSkillGrid):void
 		{
+			trace("MenuCharacter::skillSlotSecondaryAction A ");
 			if (applyMode.isActive())
 			{
 				return;
 			}
-			
+
+			trace("MenuCharacter::skillSlotSecondaryAction B ");
 			if (targetSlot)
 			{
 				var targetData:Object = targetSlot.data;
@@ -802,7 +898,7 @@
 
 		protected function mutagenSlotAction(mutagenSlot:SlotSkillMutagen):void
 		{
-			//trace("GFX mutagenSlotAction ", applyMode.isActive());
+			trace("MenuCharacter::mutagenSlotAction");
 			
 			if (applyMode.isActive())
 			{
@@ -825,6 +921,8 @@
 		
 		protected function handleSlotActivate( event: SlotActionEvent ):void
 		{
+			trace( "MenuCharacter::handleSlotActivate : ", event );
+
 			var mutSlot:SlotSkillMutagen = event.target as SlotSkillMutagen;
 			var skillSlot:SlotSkillSocket = event.target as SlotSkillSocket;
 			
@@ -847,7 +945,7 @@
 			}
 		}
 		
-		public function handleApplyModeAccept( event : Event = null ) : void
+		private function handleApplyModeAccept( event : Event = null ) : void
 		{
 			var selectedSlot:IListItemRenderer = moduleSkillSlot.socketsList.getSelectedRenderer();
 			var mutSlot:SlotSkillMutagen = selectedSlot as SlotSkillMutagen;
@@ -867,34 +965,22 @@
 			endApplyMode();
 		}
 
-		public function handleApplyModeCancel( event : Event )
+		private function endApplyModeDelayed( )
 		{
 			endApplyMode();
 			dispatchEvent( new GameEvent( GameEvent.CALL, "OnCancelApplyMode"));
+		} 
+
+		private function handleApplyModeCancel( event : Event )
+		{
+			//Delay this so applyMode remains active until InputEvents are handled.
+			//Needed because applyMode panel and InputFeedbackButton bar are overlapping.
+			setTimeout( endApplyModeDelayed, 0 );
 		}
 
 		public function handleTooltipFailedToShow( event : Event )
 		{
 			//moduleSkillSlot.fireFirstTooltip();
-		}
-
-		public function onBuyButtonClicked( event : ButtonEvent )
-		{
-			if (event.buttonIdx == 0) // #J Left click RAWR!
-			{
-				if (moduleSkillTabList.focused)
-				{
-					skillSlotSecondaryAction(moduleSkillTabList.mcSkillSlotList.getSelectedRenderer() as SlotSkillGrid);
-				}
-				else if (moduleSkillSlot.focused)
-				{
-					skillSlotSecondaryAction(moduleSkillSlot.socketsList.getSelectedRenderer() as SlotSkillGrid);
-				}
-				else
-				{
-					trace("GFX - These are not the modules you are looking for!");
-				}
-			}
 		}
 
 		protected function updateGroupsBonus(value:Array):void
@@ -932,7 +1018,6 @@
 		protected function stableUpdateSkillsGrid(value:Array):void
 		{
 			//moduleSkillList.stableUpdateData(value);
-
 		}
 
 		protected function updateSkillsGrid(value:Array):void
@@ -968,6 +1053,7 @@
 			txfAvailablePoints.text = "[[panel_character_availablepoints]]";
 			txfPointsValue.text = curPoint.toString();
 			txfAvailablePoints.text = CommonUtils.toUpperCaseSafe(txfAvailablePoints.text);
+			txfAvailablePoints.x = txfPointsValue.x + txfPointsValue.width - txfPointsValue.textWidth - 25;
 		}
 
 		protected function callNotifyNotEnoughtPoints():void

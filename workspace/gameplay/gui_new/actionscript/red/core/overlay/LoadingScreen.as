@@ -1,5 +1,5 @@
-﻿package red.core.overlay {
-	
+﻿package red.core.overlay
+{
 	import com.gskinner.motion.GTweener;
 	import flash.display.MovieClip;
 	import flash.events.Event;
@@ -8,13 +8,15 @@
 	import flash.geom.ColorTransform;
 	import flash.utils.getTimer;
 	import flash.utils.Timer;
+
 	import red.core.constants.KeyCode;
+	import red.game.witcher3.constants.EInputDeviceType;
 	import red.game.witcher3.constants.PlatformType;
 	import red.game.witcher3.controls.InputFeedbackButton;
 	import red.game.witcher3.managers.InputManager;
+
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.controls.StatusIndicator;
-	
 	import scaleform.gfx.Extensions;
 
 	Extensions.enabled = true;
@@ -108,18 +110,21 @@
 		
 		public function setPlatform( platformType:uint ):void
 		{
-			trace("setPlatform: " + platformType);
-			
+			trace("LoadingScreen setPlatform: " + platformType);
 			InputManager.getInstance().setPlatformType( platformType );
+			setGamepadType_HACK( platformType, InputManager.getInstance().isGamepad() );
 
-			if ( platformType == PlatformType.PLATFORM_PC )
+			if ( platformType == PlatformType.PLATFORM_PC || platformType == PlatformType.PLATFORM_PC_GDK )
 			{
 				initializeTipListForPC();
 			}
+
 			
 			if ( btnSkipIndicator )
 			{
-				btnSkipIndicator.setDataFromStage(NavigationCode.GAMEPAD_X, KeyCode.SPACE);
+				var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+				
+				btnSkipIndicator.setDataFromStage( isSwitchPlatform ? NavigationCode.GAMEPAD_B : NavigationCode.GAMEPAD_X, KeyCode.SPACE);
 				btnSkipIndicator.label = "[[panel_button_dialogue_skip]]";
 				btnSkipIndicator.clickable = false;
 				btnSkipIndicator.alpha = 0;
@@ -127,30 +132,36 @@
 			}
 		}
 		
-		public function setExpansionsAvailable( ep1 : Boolean, ep2 : Boolean )
+		public function setExpansionsAvailable( ep1 : Boolean, ep2 : Boolean, ep3:Boolean )
 		{
 			if ( ep2 )
 			{
 				initializeTipListForEP2();
 			}
+			if(ep3)
+			{
+				initializeTipListForEP3();
+			}
 		}
 		
 		public function setVideoSubtitles( text:String ):void
 		{
-			trace("setVideoSubtitles: " + text);
+			trace("LoadingScreen setVideoSubtitles: " + text);
 			mcSubtitles.tfSubtitles.text = text;
 		}
 		
 		// Might want to fade it in, so separate functions
 		public function setTipText( text:String ):void
 		{
-			trace("setTipText: " + text);
+			trace("LoadingScreen setTipText: " + text);
 			mcSubtitles.tfSubtitles.text = text;
 		}
 		
 		public function setPCInput(value:Boolean):void
 		{
+			trace("LoadingScreen setPCInput: " + value);
 			InputManager.getInstance().setControllerType(!value);
+			setGamepadType_HACK( InputManager.getInstance().getPlatform(), !value );
 		}
 		
 		public function showVideoSkip():void
@@ -178,14 +189,14 @@
 		
 		public function showImage():void
 		{
-			trace("showImage");
+			trace("LoadingScreen showImage");
 			mcImage.visible = true;
 			setTipsEnabled(true);
 		}
 		
 		public function hideImage():void
 		{
-			trace("hideImage");
+			trace("LoadingScreen hideImage");
 			mcImage.visible = false;
 			setTipsEnabled(false);
 		}
@@ -234,7 +245,7 @@
 		
 		public function fadeIn( fadeInTime : Number ):void
 		{
-			trace("fadeIn: " + fadeInTime );
+			trace("LoadingScreen fadeIn: " + fadeInTime );
 
 			removeEventListener( Event.ENTER_FRAME, handleEnterFrame, false );
 			
@@ -255,7 +266,7 @@
 		
 		public function fadeOut( fadeOutTime : Number ):void
 		{
-			trace("fadeOut: " + fadeOutTime );
+			trace("LoadingScreen fadeOut: " + fadeOutTime );
 			removeEventListener( Event.ENTER_FRAME, handleEnterFrame, false );
 			if ( fadeOutTime <= 0. )
 			{
@@ -271,6 +282,28 @@
 				
 				addEventListener( Event.ENTER_FRAME, handleEnterFrame, false, 0, true );
 			}
+		}
+
+		// HACK, because LoadingScreen logic is hacked in common\engine\gameStartStop.cpp via render commands, so I am forced to add my hack on top of it as well...
+		private function setGamepadType_HACK( platformType:uint, isGamepad:Boolean ):void
+		{
+			trace("LoadingScreen setGamepadType_HACK() platformType: " + platformType + ", isGamepad: " + isGamepad);
+
+			var gamepadType:uint = InputManager.getInstance().gamepadType;
+
+			if ( platformType == PlatformType.PLATFORM_PC || platformType == PlatformType.PLATFORM_PC_GDK)
+			{
+				if ( !isGamepad ) gamepadType = EInputDeviceType.IDT_KeyboardMouse;
+			}
+			else if (platformType == PlatformType.PLATFORM_SWITCH2 )
+			{
+				if (isGamepad)
+					gamepadType = EInputDeviceType.IDT_Switch2;
+				else
+					gamepadType = EInputDeviceType.IDT_KeyboardMouse;
+			}
+
+			InputManager.getInstance().gamepadType = gamepadType;
 		}
 		
 		private function handleEnterFrame(event:Event):void
@@ -449,6 +482,14 @@
 				//tipList.push("loading_screen_hint_ep2_006"); // #Y; Cooment from Tomasz Kozera: cert 1 we need to disable those loading hints from appearing - they won't be translated in time
 				tipList.push("loading_screen_hint_ep2_007");
 				tipList.push("loading_screen_hint_ep2_008");
+			}
+		}
+
+		private function initializeTipListForEP3():void
+		{
+			if(tipList)
+			{
+				tipList.push("loading_screen_hint_96");
 			}
 		}
 

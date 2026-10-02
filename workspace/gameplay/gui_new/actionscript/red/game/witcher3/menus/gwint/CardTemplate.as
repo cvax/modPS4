@@ -11,92 +11,94 @@ package red.game.witcher3.menus.gwint
 	
 		// Faction Indexes
 		// {
-		public static const FactionId_Error				:int = -1;
-		public static const FactionId_Neutral			:int = 0;
-		public static const FactionId_No_Mans_Land		:int = 1;
-		public static const FactionId_Nilfgaard 		:int = 2;
-		public static const FactionId_Northern_Kingdom	:int = 3;
-		public static const FactionId_Scoiatael			:int = 4;
-		public static const FactionId_Skellige			:int = 5;
-		// }
-		
-		// Card Type Flags (bit array!)
-		// {
-		public static const CardType_None				:uint = 0;
-		public static const CardType_Melee				:uint = 1;
-		public static const CardType_Ranged				:uint = 2;
-		public static const CardType_RangedMelee		:uint = 3;
-		public static const CardType_Siege				:uint = 4;
-		public static const CardType_SeigeRangedMelee	:uint = 7;
-		public static const CardType_Creature			:uint = 8;
-		public static const CardType_Weather			:uint = 16;
-		public static const CardType_Spell				:uint = 32;
-		public static const CardType_Row_Modifier		:uint = 64;
-		public static const CardType_Hero				:uint = 128;
-		public static const CardType_Spy				:uint = 256;
-		public static const CardType_Friendly_Effect	:uint = 512;
-		public static const CardType_Offsensive_Effect	:uint = 1024;
-		public static const CardType_Global_Effect		:uint = 2048;
-		// }
-		
-		// Card Power Ids
-		// {
-		public static const CardEffect_None				:int = 0;
-		public static const CardEffect_Backstab			:int = 1;
-		public static const CardEffect_Morale_Boost		:int = 2;
-		public static const CardEffect_Ambush			:int = 3;
-		public static const CardEffect_ToughSkin		:int = 4;
-		public static const CardEffect_Bin2				:int = 5;
-		public static const CardEffect_Bin3				:int = 6;
-		public static const CardEffect_MeleeScorch		:int = 7;
-		public static const CardEffect_11th_card		:int = 8;
-		public static const CardEffect_Clear_Weather	:int = 9;
-		public static const CardEffect_Pick_Weather		:int = 10;
-		public static const CardEffect_Pick_Rain		:int = 11;
-		public static const CardEffect_Pick_Fog			:int = 12;
-		public static const CardEffect_Pick_Frost		:int = 13;
-		public static const CardEffect_View_3_Enemy		:int = 14;
-		public static const CardEffect_Resurect			:int = 15;
-		public static const CardEffect_Resurect_Enemy	:int = 16;
-		public static const CardEffect_Bin2_Pick1		:int = 17;
-		public static const CardEffect_Melee_Horn		:int = 18;
-		public static const CardEffect_Range_Horn		:int = 19;
-		public static const CardEffect_Siege_Horn		:int = 20;
-		public static const CardEffect_Siege_Scorch		:int = 21;
-		public static const CardEffect_Counter_King		:int = 22;
-		// }
-		// Card Effect Flags (continues from other)
-		// {
-		public static const CardEffect_Melee			:int = 23;
-		public static const CardEffect_Ranged			:int = 24;
-		public static const CardEffect_Siege			:int = 25;
-		public static const CardEffect_UnsummonDummy	:int = 26;
-		public static const CardEffect_Horn				:int = 27;
-		public static const CardEffect_Draw				:int = 28;	// Deprecated
-		public static const CardEffect_Scorch			:int = 29;
-		public static const CardEffect_ClearSky			:int = 30;
-		public static const CardEffect_SummonClones		:int = 31;
-		public static const CardEffect_ImproveNeighbours:int = 32;
-		public static const CardEffect_Nurse			:int = 33;
-		public static const CardEffect_Draw2			:int = 34;
-		public static const CardEffect_SameTypeMorale	:int = 35;
+		public static const FactionId_Error						:int = -1;
+		public static const FactionId_Neutral					:int = 0;
+		public static const FactionId_No_Mans_Land				:int = 1;
+		public static const FactionId_Nilfgaard 				:int = 2;
+		public static const FactionId_Northern_Kingdom			:int = 3;
+		public static const FactionId_Scoiatael					:int = 4;
+		public static const FactionId_Skellige					:int = 5;
+		// }		
+
+		// Card Type Flags (bit array!)		
+		// {		
+		public static const CardType_None						:uint = 0;
+		public static const CardType_Melee						:uint = 1;
+		public static const CardType_Ranged						:uint = 2;
+		public static const CardType_RangedMelee				:uint = 3;
+		public static const CardType_Siege						:uint = 4;
+		public static const CardType_SeigeRangedMelee			:uint = 7;
+		public static const CardType_Creature					:uint = 8;
+		public static const CardType_Weather					:uint = 16;
+		public static const CardType_Spell						:uint = 32;
+		public static const CardType_Row_Modifier				:uint = 64;
+		public static const CardType_Hero						:uint = 128;
+		public static const CardType_Spy						:uint = 256;
+		public static const CardType_Friendly_Effect			:uint = 512;
+		public static const CardType_Offsensive_Effect			:uint = 1024;
+		public static const CardType_Global_Effect				:uint = 2048;
+		public static const CardType_Opponent_Row_Modifier		:uint = 4096;
+		public static const CardType_King						:uint = 16384;
+		// }		
+
+		// Card Power Ids		
+		// {		
+		public static const CardEffect_None						:int = 0;
+		public static const CardEffect_Backstab					:int = 1;
+		public static const CardEffect_Morale_Boost				:int = 2;
+		public static const CardEffect_Ambush					:int = 3;
+		public static const CardEffect_ToughSkin				:int = 4;
+		public static const CardEffect_Bin2						:int = 5;
+		public static const CardEffect_Bin3						:int = 6;
+		public static const CardEffect_MeleeScorch				:int = 7;
+		public static const CardEffect_11th_card				:int = 8;
+		public static const CardEffect_Clear_Weather			:int = 9;
+		public static const CardEffect_Pick_Weather				:int = 10;
+		public static const CardEffect_Pick_Rain				:int = 11;
+		public static const CardEffect_Pick_Fog					:int = 12;
+		public static const CardEffect_Pick_Frost				:int = 13;
+		public static const CardEffect_View_3_Enemy				:int = 14;
+		public static const CardEffect_Resurect					:int = 15;
+		public static const CardEffect_Resurect_Enemy			:int = 16;
+		public static const CardEffect_Bin2_Pick1				:int = 17;
+		public static const CardEffect_Melee_Horn				:int = 18;
+		public static const CardEffect_Range_Horn				:int = 19;
+		public static const CardEffect_Siege_Horn				:int = 20;
+		public static const CardEffect_Siege_Scorch				:int = 21;
+		public static const CardEffect_Counter_King				:int = 22;
+		// }		
+		// Card Effect Flags (continues from other)		
+		// {		
+		public static const CardEffect_Melee					:int = 23;
+		public static const CardEffect_Ranged					:int = 24;
+		public static const CardEffect_Siege					:int = 25;
+		public static const CardEffect_UnsummonDummy			:int = 26;
+		public static const CardEffect_Horn						:int = 27;
+		public static const CardEffect_Draw						:int = 28;	// Deprecated
+		public static const CardEffect_Scorch					:int = 29;
+		public static const CardEffect_ClearSky					:int = 30;
+		public static const CardEffect_SummonClones				:int = 31;
+		public static const CardEffect_ImproveNeighbours		:int = 32;
+		public static const CardEffect_Nurse					:int = 33;
+		public static const CardEffect_Draw2					:int = 34;
+		public static const CardEffect_SameTypeMorale			:int = 35;
 		// }
 		// Episode One Effects
 		// {
-		public static const CardEffect_AgileReposition	:int = 36;
-		public static const CardEffect_RandomRessurect	:int = 37;
-		public static const CardEffect_DoubleSpy		:int = 38;
-		public static const CardEffect_RangedScorch		:int = 39;
-		public static const CardEffect_SuicideSummon	:int = 40;
+		public static const CardEffect_AgileReposition			:int = 36;
+		public static const CardEffect_RandomRessurect			:int = 37;
+		public static const CardEffect_DoubleSpy				:int = 38;
+		public static const CardEffect_RangedScorch				:int = 39;
+		public static const CardEffect_SuicideSummon			:int = 40;
 		// }
 		// Episode Two Effects
 		// {
-		public static const CardEffect_Mushroom			:int = 41;
-		public static const CardEffect_Morph			:int = 42;
-		public static const CardEffect_WeatherResistant	:int = 43;
-		public static const CardEffect_GraveyardShuffle	:int = 44;
+		public static const CardEffect_Mushroom					:int = 41;
+		public static const CardEffect_Morph					:int = 42;
+		public static const CardEffect_WeatherResistant			:int = 43;
+		public static const CardEffect_GraveyardShuffle			:int = 44;
 		// }
-	
+
 		/*---------------------------------------
 		 *  Witcher Script variables
 		 *---------------------------------------*/
@@ -369,10 +371,6 @@ package red.game.witcher3.menus.gwint
 				{
 					return "horn";
 				}
-				else if (isType(CardType_RangedMelee))
-				{
-					return "agile";
-				}
 				else if (hasEffect(CardEffect_Scorch))
 				{
 					return "scorch";
@@ -400,6 +398,10 @@ package red.game.witcher3.menus.gwint
 				else if (hasEffect(CardEffect_SuicideSummon))
 				{
 					return "suicide_summon";
+				}
+				else if (isType(CardType_RangedMelee))
+				{
+					return "agile";
 				}
 			}
 			
@@ -490,10 +492,6 @@ package red.game.witcher3.menus.gwint
 				{
 					return "horn";
 				}
-				else if (isType(CardType_RangedMelee))
-				{
-					return "agile";
-				}
 				else if (hasEffect(CardEffect_MeleeScorch))
 				{
 					return "spe_scorch";
@@ -522,6 +520,10 @@ package red.game.witcher3.menus.gwint
 				{
 					return "suicide_summon";
 				}
+				else if (isType(CardType_RangedMelee))
+				{
+					return "agile";
+				}
 			}
 			
 			return "None";
@@ -535,7 +537,7 @@ package red.game.witcher3.menus.gwint
 				{
 					return "gwint_card_tooltip_mushroom";
 				}
-				else
+				else 
 				{
 					return "gwint_card_tooltip_horn";
 				}
@@ -618,10 +620,6 @@ package red.game.witcher3.menus.gwint
 				{
 					return "gwint_card_tooltip_horn";
 				}
-				else if (isType(CardType_RangedMelee))
-				{
-					return "gwint_card_tooltip_agile";
-				}
 				else if (hasEffect(CardEffect_MeleeScorch))
 				{
 					return "gwint_card_villen_melee_scorch";
@@ -645,6 +643,10 @@ package red.game.witcher3.menus.gwint
 				else if (hasEffect(CardEffect_Morph))
 				{
 					return "gwint_card_tooltip_morph";
+				}
+				else if (isType(CardType_RangedMelee))
+				{
+					return "gwint_card_tooltip_agile";
 				}
 				else if (isType(CardType_Hero))
 				{

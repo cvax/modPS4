@@ -8,9 +8,14 @@ package red.game.witcher3.tooltips
 	import red.core.constants.KeyCode;
 	import red.game.witcher3.constants.CommonConstants;
 	import red.game.witcher3.controls.InputFeedbackButton;
+	import red.game.witcher3.managers.InputManager;
 	import red.game.witcher3.utils.CommonUtils;
 	import scaleform.clik.constants.NavigationCode;
-	
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
+	import scaleform.clik.constants.InputValue;
+	import scaleform.clik.constants.NavigationCode;
+
 	/**
 	 * Alchemy / Craftion tooltip
 	 * @author Getsevich Yaroslav
@@ -56,9 +61,13 @@ package red.game.witcher3.tooltips
 			
 			if (_data.vendorPrice)
 			{
+				var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
 				btnBuy.clickable = false;
 				btnBuy.label = _data.vendorInfoText;
-				btnBuy.setDataFromStage(NavigationCode.GAMEPAD_Y, KeyCode.RIGHT_MOUSE);
+				btnBuy.setDataFromStage(isSwitchPlatform ? NavigationCode.GAMEPAD_X : NavigationCode.GAMEPAD_Y, KeyCode.RIGHT_MOUSE);
+				//HACK : for some reason adding a Tap listener for these buttons wont work. So hack it with stage + hitTest
+				stage.addEventListener( GestureEventEx.GESTURE_TAP, onBuyButtonTap, false, 0, true );
 				btnBuy.validateNow();
 				btnBuy.visible = true;
 				
@@ -82,6 +91,15 @@ package red.game.witcher3.tooltips
 			mcBackground.width = bkWidth + BK_PADDING;
 			mcBackground.height = bkHeight;
 		}
-		
+
+		private function onBuyButtonTap( event : GestureEvent ) : void
+		{
+			if ( btnBuy && btnBuy.mcClickRect.hitTestPoint(event.stageX, event.stageY) )
+			{
+				var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+				CommonUtils.simulateKeyInputEvent( KeyCode.PAD_Y_TRIANGLE, InputValue.KEY_DOWN, isSwitchPlatform ? NavigationCode.GAMEPAD_X : NavigationCode.GAMEPAD_Y );
+				CommonUtils.simulateKeyInputEvent( KeyCode.PAD_Y_TRIANGLE, InputValue.KEY_UP, isSwitchPlatform ? NavigationCode.GAMEPAD_X : NavigationCode.GAMEPAD_Y );
+			}
+		}
 	}
 }

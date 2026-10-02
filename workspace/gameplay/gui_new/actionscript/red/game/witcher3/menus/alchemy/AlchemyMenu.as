@@ -8,54 +8,51 @@ package red.game.witcher3.menus.alchemy
 {
 	import flash.display.MovieClip;
 	import flash.events.Event;
+	import flash.events.GestureEvent;
+	import flash.external.ExternalInterface;
 	import flash.text.TextField;
-	import red.core.constants.KeyCode;
-	import red.core.events.GameEvent;
-	import red.game.witcher3.constants.CommonConstants;
-	import red.game.witcher3.managers.ContextInfoManager;
-	import red.game.witcher3.menus.common.CheckboxListMode;
-	import red.game.witcher3.controls.W3DropDownItemRenderer;
-	import red.game.witcher3.controls.W3DropdownMenuListItem;
-	import red.game.witcher3.managers.InputFeedbackManager;
-	import red.game.witcher3.menus.common.RecipeIconItemRenderer;
-	import red.game.witcher3.menus.crafting.ItemCraftingModule;
-	import scaleform.clik.constants.InputValue;
-	import red.game.witcher3.modules.ItemTooltipModule;
-	import scaleform.clik.events.InputEvent;
-	import scaleform.clik.core.UIComponent;
-	import scaleform.clik.ui.InputDetails;
-	import scaleform.clik.events.ListEvent;
+	import flash.utils.setTimeout;
 
 	import red.core.CoreMenu;
-	import scaleform.gfx.Extensions;
-
-	import scaleform.clik.constants.InvalidationType;
-	import scaleform.clik.events.InputEvent;
-	import scaleform.clik.ui.InputDetails;
-	import scaleform.clik.constants.InputValue;
-	import scaleform.clik.constants.NavigationCode;
-	
-	import red.game.witcher3.menus.common.IconItemRenderer;
-
+	import red.core.constants.KeyCode;
+	import red.core.events.GestureEventEx;
+	import red.core.events.GameEvent;
+	import red.game.witcher3.constants.CommonConstants;
+	import red.game.witcher3.controls.W3DropDownItemRenderer;
+	import red.game.witcher3.controls.W3DropdownMenuListItem;
+	import red.game.witcher3.controls.W3Label;
 	import red.game.witcher3.events.GridEvent;
-
+	import red.game.witcher3.managers.ContextInfoManager;
+	import red.game.witcher3.managers.InputManager;
+	import red.game.witcher3.managers.InputFeedbackManager;
 	import red.game.witcher3.managers.PanelModuleManager;
+	import red.game.witcher3.menus.common.CheckboxListMode;
+	import red.game.witcher3.modules.ItemTooltipModule;
+	import red.game.witcher3.menus.common.RecipeIconItemRenderer;
+	import red.game.witcher3.menus.crafting.ItemCraftingModule;
+	import red.game.witcher3.menus.common.DropdownListModuleBase;
+	import red.game.witcher3.menus.common.IconItemRenderer;
+	import red.game.witcher3.menus.common.ItemDataStub;
 	import red.game.witcher3.menus.common.PlayerDetails;
 	import red.game.witcher3.menus.common.PlayerStatsModule;
 	import red.game.witcher3.menus.common.TextAreaModule;
+	import red.game.witcher3.utils.CommonUtils;
 
-	import red.game.witcher3.menus.common.ItemDataStub;
-	import flash.external.ExternalInterface;
+	import scaleform.clik.constants.InputValue;
+	import scaleform.clik.constants.InvalidationType;
+	import scaleform.clik.constants.NavigationCode;
+	import scaleform.clik.core.UIComponent;
+	import scaleform.clik.events.InputEvent;
+	import scaleform.clik.events.ListEvent;
+	import scaleform.clik.ui.InputDetails;
 
-	import red.game.witcher3.menus.common.DropdownListModuleBase;
+	import scaleform.gfx.Extensions;
 
 	import com.gskinner.motion.easing.Exponential;
 	import com.gskinner.motion.easing.Sine;
 	import com.gskinner.motion.easing.Quadratic;
 	import com.gskinner.motion.GTween;
 	import com.gskinner.motion.GTweener;
-
-	import red.game.witcher3.controls.W3Label;
 
 	Extensions.enabled = true;
 	Extensions.noInvisibleAdvance = true;
@@ -135,6 +132,7 @@ package red.game.witcher3.menus.alchemy
 			mcMainListModule.mcDropDownList.addEventListener(ListEvent.INDEX_CHANGE, handleSelectChange, false, 0 , true );
 			mcMainListModule.mcDropDownList.addEventListener(ListEvent.ITEM_DOUBLE_CLICK, handleItemDoubleClick, false, 0, true );
 			mcMainListModule.filterFunc = filterList;
+			mcMainListModule.enableTouch( true );
 			
 			InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_RSTICK_HOLD, KeyCode.F , "panel_common_filters");
 			
@@ -165,13 +163,15 @@ package red.game.witcher3.menus.alchemy
 			
 			if (lastSelectedItem != null)
 			{
+				var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
 				if (lastSelectedItem.data && lastSelectedItem.data.tag == pinnedTag)
 				{
-					_inputSymbolIDX = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_unpin_recipe");
+					_inputSymbolIDX = InputFeedbackManager.appendButton(this, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_unpin_recipe");
 				}
 				else
 				{
-					_inputSymbolIDX = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_pin_recipe");
+					_inputSymbolIDX = InputFeedbackManager.appendButton(this, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_pin_recipe");
 				}
 			}
 			
@@ -415,11 +415,26 @@ package red.game.witcher3.menus.alchemy
 			{
 				mcCraftingGlossaryModule.setCraftedItemInfo(schematicTag, itemName, iconPath, canCraft, gridSize, price);
 			}
-			
-		
-			
+		}
+
+		protected function onItemTappedAgain( event : GestureEvent ) : void
+		{
+			togglePinOnSelectedRecipe();
+		}
+
+		private function addSelectedItemTapListeners() : void
+		{
+			lastSelectedItem.addEventListener( GestureEventEx.GESTURE_TAP, onItemTappedAgain, false, 0, true );
+			//Add double tap too in case you mash the button a bit too much
+			lastSelectedItem.addEventListener( GestureEventEx.GESTURE_DOUBLE_TAP, onItemTappedAgain, false, 0, true );
 		}
 		
+		private function removeSelectedItemTapListeners() : void
+		{
+			lastSelectedItem.removeEventListener( GestureEventEx.GESTURE_TAP, onItemTappedAgain, false );
+			lastSelectedItem.removeEventListener( GestureEventEx.GESTURE_DOUBLE_TAP, onItemTappedAgain, false );
+		}
+
 		public function handleSelectChange(event:ListEvent):void
 		{
 			if (_inputSymbolIDX != -1)
@@ -430,18 +445,27 @@ package red.game.witcher3.menus.alchemy
 			
 			if (event.itemRenderer is RecipeIconItemRenderer)
 			{
+				//Remove previous tap listener
+				if ( lastSelectedItem )
+				{
+					removeSelectedItemTapListeners();
+				}
+				//Add new tap listener after all events are handled
+				setTimeout( addSelectedItemTapListeners, 0 );
 				lastSelectedItem = event.itemRenderer as RecipeIconItemRenderer;
 				
 				mcCraftingModule.setItemColorQuality( lastSelectedItem.data.rarity );
 				mcCraftedItemTooltipModule.setItemColorQuality( lastSelectedItem.data.rarity  );
 				
+				var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
 				if (lastSelectedItem.data && lastSelectedItem.data.tag == pinnedTag)
 				{
-					_inputSymbolIDX = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_unpin_recipe");
+					_inputSymbolIDX = InputFeedbackManager.appendButton(this, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_unpin_recipe");
 				}
 				else
 				{
-					_inputSymbolIDX = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_pin_recipe");
+					_inputSymbolIDX = InputFeedbackManager.appendButton(this, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_pin_recipe");
 				}
 				
 				if (craftingEnabled && event.itemData)
@@ -458,7 +482,12 @@ package red.game.witcher3.menus.alchemy
 			}
 			else
 			{
-				lastSelectedItem = null;
+				//Invalidate last selected recipe, since we tapped a non recipe list element (most likely the dropdown list header)
+				if ( lastSelectedItem )
+				{
+					removeSelectedItemTapListeners();
+					lastSelectedItem = null;
+				}
 			}
 			
 			InputFeedbackManager.updateButtons(this);
@@ -503,7 +532,9 @@ package red.game.witcher3.menus.alchemy
 			super.handleInputNavigate(event);
 			
 			var details:InputDetails = event.details;
+			CommonUtils.fixupKeyCode( details );
 			var inputEnabled:Boolean = details.value == InputValue.KEY_UP && !event.handled;
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 			
 			if (inputEnabled)
 			{
@@ -513,7 +544,9 @@ package red.game.witcher3.menus.alchemy
 					showFilterMode();
 				}
 				
-				if (details.code == KeyCode.Q || details.navEquivalent == NavigationCode.GAMEPAD_X)
+				if (details.code == KeyCode.Q ||
+					(isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y) ||		// Y on switch
+					(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X))		// X on other platforms
 				{
 					togglePinOnSelectedRecipe();
 				}
@@ -525,6 +558,7 @@ package red.game.witcher3.menus.alchemy
 			if (lastSelectedItem != null && lastSelectedItem.data)
 			{
 				var targetTag:uint;
+				var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 				
 				if (_inputSymbolIDX != -1)
 				{
@@ -535,12 +569,12 @@ package red.game.witcher3.menus.alchemy
 				if (pinnedTag == lastSelectedItem.data.tag)
 				{
 					targetTag = 0;
-					_inputSymbolIDX = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_pin_recipe");
+					_inputSymbolIDX = InputFeedbackManager.appendButton(this, isSwitchPlatform ?  NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_pin_recipe");
 				}
 				else
 				{
 					targetTag = lastSelectedItem.data.tag;
-					_inputSymbolIDX = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_unpin_recipe");
+					_inputSymbolIDX = InputFeedbackManager.appendButton(this, isSwitchPlatform ?  NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_unpin_recipe");
 				}
 				
 				InputFeedbackManager.updateButtons(this);

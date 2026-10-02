@@ -1,10 +1,16 @@
 ﻿package red.game.witcher3.utils
 {
+	import flash.display.DisplayObject;
 	import flash.display.Graphics;
 	import flash.display.MovieClip;
 	import flash.display.SpreadMethod;
 	import flash.display.Sprite;
+	import flash.display.InteractiveObject;
 	import flash.filters.ColorMatrixFilter;
+	import flash.events.Event;
+	import red.core.events.GestureEventEx;
+	import flash.events.GestureEvent;
+	import scaleform.gfx.MouseEventEx;
 	import flash.geom.Point;
 	import flash.geom.Rectangle;
 	import flash.text.TextField;
@@ -18,6 +24,10 @@
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.ui.InputDetails;
 	import scaleform.gfx.Extensions;
+	import flash.events.MouseEvent;
+	import flash.events.TransformGestureEvent;
+	import scaleform.clik.events.InputEvent;
+	import scaleform.clik.managers.InputDelegate;
 
 	public class CommonUtils
 	{
@@ -54,6 +64,27 @@
 				{
 					trace(logPrefix, key, " : ", target[key]);
 				}
+			}
+		}
+
+		public static function traceObjectFixed(data : Object, prefix : String = ""):void
+		{
+			// trace("JIFIX CommonUtils traceObjectFixed", prefix);
+			if(data is Array)
+			{
+				for(var i : int = 0; i < data.length; i++)
+					traceObjectFixed(data[i], prefix + "[" + i + "]");
+			}
+			else if (data is Object)
+			{
+				var properties : Boolean = false;
+				for(var key : String in data)
+				{
+					properties = true;
+					traceObjectFixed(data[key], prefix + (prefix?".":"") + key);
+				}
+				if(!properties) // <-- every simple type is object, too, but they don't have subelements
+					trace(prefix, data);
 			}
 		}
 
@@ -412,6 +443,11 @@
 			
 			targetTextField.htmlText = resStr;
 		}
+
+		public static function test():void
+		{
+			trace("ASD");
+		}
 		
 		public static function toUpperCaseSafe( value : String ):String
 		{
@@ -432,23 +468,75 @@
 			return str;
 		}
 		
-		public static function convertWASDCodeToNavEquivalent(inputDetails:InputDetails)
+		public static function fixupKeyCode(details:InputDetails)
+		{
+			//HACK : fixup tap simulated input feedback button keypresses. 
+			if ( details.code == KeyCode.GESTURE_TAP || details.code == KeyCode.GESTURE_PRESS )
+			{
+				//Try to figure it out from nav-code
+				switch (details.navEquivalent)
+				{
+					case NavigationCode.GAMEPAD_A:
+						details.code = KeyCode.PAD_A_CROSS;
+					break;
+					case NavigationCode.GAMEPAD_B:
+						details.code = KeyCode.PAD_B_CIRCLE;
+					break;
+					case NavigationCode.GAMEPAD_X:
+						details.code = KeyCode.PAD_X_SQUARE;
+					break;
+					case NavigationCode.GAMEPAD_Y:
+						details.code = KeyCode.PAD_Y_TRIANGLE;
+					break;
+					case NavigationCode.GAMEPAD_L1:
+						details.code = KeyCode.PAD_LEFT_SHOULDER;
+					break;
+					case NavigationCode.GAMEPAD_L2:
+						details.code = KeyCode.PAD_LEFT_TRIGGER;
+					break;
+					case NavigationCode.GAMEPAD_LSTICK_HOLD:
+					case NavigationCode.GAMEPAD_LSTICK_DOWN:
+						details.navEquivalent = NavigationCode.GAMEPAD_L3;
+					//NOTE : fallthrough!!
+					case NavigationCode.GAMEPAD_L3:
+						details.code = KeyCode.PAD_LEFT_THUMB;
+					break;
+					case NavigationCode.GAMEPAD_R1:
+						details.code = KeyCode.PAD_RIGHT_SHOULDER;
+					break;
+					case NavigationCode.GAMEPAD_R2:
+						details.code = KeyCode.PAD_RIGHT_TRIGGER;
+					break;
+					case NavigationCode.GAMEPAD_RSTICK_HOLD:
+					case NavigationCode.GAMEPAD_RSTICK_DOWN:
+						details.navEquivalent = NavigationCode.GAMEPAD_R3;
+					//NOTE : fallthrough!!
+					case NavigationCode.GAMEPAD_R3:
+						details.code = KeyCode.PAD_RIGHT_THUMB;
+					break;
+				}
+			}
+		}
+
+		public static function convertWASDCodeToNavEquivalent(inputDetails:InputDetails) : Boolean
 		{
 			switch (inputDetails.code)
 			{
 				case KeyCode.W:
 					inputDetails.navEquivalent = NavigationCode.UP;
-					break;
+				return true;
 				case KeyCode.S:
 					inputDetails.navEquivalent = NavigationCode.DOWN;
-					break;
+				return true;
 				case KeyCode.A:
 					inputDetails.navEquivalent = NavigationCode.LEFT;
-					break;
+				return true;
 				case KeyCode.D:
 					inputDetails.navEquivalent = NavigationCode.RIGHT;
-					break;
+				return true;
 			}
+
+			return false;
 		}
 		
 		public static function checkSlotsCompatibility(slot1:int, slot2:int):Boolean
@@ -581,6 +669,187 @@
 			
 			return tmpTextField.text;
 		}
+
+		public static function isActuallyVisible(obj:DisplayObject):Boolean
+		{
+			while(obj != null)
+			{
+				if(!obj.visible)
+					return false;
+				obj = obj.parent;
+			}
+			return true;
+		}
+
+		public static function getPath(obj:DisplayObject):String
+		{
+			var path:String = obj.name;
+			obj = obj.parent;
+			while (obj)
+			{
+				path = obj.name + "." + path;
+				obj = obj.parent;
+			}
+			return path;
+		}
+
+		public static function getTopDisplayObject(targetDO:DisplayObject, x:Number, y:Number, onlyTopMost:Boolean = false):DisplayObject
+		{
+			var objects:Array;
+			if (onlyTopMost)
+			{
+				objects = [Extensions.getTopMostEntity(x, y)];
+			}
+			else
+			{
+				objects = targetDO.stage.getObjectsUnderPoint(new Point(x, y));
+			}
+			var target:DisplayObject;
+			var dispatchedTargets:Array = [];
+			while(target = objects.pop())
+			{
+				while (target && (!(target is InteractiveObject) || !target.hasEventListener(MouseEvent.CLICK))) {
+					target = target.parent;
+				}
+				if(target is InteractiveObject)
+				{
+					if(target !== null && target.name != null && target.parent != null)
+					{
+						if(dispatchedTargets.indexOf(target) < 0)
+						{
+							return target;
+						}
+					}
+				}
+			}
+			
+			if(target == null && !onlyTopMost)
+			{
+				return targetDO.stage;
+			}
+
+			return targetDO.stage;
+		}
 		
+		public static function simulateKeyInputEvent( keyCode : uint, value : String, navCode : String) : void
+		{
+			var details : InputDetails = new InputDetails( "key", keyCode, value, navCode );
+			var event : InputEvent = new InputEvent( InputEvent.INPUT, details );
+			InputDelegate.getInstance().dispatchEvent( event );
+		}
+
+		public static function simulateClick(targetDO:DisplayObject, x:Number, y:Number, onlyTopMost:Boolean = false):void
+		{
+			var objects:Array;
+			if (onlyTopMost)
+			{
+				objects = [Extensions.getTopMostEntity(x, y)];
+			}
+			else
+			{
+				objects = targetDO.stage.getObjectsUnderPoint(new Point(x, y));
+			}
+			var target:DisplayObject;
+			var dispatchedTargets:Array = [];
+			while(target = objects.pop())
+			{
+				while (target && (!(target is InteractiveObject) || !target.hasEventListener(MouseEvent.CLICK))) {
+					target = target.parent;
+				}
+				if(target is InteractiveObject)
+				{
+					if(target !== null && target.name != null && target.parent != null)
+					{
+						if(dispatchedTargets.indexOf(target) < 0)
+						{
+							var local:Point = target.globalToLocal(new Point(x, y));
+							var eLocal:MouseEventEx = new MouseEventEx(MouseEvent.CLICK);
+							eLocal.localX = local.x;
+							eLocal.localY = local.y;
+							eLocal.buttonIdx = MouseEventEx.LEFT_BUTTON;
+							trace("GFX dispatchEvent to " + getPath(target));
+							target.dispatchEvent(eLocal);
+							dispatchedTargets.push(target);
+						}
+					}
+				}
+			}
+			
+			if(target == null && !onlyTopMost)
+			{
+				var e:MouseEventEx = new MouseEventEx(MouseEvent.CLICK);
+				e.localX = x;
+				e.localY = y;
+				e.buttonIdx = MouseEventEx.LEFT_BUTTON;
+				trace("GFX dispatchEvent to stage");
+				targetDO.stage.dispatchEvent(e);
+			}
+		}
+
+		public static function isEventTapGestureOrMouseLeftClick( event : Event ) : Boolean
+		{
+			var result : Boolean = false;
+
+			if ( event is MouseEventEx )
+			{
+				var mouseEvent : MouseEventEx = event as MouseEventEx;
+				if ( mouseEvent.buttonIdx == MouseEventEx.LEFT_BUTTON )
+				{
+					result = true;
+				}
+			}
+			else if ( event is GestureEvent )
+			{
+				var gestureEvent : GestureEvent = event as GestureEvent;
+				if (gestureEvent.type == GestureEventEx.GESTURE_TAP)
+				{
+					result = true;
+				}
+			}
+
+			return result;
+		}
+
+		public static function stagePanToRowScroll( panYAccumulator : Number, rowHeight : Number, event : TransformGestureEvent ) : Object
+		{
+			panYAccumulator += event.offsetY;
+
+			var rowsToScroll : int = int ( panYAccumulator / rowHeight );
+			if ( Math.abs( rowsToScroll ) > 0 )
+			{
+				//Put the remainder back to the accumulator (fmod)
+				panYAccumulator = panYAccumulator % rowHeight;
+			}
+			
+			return { outRowsToScroll : rowsToScroll, outPanYAccumulator : panYAccumulator };
+		}
+
+		public static function formatUserName( userName : String, mainColor : String = "#F7F7F7", secondaryColor : String = "#828597" ) : String
+		{
+			var nameAndNumber : Array = userName.split( "#" );
+
+            var htmlText : String = "";
+            if ( nameAndNumber.length == 2 ) 
+            {
+                htmlText = 
+                    "<font color ='" + mainColor + "'>" + nameAndNumber[0] + "</font>" + 
+                    "<font color ='" + secondaryColor + "'>#</font>" + 
+                    "<font color ='" + secondaryColor + "'>" + nameAndNumber[1] + "</font>";
+            }
+            else
+            {
+                htmlText = "<font color ='" + mainColor + "'>" + nameAndNumber[0] + "</font>";
+            }
+
+			return htmlText;
+		}
+
+		public static function dbgPoint(x:Number, y:Number, color:uint, alpha:Number = 1.0, width:Number = 2.0):Sprite
+		{
+			var spriteInst:Sprite = CommonUtils.createSolidColorSprite( new Rectangle( x, y, width, width ), color, alpha );
+
+			return spriteInst;
+		}
+
 	}
 }

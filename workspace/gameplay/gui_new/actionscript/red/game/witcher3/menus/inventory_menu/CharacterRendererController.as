@@ -19,7 +19,9 @@ package red.game.witcher3.menus.inventory_menu
 	import red.core.data.InputAxisData;
 	import red.core.events.GameEvent;
 	import red.game.witcher3.constants.CursorType;
+	import red.game.witcher3.constants.EInputDeviceType;
 	import red.game.witcher3.controls.InputFeedbackButton;
+	import red.game.witcher3.events.ControllerChangeEvent;
 	import red.game.witcher3.managers.InputFeedbackManager;
 	import red.game.witcher3.managers.InputManager;
 	import red.game.witcher3.utils.CommonUtils;
@@ -305,6 +307,24 @@ package red.game.witcher3.menus.inventory_menu
 			
 			_rendererSprite.dispatchEvent(new GameEvent(GameEvent.CALL, "OnPlaySoundEvent", [ "gui_ep2_character_submenu_out" ] ) );
 		}
+
+		public function handleControllerChanged(event:ControllerChangeEvent):void
+		{
+			if (!enabled || inputDisabled)
+				return;
+			
+			// Re-init input hints
+			if (_btn_rotate_gamepad != -1)
+			{
+				InputFeedbackManager.removeButton(_rendererSprite, _btn_rotate_gamepad)
+				_btn_rotate_gamepad = setupInputFeedbackGPadRotate();
+			}
+			if (_btn_pan_gamepad != -1)
+			{
+				InputFeedbackManager.removeButton(_rendererSprite, _btn_pan_gamepad)
+				_btn_pan_gamepad = setupInputFeedbackGPadPan();
+			}
+		}
 		
 		private function onFadeOutComplete(tw:GTween = null):void
 		{
@@ -338,14 +358,30 @@ package red.game.witcher3.menus.inventory_menu
 			
 			_rendererSprite.parent.removeChild( _mouseHitArea );
 		}
+
+		private function setupInputFeedbackGPadRotate():int
+		{
+			var navCode:String = InputManager.getInstance().gamepadType == EInputDeviceType.IDT_Switch2_Mouser ? NavigationCode.GAMEPAD_R1 : NavigationCode.GAMEPAD_RSTICK_TAB;
+			var isHold:Boolean = InputManager.getInstance().gamepadType == EInputDeviceType.IDT_Switch2_Mouser;
+
+			return InputFeedbackManager.appendButton(_rendererSprite, navCode, -1, "panel_button_common_rotate", isHold);
+		}
+
+		private function setupInputFeedbackGPadPan():int
+		{
+			var navCode:String = InputManager.getInstance().gamepadType == EInputDeviceType.IDT_Switch2_Mouser ? NavigationCode.GAMEPAD_R2 : NavigationCode.DPAD_UP_DOWN;
+			var isHold:Boolean = InputManager.getInstance().gamepadType == EInputDeviceType.IDT_Switch2_Mouser;
+
+			return InputFeedbackManager.appendButton(_rendererSprite, navCode, -1, "input_navigation_pan_model", isHold);
+		}
 		
 		private function activate():void
 		{
 			if (_btn_navigate == -1) _btn_navigate = InputFeedbackManager.appendButton(_rendererSprite, NavigationCode.GAMEPAD_L3, -1, "panel_button_common_navigation");
-			if (_btn_rotate_gamepad == -1) _btn_rotate_gamepad = InputFeedbackManager.appendButton(_rendererSprite, NavigationCode.GAMEPAD_RSTICK_TAB, -1, "panel_button_common_rotate");
+			if (_btn_rotate_gamepad == -1) _btn_rotate_gamepad = setupInputFeedbackGPadRotate();
 			if (_btn_rotate_mouse == -1) _btn_rotate_mouse = InputFeedbackManager.appendButton(_rendererSprite, "", KeyCode.LEFT_MOUSE, "panel_button_common_rotate", true);
 			if (_btn_zoom == -1) _btn_zoom = InputFeedbackManager.appendButton(_rendererSprite, NavigationCode.GAMEPAD_RSTICK_SCROLL, -1, "panel_button_common_zoom");
-			if (_btn_pan_gamepad == -1) _btn_pan_gamepad = InputFeedbackManager.appendButton(_rendererSprite, NavigationCode.DPAD_UP_DOWN, -1, "input_navigation_pan_model");
+			if (_btn_pan_gamepad == -1) _btn_pan_gamepad = setupInputFeedbackGPadPan();
 			if (_btn_pan_mouse == -1) _btn_pan_mouse = InputFeedbackManager.appendButton(_rendererSprite, "", KeyCode.RIGHT_MOUSE, "input_navigation_pan_model",true);
 			
 			_rendererSprite.dispatchEvent(new Event(Event.ACTIVATE));
@@ -383,6 +419,7 @@ package red.game.witcher3.menus.inventory_menu
 			var captureInput:Boolean = true;
 			var isKeyUp:Boolean = details.value == InputValue.KEY_UP;
 			var isKeyDown:Boolean = details.value == InputValue.KEY_DOWN;
+			var isMouser = InputManager.getInstance().gamepadType == EInputDeviceType.IDT_Switch2_Mouser;
 			
 			// trace("GFX <CharacterRendererController>  handleInput; _isInTransitionState ", _isInTransitionState, " details: ",  details.navEquivalent, details.code, details.value);
 			
@@ -398,38 +435,41 @@ package red.game.witcher3.menus.inventory_menu
 			// TODO: Remove explicit checks
 			//
 			
-			if (event.handled || !enabled || inputDisabled) return;
+			if (event.handled || !enabled || inputDisabled)
+				return;
 			
-			if (details.navEquivalent == NavigationCode.GAMEPAD_R2 && details.value == InputValue.KEY_HOLD && !_isInTransitionToCenter && !_isCentered)
+			if (((isMouser && details.navEquivalent == NavigationCode.GAMEPAD_L1) || (!isMouser && details.navEquivalent == NavigationCode.GAMEPAD_R2)) &&
+				details.value == InputValue.KEY_HOLD && !_isInTransitionToCenter && !_isCentered)
 			{
 				_holdReceived = true;
 				moveToCenter();
 				activate();
 			}
 			else
-			if (details.navEquivalent == NavigationCode.GAMEPAD_R2 && isKeyUp && _holdReceived && (_isCentered || _isInTransitionToCenter))
+			if (((isMouser && details.navEquivalent == NavigationCode.GAMEPAD_L1) || (!isMouser && details.navEquivalent == NavigationCode.GAMEPAD_R2)) &&
+				isKeyUp && _holdReceived && (_isCentered || _isInTransitionToCenter))
 			{
 				_holdReceived = false;
 				moveToDefault();
 				deactivate();
 			}
 			else
-			if (details.navEquivalent == NavigationCode.GAMEPAD_R2 && isKeyUp && (_isCentered || _isInTransitionToCenter))
+			if (((isMouser && details.navEquivalent == NavigationCode.GAMEPAD_L1) || (!isMouser && details.navEquivalent == NavigationCode.GAMEPAD_R2)) &&
+				isKeyUp && (_isCentered || _isInTransitionToCenter))
 			{
 				_holdReceived = false;
 				moveToDefault();
 				deactivate();
 			}
 			else
-			if (details.navEquivalent == NavigationCode.GAMEPAD_R2 && isKeyUp && (!_isCentered || _isInTransitionToDefault))
+			if (((isMouser && details.navEquivalent == NavigationCode.GAMEPAD_L1) || (!isMouser && details.navEquivalent == NavigationCode.GAMEPAD_R2)) &&
+				isKeyUp && (!_isCentered || _isInTransitionToDefault))
 			{
 				_holdReceived = false;
 				moveToCenter();
 				activate();
 			}
 			else
-			
-			
 			if (!_isCentered && isKeyUp && details.code == KeyCode.C && !_isInTransitionToCenter)
 			{
 				_holdReceived = false;

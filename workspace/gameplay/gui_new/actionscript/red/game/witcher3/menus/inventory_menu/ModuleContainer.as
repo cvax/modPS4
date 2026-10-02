@@ -11,6 +11,9 @@ package red.game.witcher3.menus.inventory_menu
 	import red.game.witcher3.slots.SlotBase;
 	import red.game.witcher3.slots.SlotDragAvatar;
 	import scaleform.clik.events.ListEvent;
+	import red.game.witcher3.slots.SlotsListBase;
+	import flash.events.Event;
+	import red.game.witcher3.slots.SlotInventoryGrid;
 	
 	/**
 	 * Grid module for shop/container
@@ -56,9 +59,23 @@ package red.game.witcher3.menus.inventory_menu
 			mcPlayerGrid.focused = 0;
 			focused = 0;
 			
+			mcPlayerGrid.addEventListener( SlotsListBase.EVENT_SELECTED_TAPPED, onSlotItemTappedTwice, false, 0, true );
+			mcPlayerGrid.addEventListener( SlotsListBase.EVENT_SELECTED_DOUBLE_TAPPED, onSlotItemTappedTwice, false, 0, true );
 			mcPlayerGrid.addEventListener(ListEvent.INDEX_CHANGE, handleSlotChanged, false, 0 , true);
 		}
 		
+		private function onSlotItemTappedTwice( event : Event ) : void
+		{
+			var gridSelected : SlotInventoryGrid = mcPlayerGrid.getSelectedRenderer() as SlotInventoryGrid;
+			var selected : SlotInventoryGrid = event.target.getSelectedRenderer() as SlotInventoryGrid;
+			trace( "ModuleContainer::onSlotItemTappedTwice : ", gridSelected, selected, event );
+			//Since we disabled focus handling (mcPlayerGrid.focusable = false) We have to check if we are in focus manually.
+			if ( hasFocus && selected )
+			{
+				selected.tryExecuteAssignedAction();
+			}
+		}
+
 		override protected function updateActiveContext(currentSlot:SlotBase):void 
 		{
 			if (focused)
@@ -153,6 +170,5 @@ package red.game.witcher3.menus.inventory_menu
 				}
 			}
 		}
-		
 	}
 }

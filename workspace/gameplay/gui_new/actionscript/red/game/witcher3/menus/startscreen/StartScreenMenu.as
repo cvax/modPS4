@@ -8,7 +8,6 @@
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.ui.InputDetails;
-	import scaleform.clik.constants .NavigationCode;
 	import red.game.witcher3.constants.PlatformType;
 	import flash.utils.Timer;
 	import flash.events.TimerEvent;

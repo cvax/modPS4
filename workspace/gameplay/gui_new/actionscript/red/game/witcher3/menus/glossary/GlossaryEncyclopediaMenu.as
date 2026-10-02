@@ -30,15 +30,22 @@ package red.game.witcher3.menus.glossary
 		override protected function configUI():void
 		{
 			super.configUI();
-			
+
+			trace( "GlossaryEncyclopediaMenu::configUI" );
+
 			focused = 1;
 			currentModuleIdx = 0;
 			dispatchEvent( new GameEvent( GameEvent.CALL, "OnConfigUI" ) );
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, "glossary.encyclopedia.list", [handleListData]));
 			stage.addEventListener( InputEvent.INPUT, handleInput, false, 0, true );
 			mcModuleList.mcScrollingList.addEventListener(ListEvent.INDEX_CHANGE, handleIndexChanged, false, 0, true);
+			
+			mcModuleList.enableTouch( true );
+			mcModuleEntryDesc.enableTouch( true );
+
+			mcModuleList.mcScrollbar.height = 692.75; //75 smaller
 		}
-		
+
 		override public function ShowSecondaryModules( value : Boolean )
 		{
 			super.ShowSecondaryModules( value );
@@ -88,6 +95,8 @@ package red.game.witcher3.menus.glossary
 		
 		protected function handleIndexChanged(event:ListEvent):void
 		{
+			trace( "GlossaryEncyclopediaMenu::handleIndexChanged" );
+
 			var item:IconItemRenderer = mcModuleList.mcScrollingList.getSelectedRenderer() as IconItemRenderer;
 			if (item && item.data)
 			{
@@ -97,6 +106,8 @@ package red.game.witcher3.menus.glossary
 		
 		override public function handleInput( event : InputEvent ):void
 		{
+			trace( "GlossaryEncyclopediaMenu::handleInput" );
+
 			if ( event.handled )
 			{
 				return;

@@ -98,13 +98,13 @@
 			return false;
 		}
 
-		protected function handleButtonPress( event : ButtonEvent ) : void
+		public function handleButtonPress( event : ButtonEvent ) : void
 		{
 			if ( data.status < 2 )
 			{
 				stage.dispatchEvent( new Event(ObjectiveItemRenderer.UNHILIGHT) );
 				Tracked = !Tracked;
-				trace("HUD handleButtonPress Tracked "+Tracked+" data.tag "+data.tag);
+				trace("ObjectiveItemRenderer::handleButtonPress Tracked "+Tracked+" data.tag "+data.tag);
 				if ( Tracked )
 				{
 					dispatchEvent( new GameEvent(GameEvent.CALL, "OnHighlightObjective", [data.tag]) );

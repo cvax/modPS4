@@ -28,6 +28,13 @@
 	import red.core.utils.InputUtils;
 	import red.game.witcher3.utils.CommonUtils;
 	import scaleform.gfx.MouseEventEx;
+	import flash.events.Event;
+	import flash.events.TransformGestureEvent;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
+	import red.game.witcher3.utils.Math2;
+
+	import flash.utils.setTimeout;
 
 	/**
 	 * Time selection in the meditation menu
@@ -45,7 +52,7 @@
 		protected static const NUM_ANIM_FRAMES:uint = 72;
 		protected static const NUM_FRAMES_PER_HOUR:uint = 3;
 		
-		protected static const CLOCK_CENTER:Number = 326;
+		protected static const CLOCK_CENTER:Number = 277;
 		
 		public var lbSelectedHours:TextField;
 		public var txtDuration:TextField;
@@ -72,6 +79,7 @@
 		protected var _currentlyRenderedTime:int;
 		private var _animationTimer : Timer;
 		private var _isMeditating : Boolean;
+		private var _isMeditationClockBlocked : Boolean;
         private var _stopMeditationReq : Boolean;
         private var bMeditationBlocked : Boolean = false;
 		private var prevMagnitude:Number = 0;
@@ -94,20 +102,29 @@
 			_currentTime = 1000;
 			_currentTimeMin = 1000;
 			_isMeditating = false;
+			_isMeditationClockBlocked = false;
             _stopMeditationReq = false;
 			_currentlyRenderedTime = 0;
 			
 			_lastClickLocation = new Point(0, 0);
 			_lastClickTime = 0;
 			
-			edgeOfClock.stage
-			_globalCenter = centerOfClock.localToGlobal(new Point(0, 0));
-			var edgePoint:Point = edgeOfClock.localToGlobal(new Point(0, 0));
-			_maxRadius = Math.sqrt(Math.pow(edgePoint.x - _globalCenter.x, 2) + Math.pow(edgePoint.y - _globalCenter.y, 2));
+			calcInitStuff()
 			
 			InputDelegate.getInstance().addEventListener(InputEvent.INPUT, handleInput, false, 0, true);
 			
 			stage.doubleClickEnabled = true;
+
+			mcActivateButtonPc.visible = false;
+			mcActivateButton.visible = false;
+		}
+
+		public function calcInitStuff()
+		{
+			edgeOfClock.stage
+			_globalCenter = centerOfClock.localToGlobal(new Point(0, 0));
+			var edgePoint:Point = edgeOfClock.localToGlobal(new Point(0, 0));
+			_maxRadius = Math.sqrt(Math.pow(edgePoint.x - _globalCenter.x, 2) + Math.pow(edgePoint.y - _globalCenter.y, 2));
 		}
 		
 		override protected function configUI():void
@@ -118,35 +135,50 @@
 			dispatchEvent( new GameEvent(GameEvent.REGISTER, 'meditation.clock.minutes', [setCurrentMin]));
 			dispatchEvent( new GameEvent(GameEvent.REGISTER, 'meditation.clock.hours.update', [updateCurrentHours]));
 			dispatchEvent( new GameEvent(GameEvent.REGISTER, 'meditation.clock.blocked', [blockClock]));
+			dispatchEvent( new GameEvent(GameEvent.REGISTER, 'meditation.clock.block.easy', [blockClockEasily]));
 
 			stage.addEventListener(MouseEvent.MOUSE_DOWN, handleMouseDown, false, 0, true);
 			stage.addEventListener(MouseEvent.MOUSE_UP, handleMouseUp, false, 0, true);
 			stage.addEventListener(MouseEvent.MOUSE_MOVE, handleMouseMove, false, 0, true);
 			stage.addEventListener(MouseEvent.CLICK, handleClick, false, 0, true);
 			stage.addEventListener(MouseEvent.MOUSE_WHEEL, handleMouseWheel, false, 0, true);
+			stage.addEventListener( TransformGestureEvent.GESTURE_PAN, handleGesturePan, false, 0, true );
+			stage.addEventListener( GestureEventEx.GESTURE_TAP, handleGestureTap, false, 0, true );
 			
 			txtDuration.mouseEnabled = false;
 			
 			InputManager.getInstance().addEventListener(ControllerChangeEvent.CONTROLLER_CHANGE, handleControllerChange, false, 0, true);
 			
-			mcActivateButton.setDataFromStage(NavigationCode.GAMEPAD_A, -1);
-			
 			_labelActivateButton = "[[panel_name_skillcategory_meditation]]";
 			_labelMeditateUntil = "[[panel_meditationclock_med_hours]]";
 			
+			//Setup activation button for PC
 			mcActivateButtonPc.clickable = true;
 			mcActivateButtonPc.label = _labelActivateButton; // default
-			mcActivateButtonPc.addEventListener(ButtonEvent.PRESS, handleActionButtonPress, false, 0, true);
+			mcActivateButtonPc.addEventListener(ButtonEvent.PRESS, handleMeditationButtonClickOrTap, false, 0, true);
 			mcActivateButtonPc.setDataFromStage("", KeyCode.E);
 			mcActivateButtonPc.validateNow();
 			
+			//Setup activation button for consoles
+			mcActivateButton.clickable = false;
+			mcActivateButton.label = _labelActivateButton;
+			mcActivateButton.addEventListener( GestureEventEx.GESTURE_TAP, handleMeditationButtonClickOrTap, false, 0, true );
+			mcActivateButton.setDataFromStage(NavigationCode.GAMEPAD_A, -1);
+			mcActivateButton.validateNow();
+			mcActivateButton.x =  CLOCK_CENTER - mcActivateButton.getViewWidth() / 2;
+			//mcActivateButton.visible = InputManager.getInstance().isGamepad(); //TODO: Renable this code once the InputManager works properly
+
 			if (!_isMeditating)
 			{
 				txtDuration.text = durationText;
 				txtDuration.htmlText = CommonUtils.toUpperCaseSafe(txtDuration.htmlText);
 			}
-			mcActivateButton.clickable = false;
-			//mcActivateButton.visible = InputManager.getInstance().isGamepad(); //TODO: Renable this code once the InputManager works properly
+
+			setTimeout(function(){
+				mcActivateButton.updateDataFromStage();
+				mcActivateButton.validateNow();
+				mcActivateButton.x =  CLOCK_CENTER - mcActivateButton.getViewWidth() / 2;
+			}, 1);
 		}
 		
 		
@@ -159,6 +191,11 @@
 			mcActivateButtonPc.updateDataFromStage();
 			mcActivateButtonPc.validateNow();
 			mcActivateButtonPc.x =  CLOCK_CENTER - mcActivateButtonPc.getViewWidth() / 2;
+
+			mcActivateButton.label = _labelActivateButton;
+			mcActivateButton.updateDataFromStage();
+			mcActivateButton.validateNow();
+			mcActivateButton.x =  CLOCK_CENTER - mcActivateButton.getViewWidth() / 2;
 			
 			updateTimeMeditateText();
 		}
@@ -351,11 +388,27 @@
 		{
 			if (_isMeditating)
 			{
-				txtDuration.htmlText = event.isGamepad ? "[[panel_common_cancel]]" : "";
-				txtDuration.htmlText = CommonUtils.toUpperCaseSafe(txtDuration.htmlText);
+				var htmlText : String = event.isGamepad ? "[[panel_common_cancel]]" : "";
+				//htmlText = CommonUtils.toUpperCaseSafe(htmlText);
+				mcActivateButton.label = htmlText;
+				mcActivateButton.validateNow();
 			}
 			
+			mcActivateButton.validateNow();
+			mcActivateButton.x =  CLOCK_CENTER - mcActivateButton.getViewWidth() / 2;
+			
 			mcActivateButtonPc.x =  CLOCK_CENTER - mcActivateButtonPc.getViewWidth() / 2;
+
+			if(event.isGamepad)
+			{
+				mcActivateButton.visible = true;
+				mcActivateButtonPc.visible = false;
+			}
+			else
+			{
+				mcActivateButton.visible = false;
+				mcActivateButtonPc.visible = true;
+			}
 			
 			//mcActivateButton.visible = event.isGamepad; /// wtf
 		}
@@ -393,7 +446,7 @@
                 return;
             }
 			
-			if (!_isMeditating)
+			if (!_isMeditating && !_isMeditationClockBlocked)
 			{
 				CommonUtils.convertWASDCodeToNavEquivalent(details);
 				
@@ -431,15 +484,8 @@
 					{
 					case NavigationCode.GAMEPAD_A:
 					case NavigationCode.ENTER:
-						if (!bMeditationBlocked)
-						{
-							applySelectedTime();
-							event.handled  = true;
-						}
-						else
-						{
-							dispatchEvent( new GameEvent(GameEvent.CALL, 'OnMeditateBlocked' ));
-						}
+						tryApplySelectedTime();
+						event.handled  = true;
 						break;
 					case NavigationCode.UP:
 					case NavigationCode.RIGHT:
@@ -490,17 +536,21 @@
 			}
 		}
 		
-		protected function handleMouseDown(event:MouseEvent):void
+		//-------Set the clock by either mouse or touch drag-------
+		private function setClockByDragBegin( stageX : Number, stageY : Number ) : void
 		{
-			if (_isMeditating || bMeditationBlocked)
+			//NOTE : removed bMeditationBlocked check to make clock setting more consitent.
+			//You can set the clock while bMeditationBlocked is true with the analogs, so why filter out this?
+			//if (_isMeditating || bMeditationBlocked )
+			if ( _isMeditating )
+			{
 				return;
+			}
 
 			// Get the clock positon
-			var relativeX:Number = event.stageX - _globalCenter.x;
-			var relativeY:Number = _globalCenter.y - event.stageY;
-
-			// Calculate distance
-			var distanceFromCenter:Number = Math.sqrt(Math.pow(relativeX, 2) + Math.pow(relativeY, 2));
+			var relativeX : Number = stageX - _globalCenter.x;
+			var relativeY : Number = _globalCenter.y - stageY;
+			var distanceFromCenter = Math.sqrt(Math.pow(relativeX, 2) + Math.pow(relativeY, 2));
 
 			if (distanceFromCenter <= _maxRadius)
 			{
@@ -511,9 +561,12 @@
 			}
 		}
 
-		protected function handleMouseMove(event:MouseEvent):void
+		private function setClockByDragMove( stageX : Number, stageY : Number ) : void
 		{
-			if (_isMeditating || bMeditationBlocked )
+			//NOTE : removed bMeditationBlocked check to make clock setting more consitent.
+			//You can set the clock while bMeditationBlocked is true with the analogs, so why filter out this?
+			//if (_isMeditating || bMeditationBlocked )
+			if ( _isMeditating )
 			{
 				_mouseDownOnClock = false;
 				return;
@@ -522,62 +575,96 @@
 			if (_mouseDownOnClock)
 			{
 				// Get the clock positon
-				var relativeX = event.stageX - _globalCenter.x;
-				var relativeY = _globalCenter.y - event.stageY;
-
+				var relativeX : Number = stageX - _globalCenter.x;
+				var relativeY : Number = _globalCenter.y - stageY;
+				
 				setSelectedTimeBasedOffPosition(relativeX, relativeY);
 			}
 		}
 
-		protected function handleMouseUp(event:MouseEvent):void
+		private function setClockByDragEnd() : void
 		{
 			_mouseDownOnClock = false;
+		}
+		//---------------------------------------------------------
+
+		protected function handleGesturePan( event : TransformGestureEvent ) : void
+		{
+			switch ( event.phase )
+			{
+				case "begin":
+					setClockByDragBegin( event.stageX, event.stageY );
+				break;
+				case "update": 
+					setClockByDragMove( event.stageX, event.stageY );
+				break;
+				case "end":
+					setClockByDragEnd();
+				break;
+			}
+		}
+
+		protected function handleMouseDown(event:MouseEvent):void
+		{
+			setClockByDragBegin( event.stageX, event.stageY );
+		}
+
+		protected function handleMouseMove(event:MouseEvent):void
+		{
+			setClockByDragMove( event.stageX, event.stageY );
+		}
+
+		protected function handleMouseUp(event:MouseEvent):void
+		{
+			setClockByDragEnd();
+		}
+
+		private function setTimeByStageCoords( stageX : Number, stageY : Number ) : void
+		{
+			if (_isMeditating)
+			{
+				return;
+			}
+			
+			var distanceFromLastClick : Number = Math2.getSegmentLength2(stageX, stageY, _lastClickLocation.x, _lastClickLocation.y );
+			var timeSinceLastClick : Number = getTimer() - _lastClickTime;
+
+			_lastClickLocation.x = stageX;
+			_lastClickLocation.y = stageY;
+			_lastClickTime = getTimer();
+			
+			var relativeX : Number = stageX - _globalCenter.x;
+			var relativeY : Number = _globalCenter.y - stageY;
+			var distanceFromCenter : Number = Math.sqrt(Math.pow(relativeX, 2) + Math.pow(relativeY, 2));
+
+			if (distanceFromCenter <= _maxRadius)
+			{
+				setSelectedTimeBasedOffPosition(relativeX, relativeY);
+
+				if ( timeSinceLastClick > 500 || distanceFromLastClick > 30 )
+				{
+					return;
+				}
+				
+				tryApplySelectedTime();
+			}
+		}
+
+		protected function handleGestureTap( event : GestureEvent ) : void
+		{
+			setTimeByStageCoords( event.stageX, event.stageY );
 		}
 
 		protected function handleClick(event:MouseEvent):void
 		{
 			var superMouseEvent:MouseEventEx = event as MouseEventEx;
-			if (superMouseEvent.buttonIdx == MouseEventEx.LEFT_BUTTON)
+			if ( superMouseEvent.buttonIdx == MouseEventEx.LEFT_BUTTON )
 			{
-				if (_isMeditating)
-					return;
-				
-				var distanceFromLastClick = Math.sqrt(Math.pow(event.stageX - _lastClickLocation.x, 2) + Math.pow(event.stageY - _lastClickLocation.y, 2));
-				var timeSinceLastClick:Number = getTimer() - _lastClickTime;
-				
-				_lastClickLocation.x = event.stageX;
-				_lastClickLocation.y = event.stageY;
-				_lastClickTime = getTimer();
-				
-				// Get the clock positon
-				var relativeX = event.stageX - _globalCenter.x;
-				var relativeY = _globalCenter.y - event.stageY;
-				
-				var distanceFromCenter:Number = Math.sqrt(Math.pow(relativeX, 2) + Math.pow(relativeY, 2));
-				
-				if (distanceFromCenter <= _maxRadius)
-				{
-					setSelectedTimeBasedOffPosition(relativeX, relativeY);
-				
-					if (timeSinceLastClick > 500 || distanceFromLastClick > 30)
-					{
-						return;
-					}
-					
-					if (bMeditationBlocked)
-					{
-						dispatchEvent( new GameEvent(GameEvent.CALL, 'OnMeditateBlocked' ));
-						return;
-					}
-					else if (selectedTime != currentTime)
-					{
-						applySelectedTime();
-					}
-				}
+				setTimeByStageCoords( event.stageX, event.stageY );
 			}
-			else if (superMouseEvent.buttonIdx == MouseEventEx.RIGHT_BUTTON)
+			else if ( superMouseEvent.buttonIdx == MouseEventEx.RIGHT_BUTTON )
 			{
-				if (_isMeditating)
+				if ( _isMeditating )
 				{
 					stopMeditation();
 				}
@@ -615,14 +702,14 @@
 			selectedTime = hour;
 		}
 
-		protected function setCurrentHours(value:int):void
+		public function setCurrentHours(value:int):void
 		{
 			_currentlyRenderedTime = value * NUM_FRAMES_PER_HOUR;
 			currentTime = value;
 			selectedTime = value;
 		}
 
-		protected function setCurrentMin(value:int):void
+		public function setCurrentMin(value:int):void
 		{
 			currentTimeMin = value;
 		}
@@ -648,42 +735,53 @@
             }
 		}
 
-		protected function applySelectedTime():void
+		protected function blockClockEasily(value:Boolean):void
+		{
+            _isMeditationClockBlocked = value;
+		}
+
+		public function OnMeditationConfirmed():void
+		{
+			_isMeditating = true;
+			_stopMeditationReq = false;
+			_animationTimer = new Timer(20, 1);
+			_animationTimer.addEventListener(TimerEvent.TIMER, animationTimerTrigger);
+			_animationTimer.start();
+			
+			trace("GFX - trying to apply selected timem currentTime: " + _currentTime.toString() + ", targetTime:" + selectedTime.toString());
+
+			mcActivateButton.setDataFromStage(NavigationCode.GAMEPAD_B, -1);
+			
+			mcActivateButtonPc.label = "[[panel_common_cancel]]";
+			mcActivateButtonPc.setDataFromStage("", KeyCode.ESCAPE);
+			mcActivateButtonPc.validateNow();
+			mcActivateButtonPc.x =  CLOCK_CENTER - mcActivateButtonPc.getViewWidth() / 2;
+
+			mcActivateButton.label = "[[panel_common_cancel]]";
+			mcActivateButton.validateNow();
+			mcActivateButton.x =  CLOCK_CENTER - mcActivateButton.getViewWidth() / 2;
+			
+			if (InputManager.getInstance().isGamepad())
+			{
+				//txtDuration.htmlText = "[[panel_common_cancel]]";
+				//txtDuration.htmlText = CommonUtils.toUpperCaseSafe(txtDuration.htmlText);
+			
+				
+				
+			}
+			else
+			{
+				//txtDuration.htmlText = "";
+				//txtDuration.htmlText = CommonUtils.toUpperCaseSafe(txtDuration.htmlText);
+				
+			}
+		}
+
+		protected function tryApplySelectedTime():void
 		{
 			if (selectedTime != currentTime && !_isMeditating)
 			{
-				dispatchEvent( new GameEvent(GameEvent.CALL, 'OnMeditate', [Number(selectedTime)] ));
-				_isMeditating = true;
-                _stopMeditationReq = false;
-				_animationTimer = new Timer(20, 1);
-				_animationTimer.addEventListener(TimerEvent.TIMER, animationTimerTrigger);
-				_animationTimer.start();
-				
-				trace("GFX - trying to apply selected timem currentTime: " + _currentTime.toString() + ", targetTime:" + selectedTime.toString());
-
-				mcActivateButton.setDataFromStage(NavigationCode.GAMEPAD_B, -1);
-				
-				mcActivateButtonPc.label = "[[panel_common_cancel]]";
-				mcActivateButtonPc.setDataFromStage("", KeyCode.ESCAPE);
-				mcActivateButtonPc.validateNow();
-				mcActivateButtonPc.x =  CLOCK_CENTER - mcActivateButtonPc.getViewWidth() / 2;
-				
-				if (InputManager.getInstance().isGamepad())
-				{
-					txtDuration.htmlText = "[[panel_common_cancel]]";
-					txtDuration.htmlText = CommonUtils.toUpperCaseSafe(txtDuration.htmlText);
-				
-					
-				}
-				else
-				{
-					//txtDuration.htmlText = "";
-					//txtDuration.htmlText = CommonUtils.toUpperCaseSafe(txtDuration.htmlText);
-					
-				}
-				
-				
-				
+				dispatchEvent( new GameEvent(GameEvent.CALL, 'OnMeditate', [Number(selectedTime)] ));				
 			}
 		}
 
@@ -692,6 +790,9 @@
             if (_isMeditating)
             {
 				mcActivateButton.setDataFromStage(NavigationCode.GAMEPAD_A, -1);
+				mcActivateButton.label = _labelActivateButton;
+				mcActivateButton.validateNow();
+				mcActivateButton.x =  CLOCK_CENTER - mcActivateButton.getViewWidth() / 2;
 				
 				mcActivateButtonPc.label = _labelActivateButton;
 				mcActivateButtonPc.setDataFromStage("", KeyCode.E);
@@ -712,22 +813,16 @@
             }
         }
 		
-		protected function handleActionButtonPress( event : ButtonEvent ) : void
+		protected function handleMeditationButtonClickOrTap( event : Event ) : void
 		{
 			if (_isMeditating)
 			{
 				stopMeditation();
 			}
-			else if (!bMeditationBlocked)
-			{
-				applySelectedTime();
-			}
-			else
-			{
-				dispatchEvent( new GameEvent(GameEvent.CALL, 'OnMeditateBlocked' ));
-			}
+			
+			tryApplySelectedTime();
 		}
-		
+
 		function animationTimerTrigger( event : TimerEvent ) : void
 		{
 			if (!_isMeditating)
@@ -809,6 +904,10 @@
 				mcActivateButtonPc.setDataFromStage("", KeyCode.E);
 				mcActivateButtonPc.validateNow();
 				mcActivateButtonPc.x =  CLOCK_CENTER - mcActivateButtonPc.getViewWidth() / 2;
+
+				mcActivateButton.label = _labelActivateButton;
+				mcActivateButton.validateNow();
+				mcActivateButton.x =  CLOCK_CENTER - mcActivateButton.getViewWidth() / 2;
 				
 				txtDuration.text = durationText;
 				txtDuration.htmlText = CommonUtils.toUpperCaseSafe(txtDuration.htmlText);

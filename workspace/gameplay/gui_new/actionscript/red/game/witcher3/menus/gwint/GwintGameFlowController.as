@@ -43,6 +43,11 @@ package red.game.witcher3.menus.gwint
 		{
 			return _instance;
 		}
+
+		public function log(...args)
+		{
+			CardManager.log.apply(null, args);
+		}
 		
 		protected var sawRoundEndTutorial:Boolean = false;
 		
@@ -201,10 +206,10 @@ package red.game.witcher3.menus.gwint
 		
 		protected function state_begin_SpawnLeaders():void
 		{
-			trace("GFX ##########################################################");
-			trace("GFX -#AI#-----------------------------------------------------------------------------------------------------");
-			trace("GFX -#AI#----------------------------- NEW GWINT GAME ------------------------------------");
-			trace("GFX -#AI#-----------------------------------------------------------------------------------------------------");
+			log("##########################################################");
+			log("#AI#-----------------------------------------------------------------------------------------------------");
+			log("#AI#----------------------------- NEW GWINT GAME ------------------------------------");
+			log("#AI#-----------------------------------------------------------------------------------------------------");
 			
 			cardManager.spawnLeaders();
 			gameStarted = false;
@@ -287,7 +292,7 @@ package red.game.witcher3.menus.gwint
 			var player1Faction:int = cardManager.playerDeckDefinitions[CardManager.PLAYER_1].getDeckFaction();
 			var player2Faction:int = cardManager.playerDeckDefinitions[CardManager.PLAYER_2].getDeckFaction();
 			
-			trace("GFX - Coing flip logic, player1faction:", player1Faction, ", player2Faction:", player2Faction);
+			log("- Coing flip logic, player1faction:", player1Faction, ", player2Faction:", player2Faction);
 			
 			if (player1Faction != player2Faction && !mcTutorials.visible && (player1Faction == CardTemplate.FactionId_Scoiatael || player2Faction == CardTemplate.FactionId_Scoiatael))
 			{
@@ -536,7 +541,7 @@ package red.game.witcher3.menus.gwint
 		private var sawStartMessage:Boolean;
 		protected function state_begin_PlayerTurn():void
 		{
-			trace("GFX -#AI# starting player turn for player: " + currentPlayer);
+			log("#AI# starting player turn for player: " + currentPlayer);
 			
 			if (currentPlayer == CardManager.PLAYER_1)
 			{
@@ -765,7 +770,7 @@ package red.game.witcher3.menus.gwint
 			
 			cardManager.roundResults[currentRound].setResults(player1Score, player2Score, roundWinner);
 			
-			cardManager.traceRoundResults();
+			cardManager.logRoundResults();
 			
 			cardManager.updatePlayerLives();
 			
@@ -801,18 +806,35 @@ package red.game.witcher3.menus.gwint
 		
 		public function isGameOver():Boolean
 		{
-			return (currentRound == 2 || 
+			return (currentRound == 2 && cardManager.roundResults[2].getRoundWinner() != CardManager.PLAYER_INVALID) || 
+					(currentRound == 1 && 
+					  (cardManager.roundResults[0].getRoundWinner() == cardManager.roundResults[1].getRoundWinner()));
+		}
+		
+		private function shouldShowFinalResult():Boolean
+		{
+			return (currentRound == 2) || 
 					(currentRound == 1 && 
 					  (cardManager.roundResults[0].winningPlayer == cardManager.roundResults[1].winningPlayer ||
 					   cardManager.roundResults[0].winningPlayer == CardManager.PLAYER_INVALID ||
-					   cardManager.roundResults[1].winningPlayer == CardManager.PLAYER_INVALID)));
+					   cardManager.roundResults[1].winningPlayer == CardManager.PLAYER_INVALID));
+		}
+
+		public function isClearingBoard():Boolean
+		{
+			return stateMachine.currentState == "ClearingBoard"
+		}
+
+		public function isRoundEnding():Boolean 
+		{
+			return isGameOver() || stateMachine.currentState == "ClearingBoard";
 		}
 		
 		protected function state_update_ShowingRoundResult():void
 		{
 			if (!mcMessageQueue.ShowingMessage())
 			{
-				if (isGameOver())
+				if (shouldShowFinalResult())
 				{
 					cardManager.clearBoard(false);
 					stateMachine.ChangeState("ShowingFinalResult");
@@ -948,13 +970,13 @@ package red.game.witcher3.menus.gwint
 				throw new Error("GFX - Danger will robinson, danger!");
 			}
 			
-			cardManager.traceRoundResults();
+			cardManager.logRoundResults();
 			
-			trace("GFX -#AI#--- game winner was: " + gameWinner);
-			trace("GFX -#AI#--- current round was: " + currentRound);
-			trace("GFX -#AI#--- Round 1 winner: " + round1Winner);
-			trace("GFX -#AI#--- Round 2 winner: " + round1Winner);
-			trace("GFX -#AI#--- Round 3 winner: " + round1Winner);
+			log("#AI#--- game winner was: " + gameWinner);
+			log("#AI#--- current round was: " + currentRound);
+			log("#AI#--- Round 1 winner: " + round1Winner);
+			log("#AI#--- Round 2 winner: " + round1Winner);
+			log("#AI#--- Round 3 winner: " + round1Winner);
 			
 			if (gameWinner == CardManager.PLAYER_1)
 			{

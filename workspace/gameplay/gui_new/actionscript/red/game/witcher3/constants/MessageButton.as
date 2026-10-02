@@ -1,5 +1,6 @@
 package red.game.witcher3.constants 
 {
+	import red.game.witcher3.managers.InputManager;
 	import scaleform.clik.constants.NavigationCode;
 	
 	/**
@@ -42,6 +43,8 @@ package red.game.witcher3.constants
 		public static function getGamepadNavCode(buttonId:uint):String
 		{
 			var resultCode:String = "ERROR";
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
 			switch (buttonId)
 			{
 				case MB_OK:
@@ -53,7 +56,7 @@ package red.game.witcher3.constants
 					resultCode = NavigationCode.GAMEPAD_B;
 					break;
 				case MB_ABORT:
-					resultCode = NavigationCode.GAMEPAD_Y;
+					resultCode = isSwitchPlatform ? NavigationCode.GAMEPAD_X : NavigationCode.GAMEPAD_Y;
 					break;
 			}
 			return resultCode;

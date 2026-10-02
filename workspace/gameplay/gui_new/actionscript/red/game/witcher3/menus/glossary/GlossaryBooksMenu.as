@@ -52,6 +52,11 @@ package red.game.witcher3.menus.glossary
 		{
 			super.configUI();
 			
+			mcMainListModule.enableTouch( true );
+			mcTextAreaModule.enableTouch( true );
+			mcMainListModule.mcDropDownList.listHeight = 750;
+			mcMainListModule.mcDropDownList.mcMask.height = 750; //#LT <-- for some reason this is needed here but not for the other glossary pages
+			mcMainListModule.mcScrollBar.height = 740;
 			stage.addEventListener( InputEvent.INPUT, handleInput, false, 0, true );
 			dispatchEvent( new GameEvent( GameEvent.CALL, "OnConfigUI" ) );
 			focused = 1;

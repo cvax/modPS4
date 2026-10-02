@@ -9,6 +9,8 @@ package red.game.witcher3.menus.common
 	import scaleform.clik.data.DataProvider;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.interfaces.IListItemRenderer;
+	import flash.events.TransformGestureEvent;
+	import red.core.CoreComponent;
 	
 	/**	
 	 * @author Getsevich Yaroslav
@@ -20,13 +22,15 @@ package red.game.witcher3.menus.common
 		public var mcScrollingList:W3ScrollingList;
 		
 		protected var _data:Array;
+		private var _panYAccumulator:Number;
 		
 		public function PlainListModule() 
 		{
+			_panYAccumulator = 0;
 			mcScrollingList.focusable = false;
 			mcEmptyList.visible = false;
 		}
-		
+
 		override public function set focused(value:Number):void 
 		{
 			super.focused = value;
@@ -60,6 +64,8 @@ package red.game.witcher3.menus.common
 			{
 				mcScrollingList.dataProvider = new DataProvider([]);
 				mcEmptyList.visible = true;
+				if(!CoreComponent.isArabicAligmentMode)
+					mcEmptyList.textField.text = CommonUtils.toUpperCaseSafe(mcEmptyList.textField.text);
 				return;
 			}
 			
@@ -113,6 +119,29 @@ package red.game.witcher3.menus.common
 				}
 			}
 		}
-		
+
+		protected function handleGesturePan( event : TransformGestureEvent ) : void
+		{	
+			var rowHeight : Number = mcScrollingList.rowHeight;
+			var result : Object = CommonUtils.stagePanToRowScroll( _panYAccumulator, rowHeight, event );
+
+			mcScrollbar.position -= result.outRowsToScroll;
+			_panYAccumulator = result.outPanYAccumulator;
+		}
+
+		public function enableTouch( enable : Boolean )
+		{
+			_panYAccumulator = 0;
+			mcScrollingList.enableTouch( enable );
+
+			if ( enable )
+			{
+				addEventListener( TransformGestureEvent.GESTURE_PAN, handleGesturePan, false, 0, true );
+			}
+			else
+			{
+				removeEventListener( TransformGestureEvent.GESTURE_PAN, handleGesturePan );
+			}
+		}
 	}
 }

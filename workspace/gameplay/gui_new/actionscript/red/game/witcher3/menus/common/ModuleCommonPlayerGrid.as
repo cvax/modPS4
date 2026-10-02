@@ -70,6 +70,10 @@ package red.game.witcher3.menus.common
 		protected override function configUI():void
 		{
 			super.configUI();
+			
+			mcPlayerGrid.enableTouch( true );
+			mcPlayerGrid.enableScrollWithPan( true );
+
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, dataBindingKey, [handleDataSet]));
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, dataBindingKey + ".itemUpdate", [handleItemUpdate]));
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, dataBindingKey + ".itemsUpdate", [handleItemsUpdate]));

@@ -3,6 +3,7 @@ package red.game.witcher3.menus.character_menu
 	import flash.display.MovieClip;
 	import flash.events.Event;
 	import flash.text.TextField;
+	import flash.text.TextFieldAutoSize;
 	import red.core.constants.KeyCode;
 	import red.core.CoreMenuModule;
 	import red.game.witcher3.constants.InventorySlotType;
@@ -10,6 +11,7 @@ package red.game.witcher3.menus.character_menu
 	import red.game.witcher3.controls.InputFeedbackButton;
 	import red.game.witcher3.controls.W3Button;
 	import red.game.witcher3.managers.InputFeedbackManager;
+	import red.game.witcher3.managers.InputManager;
 	import red.game.witcher3.slots.SlotBase;
 	import red.game.witcher3.slots.SlotPaperdoll;
 	import red.game.witcher3.slots.SlotSkillMutagen;
@@ -20,6 +22,8 @@ package red.game.witcher3.menus.character_menu
 	import scaleform.clik.controls.Button;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.events.ListEvent;
+	import red.game.witcher3.utils.CommonUtils;
+	import scaleform.clik.ui.InputDetails;
 	
 	/**
 	 * ...
@@ -78,20 +82,40 @@ package red.game.witcher3.menus.character_menu
 		public var dnaBranch3:MovieClip;
 		public var dnaBranch4:MovieClip;
 		
-		public var txtBonus1:TextField;
-		public var txtBonus2:TextField;
-		public var txtBonus3:TextField;
-		public var txtBonus4:TextField;
+		public var txtBonus1_1:TextField;
+		public var txtBonus2_1:TextField;
+		public var txtBonus3_1:TextField;
+		public var txtBonus4_1:TextField;
+
+		public var txtBonus1_2:TextField;
+		public var txtBonus2_2:TextField;
+		public var txtBonus3_2:TextField;
+		public var txtBonus4_2:TextField;
+
+		public var txtBonus1_1p:TextField;
+		public var txtBonus2_1p:TextField;
+		public var txtBonus3_1p:TextField;
+		public var txtBonus4_1p:TextField;
+
+		public var txtBonus1_2p:TextField;
+		public var txtBonus2_2p:TextField;
+		public var txtBonus3_2p:TextField;
+		public var txtBonus4_2p:TextField;
 		
 		protected var _group1:SkillSocketsGroup;
 		protected var _group2:SkillSocketsGroup;
 		protected var _group3:SkillSocketsGroup;
 		protected var _group4:SkillSocketsGroup;
 		
-		public var groupBonusBkg1:MovieClip;
-		public var groupBonusBkg2:MovieClip;
-		public var groupBonusBkg3:MovieClip;
-		public var groupBonusBkg4:MovieClip;
+		public var groupBonusBkg1_1:MovieClip;
+		public var groupBonusBkg2_1:MovieClip;
+		public var groupBonusBkg3_1:MovieClip;
+		public var groupBonusBkg4_1:MovieClip;
+
+		public var groupBonusBkg1_2:MovieClip;
+		public var groupBonusBkg2_2:MovieClip;
+		public var groupBonusBkg3_2:MovieClip;
+		public var groupBonusBkg4_2:MovieClip;
 		
 		public var socketsList:SlotsListSkillSockets;
 		
@@ -128,27 +152,47 @@ package red.game.witcher3.menus.character_menu
 		{
 			if (value)//NORMAL MODE
 			{
-				groupBonusBkg1.y = 135.15;
-				groupBonusBkg2.y = 135.15;
-				groupBonusBkg3.y = 285.15;
-				groupBonusBkg4.y = 285.15;
+				groupBonusBkg1_1.y = -75;
+				groupBonusBkg2_1.y = -75;
+				groupBonusBkg3_1.y = 285.15;
+				groupBonusBkg4_1.y = 285.15;
 				
-				txtBonus1.y = 155.55;
-				txtBonus2.y = 155.55;
-				txtBonus3.y = 305.1;
-				txtBonus4.y = 305.1;
+				groupBonusBkg1_2.y = 135.15;
+				groupBonusBkg2_2.y = 135.15;
+				groupBonusBkg3_2.y = 495;
+				groupBonusBkg4_2.y = 495;
+				
+				txtBonus1_1.y = -54.6;
+				txtBonus2_1.y = -54.6;
+				txtBonus3_1.y = 305.1;
+				txtBonus4_1.y = 305.1;
+
+				txtBonus1_2.y = 155.55;
+				txtBonus2_2.y = 155.55;
+				txtBonus3_2.y = 515.4;
+				txtBonus4_2.y = 515.4;
 			}
 			else//MUTATION MODE
 			{
-				groupBonusBkg1.y = 91;
-				groupBonusBkg2.y = 91;
-				groupBonusBkg3.y = 349;   
-				groupBonusBkg4.y = 349;
+				groupBonusBkg1_1.y = -138;
+				groupBonusBkg2_1.y = -138;
+				groupBonusBkg3_1.y = 349;   
+				groupBonusBkg4_1.y = 349;
+
+				groupBonusBkg1_2.y = 91;
+				groupBonusBkg2_2.y = 91;
+				groupBonusBkg3_2.y = 577;   
+				groupBonusBkg4_2.y = 577;
 				
-				txtBonus1.y = 116;
-				txtBonus2.y = 116;
-				txtBonus3.y = 367;
-				txtBonus4.y = 367;
+				txtBonus1_1.y = -117.6;
+				txtBonus2_1.y = -117.6;
+				txtBonus3_1.y = 369.4;
+				txtBonus4_1.y = 369.4;
+
+				txtBonus1_2.y = 111.4;
+				txtBonus2_2.y = 111.4;
+				txtBonus3_2.y = 597.4;
+				txtBonus4_2.y = 597.4;
 			}
 		}
 		
@@ -220,6 +264,7 @@ package red.game.witcher3.menus.character_menu
 			socketsList.slotContainer = mcSlotsNormal;
 			socketsList.addEventListener( ListEvent.INDEX_CHANGE, OnSkillTreeClicked, false, 0, true );
 			socketsList.focusable = false;
+			socketsList.enableTouch(true);
 			
 			stage.addEventListener(InputEvent.INPUT, handleInput, false, 0, true);
 			
@@ -315,7 +360,9 @@ package red.game.witcher3.menus.character_menu
 					if (!selectedSlot.data.isMutagen && selectedSlot.data.level < selectedSlot.data.maxLevel)
 					{
 						var text:String = selectedSlot.data.level == 0 ? "panel_character_popup_title_buy_skill" : "panel_character_popup_title_upgrade_skill";
-						_inputSymbolIDX = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X, KeyCode.E, text);
+						var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
+						_inputSymbolIDX = InputFeedbackManager.appendButton(this, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.E, text);
 						
 						if (_buySkillBtnRef)
 						{
@@ -390,8 +437,7 @@ package red.game.witcher3.menus.character_menu
 		
 		public function setData(listValues:Array):void
 		{
-			trace("GFX ------------------------------------- setData --------------------------------- ");
-			
+			trace("GFX MSS ------------------------------------- setData --------------------------------- ");
 			socketsList.data = listValues;
 			socketsList.validateNow();
 			updateActiveSelectionEnabled();
@@ -457,18 +503,229 @@ package red.game.witcher3.menus.character_menu
 			
 			return false;
 		}
+
+		private function getTxtBonusPrimary( groupIndex:int):TextField
+		{
+			switch(groupIndex)
+			{
+				case 1: return txtBonus1_1;
+				case 2: return txtBonus2_1;
+				case 3: return txtBonus3_1;
+				case 4: return txtBonus4_1;
+				default: return txtBonus1_1;
+			}
+		}
+
+		private function getTxtBonusSecondary( groupIndex:int):TextField
+		{
+			switch(groupIndex)
+			{
+				case 1: return txtBonus1_2;
+				case 2: return txtBonus2_2;
+				case 3: return txtBonus3_2;
+				case 4: return txtBonus4_2;
+				default: return txtBonus1_2;
+			}
+		}
+
+		private function getTxtBonusPrimaryValue( groupIndex:int):TextField
+		{
+			switch(groupIndex)
+			{
+				case 1: return txtBonus1_1p;
+				case 2: return txtBonus2_1p;
+				case 3: return txtBonus3_1p;
+				case 4: return txtBonus4_1p;
+				default: return txtBonus1_1p;
+			}
+		}
+
+		private function getTxtBonusSecondaryValue( groupIndex:int):TextField
+		{
+			switch(groupIndex)
+			{
+				case 1: return txtBonus1_2p;
+				case 2: return txtBonus2_2p;
+				case 3: return txtBonus3_2p;
+				case 4: return txtBonus4_2p;
+				default: return txtBonus1_2p;
+			}
+		}
+
+		private function getGroupBonusBkgPrimary( groupIndex:int):MovieClip
+		{
+			switch(groupIndex)
+			{
+				case 1: return groupBonusBkg1_1;
+				case 2: return groupBonusBkg2_1;
+				case 3: return groupBonusBkg3_1;
+				case 4: return groupBonusBkg4_1;
+				default: return groupBonusBkg1_1;
+			}
+		}
+
+		private function getGroupBonusBkgSecondary( groupIndex:int):MovieClip
+		{
+			switch(groupIndex)
+			{
+				case 1: return groupBonusBkg1_2;
+				case 2: return groupBonusBkg2_2;
+				case 3: return groupBonusBkg3_2;
+				case 4: return groupBonusBkg4_2;
+				default: return groupBonusBkg1_2;
+			}
+		}
+
+		private function getPrimaryColor( groupIndex:int, listValues:Array):String
+		{
+			if(listValues[groupIndex - 1].color == SkillColor.nameToEnum("SC_RedBlue"))
+				return "SC_Red";
+			else if(listValues[groupIndex - 1].color == SkillColor.nameToEnum("SC_RedGreen"))
+				return "SC_Red";
+			else if(listValues[groupIndex - 1].color == SkillColor.nameToEnum("SC_BlueGreen"))
+				return "SC_Blue";
+			else if(listValues[groupIndex - 1].color == SkillColor.nameToEnum("SC_RedWhite"))
+				return "SC_Red";
+			else if(listValues[groupIndex - 1].color == SkillColor.nameToEnum("SC_GreenWhite"))
+				return "SC_Green";
+			else if(listValues[groupIndex - 1].color == SkillColor.nameToEnum("SC_BlueWhite"))
+				return "SC_Blue";
+			return SkillColor.enumToName(listValues[groupIndex - 1].color);
+		}
+
+		private function getSecondaryColor( groupIndex:int, listValues:Array):String
+		{
+			if(listValues[groupIndex - 1].color == SkillColor.nameToEnum("SC_RedBlue"))
+				return "SC_Blue";
+			else if(listValues[groupIndex - 1].color == SkillColor.nameToEnum("SC_RedGreen"))
+				return "SC_Green";
+			else if(listValues[groupIndex - 1].color == SkillColor.nameToEnum("SC_BlueGreen"))
+				return "SC_Green";
+			else if(listValues[groupIndex - 1].color == SkillColor.nameToEnum("SC_RedWhite"))
+				return "SC_Yellow";
+			else if(listValues[groupIndex - 1].color == SkillColor.nameToEnum("SC_GreenWhite"))
+				return "SC_Yellow";
+			else if(listValues[groupIndex - 1].color == SkillColor.nameToEnum("SC_BlueWhite"))
+				return "SC_Yellow";
+			return "SC_None";
+		}
+
+		private function splitBonusDescription(description : String):Array
+		{
+			var index:int = description.indexOf(",");
+
+			if(index == -1)
+			{
+				return [description, ""];
+			}
+			return [description.substring(0,index),description.substring(index + 1)];
+		}
+
+		private function getTextWidth(txt:TextField):Number
+		{
+			//txt.autoSize = TextFieldAutoSize.LEFT;
+			return txt.textWidth;
+		}
+
+		private function resizeText(bg:MovieClip, txt:TextField, autoSize:String = TextFieldAutoSize.LEFT):void
+		{
+			txt.autoSize = autoSize;
+
+			// handling breaking into more lines if text's too big
+			if(txt.textWidth > txt.width)
+				txt.height = txt.textHeight;
+			else txt.height = 31.35;
+
+			centerTextToBackground(bg,txt);
+		}
+
+		private function centerTextToBackground( bg:MovieClip, txt:TextField ):void
+		{
+			txt.y = bg.y + (bg.height - txt.height) / 2 + 2;
+		}
+
+		private function setBonusDataIndividual( groupIndex:int, listValues:Array):void
+		{
+			var MAX_DEFINED_WIDTH = 200;
+
+			var desc:Array = splitBonusDescription( listValues[groupIndex - 1].description );
+			var desc_1:String = desc[0];
+			var desc_2:String = desc[1];
+
+			var vals:Array = splitBonusDescription( listValues[groupIndex - 1].values );
+			var val_1:String = vals[0];
+			var val_2:String = vals[1];
+
+			var color_1:String = getPrimaryColor(groupIndex, listValues);
+			var color_2:String = getSecondaryColor(groupIndex, listValues);
+			
+			var txtPrimary : TextField = getTxtBonusPrimary(groupIndex);
+			var txtSecondary : TextField = getTxtBonusSecondary(groupIndex);
+
+			var txtPrimaryValue : TextField = getTxtBonusPrimaryValue(groupIndex);
+			var txtSecondaryValue : TextField = getTxtBonusSecondaryValue(groupIndex);
+
+			{ // resizing the description text field so it does not overlap with the value
+				txtPrimaryValue.htmlText = val_1;
+				txtPrimary.width = (txtPrimaryValue.x + txtPrimaryValue.width - getTextWidth(txtPrimaryValue) - 10) - txtPrimary.x;
+				if(txtPrimary.width > MAX_DEFINED_WIDTH)
+					txtPrimary.width = MAX_DEFINED_WIDTH;
+			}
+			{
+				txtSecondaryValue.htmlText = val_2;
+				txtSecondary.width = (txtSecondaryValue.x + txtSecondaryValue.width - getTextWidth(txtSecondaryValue) - 10) - txtSecondary.x;
+				if(txtSecondary.width > MAX_DEFINED_WIDTH)
+					txtSecondary.width = MAX_DEFINED_WIDTH;
+			}
+
+			txtPrimary.htmlText = desc_1;
+			txtSecondary.htmlText = desc_2;
+
+			txtPrimaryValue.htmlText = val_1;
+			txtSecondaryValue.htmlText = val_2;
+
+			getGroupBonusBkgPrimary(groupIndex).gotoAndStop( color_1 );
+			getGroupBonusBkgSecondary(groupIndex).gotoAndStop( color_2 );
+		}
 		
 		public function setBonusData(listValues:Array):void
 		{
-			txtBonus1.htmlText = listValues[0].description;
-			txtBonus2.htmlText = listValues[1].description;
-			txtBonus3.htmlText = listValues[2].description;
-			txtBonus4.htmlText = listValues[3].description;
+			trace("GFX - listValues", listValues);
+
+			setBonusDataIndividual( 1, listValues );
+			setBonusDataIndividual( 2, listValues );
+			setBonusDataIndividual( 3, listValues );
+			setBonusDataIndividual( 4, listValues );
+						
+			resizeText(groupBonusBkg1_1, txtBonus1_1);
+			resizeText(groupBonusBkg1_2, txtBonus1_2);
+			resizeText(groupBonusBkg2_1, txtBonus2_1, TextFieldAutoSize.RIGHT);
+			resizeText(groupBonusBkg2_2, txtBonus2_2, TextFieldAutoSize.RIGHT);
+			resizeText(groupBonusBkg3_1, txtBonus3_1);
+			resizeText(groupBonusBkg3_2, txtBonus3_2);
+			resizeText(groupBonusBkg4_1, txtBonus4_1, TextFieldAutoSize.RIGHT);
+			resizeText(groupBonusBkg4_2, txtBonus4_2, TextFieldAutoSize.RIGHT);
+
+			resizeText(groupBonusBkg1_1, txtBonus1_1p, TextFieldAutoSize.RIGHT);
+			resizeText(groupBonusBkg1_2, txtBonus1_2p, TextFieldAutoSize.RIGHT);
+			resizeText(groupBonusBkg2_1, txtBonus2_1p, TextFieldAutoSize.RIGHT);
+			resizeText(groupBonusBkg2_2, txtBonus2_2p, TextFieldAutoSize.RIGHT);
+			resizeText(groupBonusBkg3_1, txtBonus3_1p, TextFieldAutoSize.RIGHT);
+			resizeText(groupBonusBkg3_2, txtBonus3_2p, TextFieldAutoSize.RIGHT);
+			resizeText(groupBonusBkg4_1, txtBonus4_1p, TextFieldAutoSize.RIGHT);
+			resizeText(groupBonusBkg4_2, txtBonus4_2p, TextFieldAutoSize.RIGHT);
+
+			/*
+			txtBonus1_1.htmlText = listValues[0].description;
+			txtBonus2_1.htmlText = listValues[1].description;
+			txtBonus3_1.htmlText = listValues[2].description;
+			txtBonus4_1.htmlText = listValues[3].description;
 			
-			groupBonusBkg1.gotoAndStop( SkillColor.enumToName( listValues[0].color ) );
-			groupBonusBkg2.gotoAndStop( SkillColor.enumToName( listValues[1].color ) );
-			groupBonusBkg3.gotoAndStop( SkillColor.enumToName( listValues[2].color ) );
-			groupBonusBkg4.gotoAndStop( SkillColor.enumToName( listValues[3].color ) );
+			groupBonusBkg1_1.gotoAndStop( SkillColor.enumToName( listValues[0].color ) );
+			groupBonusBkg2_1.gotoAndStop( SkillColor.enumToName( listValues[1].color ) );
+			groupBonusBkg3_1.gotoAndStop( SkillColor.enumToName( listValues[2].color ) );
+			groupBonusBkg4_1.gotoAndStop( SkillColor.enumToName( listValues[3].color ) );
+			*/
 		}
 		
 		public function setMutagensData(listValues:Array):void
@@ -503,6 +760,9 @@ package red.game.witcher3.menus.character_menu
 		
 		override public function handleInput(event:InputEvent):void
 		{
+			var details:InputDetails = event.details;
+			CommonUtils.fixupKeyCode( details );
+
 			if (!focused)
 			{
 				return;

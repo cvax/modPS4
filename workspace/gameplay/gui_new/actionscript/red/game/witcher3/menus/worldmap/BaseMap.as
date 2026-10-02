@@ -95,7 +95,7 @@
 			dispatchEvent(new MapAnimation(MapAnimation.COMPLETE_HIDE, true));
 		}
 
-		public function OnControllerChanged( isGamepad : Boolean )
+		public function OnControllerChanged( isGamepad : Boolean, isMouse : Boolean )
 		{
 		}
 
@@ -107,6 +107,10 @@
 		// avoid click invalidation system for tweens
 		override public function get scaleX():Number { return super.actualScaleX; }
 		override public function get scaleY():Number { return super.actualScaleY; }	
+
+		public function Zoom( zoomIn : Boolean ) : Boolean { return false; }
+		public function ZoomByFactor( zoomFactor : Number ) : Boolean { return false; }
+
 	}
 
 }

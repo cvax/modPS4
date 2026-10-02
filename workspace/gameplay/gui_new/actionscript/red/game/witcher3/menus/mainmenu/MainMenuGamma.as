@@ -33,19 +33,30 @@ package red.game.witcher3.menus.mainmenu
 		//public var dataBindingKey : String = "mainmenu.main.entries";
 		
 		public var mcGammaModule:GammaSettingModule;
+		public var mcHDRModule:HDRSettingModule;
 		public var mcInputFeedbackModule:ModuleInputFeedback;
-		
-		public var txtUserName:TextField;
+		public var txtUserName : TextField;
+
 
 		public function MainMenuGamma()
 		{
 			super();
+
+			if(mcGammaModule)
+				mcGammaModule.visible = false;
+
+			if(mcHDRModule)
+				mcHDRModule.visible = false;
+
+			if(txtUserName)
+				txtUserName.visible = false;
 		}
-		
+
 		public function setCurrentUsername(name:String):void
 		{
 			if (txtUserName)
 			{
+				txtUserName.visible = true;
 				txtUserName.text = name;
 			}
 		}
@@ -58,7 +69,7 @@ package red.game.witcher3.menus.mainmenu
 		override protected function configUI():void
 		{
 			super.configUI();
-			
+
 			setCurrentUsername("");
 			
 			if (mcGammaModule)
@@ -67,6 +78,7 @@ package red.game.witcher3.menus.mainmenu
 			}
 			
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, "gammamenu.setvalues", [handleRecieveGamma] ) );
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, "hdrmenu.setvalues", [handleOptionsSet] ) );
 			
 			dispatchEvent( new GameEvent( GameEvent.CALL, "OnConfigUI" ) );
 			
@@ -88,8 +100,9 @@ package red.game.witcher3.menus.mainmenu
 			
 			var details:InputDetails = event.details;
 			var keyUp:Boolean = (details.value == InputValue.KEY_UP);
+			var keyDown:Boolean = (details.value == InputValue.KEY_DOWN);
 			
-			if ( keyUp && !event.handled )
+			if ( keyDown && (!event.handled || mcHDRModule.visible) )
 			{
 				switch(details.navEquivalent)
 				{
@@ -121,6 +134,23 @@ package red.game.witcher3.menus.mainmenu
 			{
 				mcGammaModule.showWithData(gammaData);
 			}
+		}
+
+		public function setHDRMode(value:Boolean):void /*WitcherScript*/
+		{
+			mcHDRModule.visible = value;
+			mcGammaModule.visible = !value;
+		}
+
+		protected function handleOptionsSet(data:Array):void
+		{
+			mcHDRModule.showWithData(data);
+		}
+
+		public function setUsername(name : String):void
+		{
+			txtUserName.visible = true;
+			txtUserName.htmlText = name;
 		}
 	}
 }

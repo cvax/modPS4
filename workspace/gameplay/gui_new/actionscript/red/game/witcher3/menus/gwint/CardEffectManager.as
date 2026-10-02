@@ -21,6 +21,11 @@ package red.game.witcher3.menus.gwint
 			seigeP1List.length = 0;
 			seigeP2List.length = 0;
 		}
+
+		public function log(...args)
+		{
+			CardManager.log.apply(null, args);
+		}
 		
 		private function getEffectList(listID:int, playerID:int):Vector.<CardInstance> 
 		{
@@ -62,7 +67,7 @@ package red.game.witcher3.menus.gwint
 		{
 			var correctList:Vector.<CardInstance> = getEffectList(listID, playerID);
 			
-			trace("GFX - effect was registed in list:", listID, ", for player:", playerID, " and CardInstance:", cardInstance);
+			log("- effect was registed in list:", listID, ", for player:", playerID, " and CardInstance:", cardInstance);
 			
 			if (correctList)
 			{
@@ -78,7 +83,7 @@ package red.game.witcher3.menus.gwint
 		
 		public function unregisterActiveEffectCardInstance(cardInstance:CardInstance):void
 		{
-			trace("GFX - unregistering Effect: ", cardInstance);
+			log("- unregistering Effect: ", cardInstance);
 			
 			var indexOf:int;
 			
@@ -137,6 +142,23 @@ package red.game.witcher3.menus.gwint
 			}
 			
 			return effectList;
+		}
+		
+		public function hasEffectRegisteredOnList(effectID:int, listID:int, playerID:int):Boolean
+		{
+			var i:int;
+			var effectList:Vector.<CardInstance> = getEffectList(listID, playerID);
+			
+			if (effectList)
+			{
+				for (i = 0; i < effectList.length; ++i)
+				{
+					if(effectList[i].templateRef.hasEffect(effectID))
+						return true;
+				}
+			}
+			
+			return false;
 		}
 	}
 }

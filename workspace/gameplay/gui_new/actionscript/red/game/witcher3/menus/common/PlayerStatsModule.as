@@ -120,8 +120,8 @@ package red.game.witcher3.menus.common
 		const tooltipOffset:Number = 600; // ?
 		protected function handleItemRollOver(event:ListEvent):void
 		{
-			var isGamepad:Boolean = InputManager.getInstance().isGamepad();
-			if (!isGamepad)
+			var isMouse:Boolean = InputManager.getInstance().isMouse();
+			if (isMouse)
 			{
 				var displayEvent:GridEvent = new GridEvent(GridEvent.DISPLAY_TOOLTIP, true, false, -1, -1, -1, null, null);
 				var curRenderer:W3StatisticsListItem = event.itemRenderer as W3StatisticsListItem;
@@ -129,7 +129,7 @@ package red.game.witcher3.menus.common
 				itemRendererLoc.x -= tooltipOffset;
 				
 				displayEvent.tooltipCustomArgs = [event.itemData.id];
-				displayEvent.isMouseTooltip = !isGamepad;
+				displayEvent.isMouseTooltip = isMouse;
 				displayEvent.anchorRect = new Rectangle(itemRendererLoc.x, itemRendererLoc.y, 0, 0);
 				displayEvent.tooltipDataSource = "OnShowStatTooltip";
 				//displayEvent.tooltipMouseContentRef = "PlayerStatisticsTooltipRef_Mouse";
@@ -139,8 +139,8 @@ package red.game.witcher3.menus.common
 		
 		protected function handleItemRollOut(event:ListEvent):void
 		{
-			var isGamepad:Boolean = InputManager.getInstance().isGamepad();
-			if (!isGamepad)
+			var isMouse:Boolean = InputManager.getInstance().isMouse();
+			if (isMouse)
 			{
 				var hideEvent:GridEvent = new GridEvent(GridEvent.HIDE_TOOLTIP, true, false, -1, -1, -1, null, null);
 				dispatchEvent(hideEvent);
@@ -149,8 +149,8 @@ package red.game.witcher3.menus.common
 		
 		protected function handleIndexChange(event:ListEvent):void
 		{
-			var isGamepad:Boolean = InputManager.getInstance().isGamepad();
-			if (isGamepad)
+			var isMouse:Boolean = InputManager.getInstance().isMouse();
+			if (!isMouse)
 			{
 				updateContext(event.itemData.id);
 			}

@@ -16,7 +16,6 @@ package red.game.witcher3.menus.mainmenu
 	import red.core.CoreMenu;
 	import red.core.events.GameEvent;
 
-	import red.game.witcher3.menus.common.W3SubMenuListItemRenderer;
 	import red.game.witcher3.controls.W3ScrollingList;
 	import red.game.witcher3.controls.BaseListItem;
 

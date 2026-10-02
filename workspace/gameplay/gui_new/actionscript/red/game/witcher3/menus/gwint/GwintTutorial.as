@@ -19,6 +19,9 @@ package red.game.witcher3.menus.gwint
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.ui.InputDetails;
 	import scaleform.gfx.MouseEventEx;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
+	import red.game.witcher3.utils.CommonUtils;
 	
 	public class GwintTutorial extends UIComponent
 	{
@@ -63,7 +66,8 @@ package red.game.witcher3.menus.gwint
 			
 			dispatchEvent( new GameEvent(GameEvent.REGISTER, "gwint.tutorial.strings", [onGetTutorialStrings]));
 			
-			stage.addEventListener(MouseEvent.CLICK, handleClick, false, 0, true);
+			stage.addEventListener( MouseEvent.CLICK, handleStageClick, false, 0, true );
+			stage.addEventListener( GestureEventEx.GESTURE_TAP, handleContinueButtonTap, false, 0, true );
 			
 			mouseChildren = false;
 			
@@ -207,6 +211,7 @@ package red.game.witcher3.menus.gwint
 			
 			var keyUp:Boolean = details.value == InputValue.KEY_UP;
 			var keyDown:Boolean = details.value == InputValue.KEY_DOWN;
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 			
 			if (!event.handled)
 			{
@@ -220,7 +225,11 @@ package red.game.witcher3.menus.gwint
 						}
 						break;*/
 					case NavigationCode.GAMEPAD_X:
-						if (keyUp && !allowX)
+					case NavigationCode.GAMEPAD_Y:
+						if (keyUp &&
+							!allowX &&
+							((isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y) ||		// X on switch
+							(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X)))		// Y on other platforms
 						{
 							break;
 						}
@@ -236,9 +245,11 @@ package red.game.witcher3.menus.gwint
 				}
 			}
 		}
-		
-		protected function handleClick(event:MouseEvent):void
+
+		protected function handleStageClick(event:MouseEvent):void
 		{
+			trace( "GwintTutorial::handleStageClick : ", event );
+
 			if (isPaused || !visible)
 			{
 				return;
@@ -249,6 +260,26 @@ package red.game.witcher3.menus.gwint
 			{
 				event.stopImmediatePropagation();
 				incrementTutorial();
+			}
+		}
+
+		protected function handleContinueButtonTap(event:GestureEvent):void
+		{
+			trace( "GwintTutorial::handleContinueButtonTap : ", event );
+
+			if (isPaused || !visible)
+			{
+				return;
+			}
+
+			if ( mcAButtonWrapper )
+			{
+				var hit : Boolean = mcAButtonWrapper.hitTestPoint( event.stageX, event.stageY );
+				if ( hit )
+				{
+					event.stopImmediatePropagation();
+					incrementTutorial();
+				}
 			}
 		}
 		

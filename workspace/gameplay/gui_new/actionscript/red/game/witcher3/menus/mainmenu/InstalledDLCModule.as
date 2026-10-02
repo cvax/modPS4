@@ -17,31 +17,45 @@ package red.game.witcher3.menus.mainmenu
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.events.ListEvent;
 	import scaleform.clik.ui.InputDetails;
+
+	import red.game.witcher3.utils.CommonUtils;
+	import flash.events.TransformGestureEvent;
 	
 	public class InstalledDLCModule extends StaticOptionModule
 	{
-		public var mcScrollbar:ScrollBar;
-		
-		public var mcList:W3ScrollingList;
-		public var mcItemRenderer1:InstalledDLCMItemRenderer;
-		public var mcItemRenderer2:InstalledDLCMItemRenderer;
-		public var mcItemRenderer3:InstalledDLCMItemRenderer;
-		public var mcItemRenderer4:InstalledDLCMItemRenderer;
-		public var mcItemRenderer5:InstalledDLCMItemRenderer;
-		public var mcItemRenderer6:InstalledDLCMItemRenderer;
-		public var mcItemRenderer7:InstalledDLCMItemRenderer;
-		public var mcItemRenderer8:InstalledDLCMItemRenderer;
-		public var mcItemRenderer9:InstalledDLCMItemRenderer;
-		public var mcItemRenderer10:InstalledDLCMItemRenderer;
-		public var mcItemRenderer11:InstalledDLCMItemRenderer;
-		
+		public var mcScrollbar : ScrollBar;
+		public var mcList : W3ScrollingList;
+		public var mcItemRenderer1 : InstalledDLCMItemRenderer;
+		public var mcItemRenderer2 : InstalledDLCMItemRenderer;
+		public var mcItemRenderer3 : InstalledDLCMItemRenderer;
+		public var mcItemRenderer4 : InstalledDLCMItemRenderer;
+		public var mcItemRenderer5 : InstalledDLCMItemRenderer;
+		public var mcItemRenderer6 : InstalledDLCMItemRenderer;
+		public var mcItemRenderer7 : InstalledDLCMItemRenderer;
+		public var mcItemRenderer8 : InstalledDLCMItemRenderer;
+		public var mcItemRenderer9 : InstalledDLCMItemRenderer;
+		public var mcItemRenderer10 : InstalledDLCMItemRenderer;
+		public var mcItemRenderer11 : InstalledDLCMItemRenderer;
+		public var txtSelectionInfo : TextField;
 
+		public var _lastMoveWasMouse : Boolean;
+		private var _panYAccumulator : Number;
+		protected var _mouseEventsRegistered : Boolean;
+		protected var _lastMouseOveredItem : int;
 		
-		public var txtSelectionInfo:TextField;
-		
-		public var _lastMoveWasMouse:Boolean = false;
-		
-		public function get lastMoveWasMouse():Boolean { return _lastMoveWasMouse; }
+		public function InstalledDLCModule()
+		{
+			_lastMoveWasMouse = false;
+			_panYAccumulator = 0;
+			_mouseEventsRegistered = false;
+			_lastMouseOveredItem = -1;
+		}
+
+		public function get lastMoveWasMouse():Boolean 
+		{ 
+			return _lastMoveWasMouse; 
+		}
+
 		public function set lastMoveWasMouse(value:Boolean):void
 		{
 			_lastMoveWasMouse = value;
@@ -74,6 +88,15 @@ package red.game.witcher3.menus.mainmenu
 				mcList.addEventListener(ListEvent.INDEX_CHANGE, OnListItemSelectionChange, false, 0, true);
 			}
 		}
+
+		protected function handleGesturePan( event : TransformGestureEvent ) : void
+		{	
+			var rowHeight : Number = mcItemRenderer1.height;
+			var result : Object = CommonUtils.stagePanToRowScroll( _panYAccumulator, rowHeight, event );
+
+			mcScrollbar.position -= result.outRowsToScroll;
+			_panYAccumulator = result.outPanYAccumulator;
+		}
 		
 		public function showWithData(data:Array):void
 		{
@@ -87,7 +110,7 @@ package red.game.witcher3.menus.mainmenu
 				mcList.selectedIndex = 0;
 			}
 			
-			registerMouseEvents();
+			registerMouseAndTouchEvents();
 		}
 		
 		protected function OnListItemSelectionChange( event:ListEvent ):void
@@ -106,11 +129,10 @@ package red.game.witcher3.menus.mainmenu
 		{
 			super.hide();
 			
-			unregisteredMouseEvents();
+			unregisterMouseAndTouchEvents();
 		}
 		
-		protected var _mouseEventsRegistered:Boolean = false;
-		public function registerMouseEvents():void
+		public function registerMouseAndTouchEvents():void
 		{
 			if (!_mouseEventsRegistered)
 			{
@@ -128,12 +150,13 @@ package red.game.witcher3.menus.mainmenu
 				registerMouseEventsForItem(mcItemRenderer10);
 				registerMouseEventsForItem(mcItemRenderer11);
 				
-				
-			
+				_panYAccumulator = 0;
+				addEventListener( TransformGestureEvent.GESTURE_PAN, handleGesturePan, false, 0, true );
+				mcList.enableTouch( true );
 			}
 		}
 		
-		public function unregisteredMouseEvents():void
+		public function unregisterMouseAndTouchEvents():void
 		{
 			if (_mouseEventsRegistered)
 			{
@@ -151,8 +174,9 @@ package red.game.witcher3.menus.mainmenu
 				unregisterMouseEventsForItem(mcItemRenderer10);
 				unregisterMouseEventsForItem(mcItemRenderer11);
 				
-				
-			
+				_panYAccumulator = 0;
+				mcList.enableTouch( false );
+				removeEventListener( TransformGestureEvent.GESTURE_PAN, handleGesturePan, false );
 			}
 		}
 		
@@ -168,7 +192,6 @@ package red.game.witcher3.menus.mainmenu
 			item.removeEventListener(MouseEvent.MOUSE_OUT, onItemMouseOut);
 		}
 		
-		protected var _lastMouseOveredItem:int = -1;
 		protected function onItemMouseOver(event:MouseEvent):void
 		{
 			var currentTarget:InstalledDLCMItemRenderer = event.currentTarget as InstalledDLCMItemRenderer;

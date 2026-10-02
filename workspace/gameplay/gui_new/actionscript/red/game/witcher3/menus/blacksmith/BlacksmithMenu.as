@@ -15,6 +15,7 @@ package red.game.witcher3.menus.blacksmith
 	import red.core.constants.KeyCode;
 	import red.core.CoreMenu;
 	import red.core.events.GameEvent;
+	import red.game.witcher3.constants.EInputDeviceType;
 	import red.game.witcher3.events.ControllerChangeEvent;
 	import red.game.witcher3.events.GridEvent;
 	import red.game.witcher3.events.SlotActionEvent;
@@ -32,6 +33,9 @@ package red.game.witcher3.menus.blacksmith
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.events.ListEvent;
 	import scaleform.clik.ui.InputDetails;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
+	import red.game.witcher3.slots.SlotsListBase;
 
 	public class BlacksmithMenu extends CoreMenu
 	{
@@ -77,7 +81,6 @@ package red.game.witcher3.menus.blacksmith
 		private var _xActionLabel:String;
 		private var _btn_switch_sections    : int = -1;
 
-		
 		public function BlacksmithMenu()
 		{
 			panelAddSocket.visible = false;
@@ -139,20 +142,36 @@ package red.game.witcher3.menus.blacksmith
 			mcPlayerGridModule.active = true;
 			mcPlayerGridModule.focused = 0;
 			mcPlayerGridModule.mcPlayerGrid.ignoreGridPosition = true;
+			mcPlayerGridModule.mcPlayerGrid.addEventListener( SlotsListBase.EVENT_SELECTED_TAPPED, onSlotItemTappedTwice, false, 0, true );
+			mcPlayerGridModule.mcPlayerGrid.addEventListener( SlotsListBase.EVENT_SELECTED_DOUBLE_TAPPED, onSlotItemTappedTwice, false, 0, true );
+
+			var inputMgr:InputManager = InputManager.getInstance();
+			inputMgr.addEventListener(ControllerChangeEvent.CONTROLLER_CHANGE, handleControllerChanged, false, 0, true);
 			
 			_stateMachine = new FiniteStateMachine();
 			_stateMachine.AddState(STATE_SELECTION, state_begin_selection, state_update_selection, null);
 			_stateMachine.AddState(STATE_CONFIRMATION, state_begin_confirmation, state_update_confirmation, null);
 			_stateMachine.AddState(STATE_WAITING, state_begin_waiting, state_update_waiting, null);
 			
-			if (_btn_switch_sections == -1 )
+			if (_btn_switch_sections == -1 && InputManager.getInstance().gamepadType != EInputDeviceType.IDT_Switch2_Mouser)
 			{
 				_btn_switch_sections = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_R3, -1 , "panel_button_common_jump_sections");
 			}
-
+			InputFeedbackManager.updateButtons(this);
 		}
 	
-		
+		private function onSlotItemTappedTwice( event : Event ) : void
+		{
+			var selected : SlotBase = event.target.getSelectedRenderer() as SlotBase;
+			trace( "BlacksmithMenu::onSlotItemTappedTwice : ", mcPlayerGridModule.hasFocus, selected, event );
+
+			//Since we disabled focus handling (mcPlayerGrid.focusable = false in super) We have to check if we are in focus manually.
+			if ( mcPlayerGridModule.hasFocus && selected )
+			{
+				activateSelectedItem();
+			}
+		}
+
 		public function updateItemsList(itemsList:Array):void
 		{
 			for each (var curDataStub in itemsList)
@@ -185,6 +204,23 @@ package red.game.witcher3.menus.blacksmith
 			panelRepair.playerMoney = value;
 			panelDisassemble.playerMoney = value;
 			panelAddSocket.playerMoney = value;
+		}
+
+		override protected function handleControllerChanged(event:ControllerChangeEvent):void
+		{
+			super.handleControllerChanged(event);
+
+			if (_btn_switch_sections == -1 && InputManager.getInstance().gamepadType != EInputDeviceType.IDT_Switch2_Mouser)
+			{
+				_btn_switch_sections = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_R3, -1 , "panel_button_common_jump_sections");
+			}
+			else if (_btn_switch_sections != -1)
+			{
+				InputFeedbackManager.removeButton(this, _btn_switch_sections);
+				_btn_switch_sections = -1;
+			}
+
+			InputFeedbackManager.updateButtons(this);
 		}
 		
 		private function setSectionsList(value:Array):void
@@ -257,17 +293,7 @@ package red.game.witcher3.menus.blacksmith
 				}
 			}
 		}
-		
-		private function handleItemSelected(event:ListEvent):void
-		{
-			_selectdTargetItem = null;
-			if (_stateMachine.currentState == STATE_SELECTION)
-			{
-				var selectedItem:SlotBase = event.itemRenderer as SlotBase;
-				displayItemInfo(selectedItem);
-			}
-		}
-		
+
 		private function activateSelectedItem():void
 		{
 			if (_stateMachine.currentState == STATE_SELECTION)
@@ -285,6 +311,17 @@ package red.game.witcher3.menus.blacksmith
 			}
 		}
 		
+		private function handleItemSelected(event:ListEvent):void
+		{
+			_selectdTargetItem = null;
+			if (_stateMachine.currentState == STATE_SELECTION)
+			{
+				var selectedItem:SlotBase = event.itemRenderer as SlotBase;
+				//This sets _selectdTargetItem
+				displayItemInfo(selectedItem);
+			}
+		}
+
 		private function displayItemInfo(targetItem:SlotBase):void
 		{
 			if (!_currentInfoPanel)
@@ -322,7 +359,8 @@ package red.game.witcher3.menus.blacksmith
 				
 				if (_xActionLabel != "")
 				{
-					InputFeedbackManager.appendButtonById(ACTION_REPAIR_ALL, NavigationCode.GAMEPAD_X, KeyCode.SPACE, _xActionLabel);
+					var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+					InputFeedbackManager.appendButtonById(ACTION_REPAIR_ALL, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.SPACE, _xActionLabel);
 				}
 				
 				InputFeedbackManager.updateButtons(this);
@@ -554,12 +592,17 @@ package red.game.witcher3.menus.blacksmith
 			var details:InputDetails = event.details;
             var keyPress:Boolean = (details.value == InputValue.KEY_DOWN || details.value == InputValue.KEY_HOLD);
 			var keyUp:Boolean = details.value == InputValue.KEY_UP;
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
 			if (keyUp)
 			{
 				switch(details.navEquivalent)
 				{
 					case NavigationCode.GAMEPAD_X :
-						if (_xActionLabel != "")
+					case NavigationCode.GAMEPAD_Y :
+						if (_xActionLabel != "" &&
+							((isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y) ||		// Y on switch
+							(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X)))		// X on other platforms
 						{
 							_inputMgr.reset();
 							dispatchEvent(new GameEvent(GameEvent.CALL, 'OnRepairAllItems'));

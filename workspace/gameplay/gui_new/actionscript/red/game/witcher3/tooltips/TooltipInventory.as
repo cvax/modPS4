@@ -51,6 +51,7 @@ package red.game.witcher3.tooltips
 		
 		protected const CONTENT_RIGHT_EDGE_POS:Number = 470;
 		
+		public var tfTransmogText:TextField;
 		public var tfEquippedTitle:TextField;
 		public var tfItemName:TextField;
 		public var tfItemRarity:TextField;
@@ -245,7 +246,7 @@ package red.game.witcher3.tooltips
 					backgroundAdditionalHeight = WARNING_TITLE_HEIGHT;// + EQUIPPED_TOOLTIP_PADDING_X;
 				}
 			}
-			
+						
 			if (mcShadow)
 			{
 				mcShadow.y = mcBackground.y;
@@ -576,7 +577,23 @@ package red.game.witcher3.tooltips
 					mcPropertyList.x = 7.85;
 				}
 			}
-			
+
+			if(_data.hasOwnProperty("TransmogText") && _data.TransmogText != "")
+			{
+				const TRANSMOG_OFFSET_X:Number = 2;
+				const TRANSMOG_OFFSET_Y:Number = 5;
+
+				applyTextValue(tfTransmogText, _data.TransmogText, false, true);
+				tfTransmogText.height = tfTransmogText.textHeight + CommonConstants.SAFE_TEXT_PADDING;
+				tfTransmogText.y = currentHeight - TRANSMOG_OFFSET_Y;
+				tfTransmogText.x -= TRANSMOG_OFFSET_X;
+				currentHeight += tfTransmogText.height;
+			}
+			else
+			{
+				if(tfTransmogText) tfTransmogText.visible = false;
+			}
+
 			if (btnCompareHint)
 			{
 				if (_data.equippedItemData && !InputManager.getInstance().isGamepad())
@@ -793,7 +810,7 @@ package red.game.witcher3.tooltips
 			}
 			
 			// apply safe area if not PC
-			if (InputManager.getInstance().getPlatform() != PlatformType.PLATFORM_PC)
+			if (InputManager.getInstance().getPlatform() != PlatformType.PLATFORM_PC && InputManager.getInstance().getPlatform() != PlatformType.PLATFORM_PC_GDK)
 			{
 				screenHeight *= 0.95;
 				screenWidth *= 0.95;

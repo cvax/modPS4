@@ -135,7 +135,7 @@ package red.game.witcher3.menus.gwint
 			
 			var attitudeName:String = attitudeToString(attitude);
 			
-			trace("GFX -#AI# ai has decided to use the following attitude:" + attitudeName);
+			CardManager.log("#AI# ai has decided to use the following attitude:" + attitudeName);
 			
 			_decidedCardTransaction = decideWhichCardToPlay();
 			
@@ -154,17 +154,17 @@ package red.game.witcher3.menus.gwint
 					var numShrooms:int = 0;
 					var numZerkers:int = 0;
 					
-					trace( "GFX +--------------------------------------------------------------" );
-					trace( "GFX | Evaluating chosen card + hand for Berserker Tactic potential" );
+					CardManager.log( "+--------------------------------------------------------------" );
+					CardManager.log("Evaluating chosen card + hand for Berserker Tactic potential" );
 					var rowType:int;
 					switch(_decidedCardTransaction.targetSlotID)
 					{
-					case CardManager.CARD_LIST_LOC_MELEE:	rowType = CardTemplate.CardType_Melee;	trace( "GFX | Selected Card being played on row: Melee" ); break;
-					case CardManager.CARD_LIST_LOC_RANGED:	rowType = CardTemplate.CardType_Ranged;	trace( "GFX | Selected Card being played on row: Ranged" ); break;
-					case CardManager.CARD_LIST_LOC_SEIGE:	rowType = CardTemplate.CardType_Siege;	trace( "GFX | Selected Card being played on row: Siege" ); break;
-					default: trace( "GFX | Selected Card being played on row: !! UNKNOWN !!" ); break;
+					case CardManager.CARD_LIST_LOC_MELEE:	rowType = CardTemplate.CardType_Melee;	CardManager.log("Selected Card being played on row: Melee" ); break;
+					case CardManager.CARD_LIST_LOC_RANGED:	rowType = CardTemplate.CardType_Ranged;	CardManager.log("Selected Card being played on row: Ranged" ); break;
+					case CardManager.CARD_LIST_LOC_SEIGE:	rowType = CardTemplate.CardType_Siege;	CardManager.log("Selected Card being played on row: Siege" ); break;
+					default: CardManager.log("Selected Card being played on row: !! UNKNOWN !!" ); break;
 					}
-					trace( "GFX |" );
+					CardManager.log("->");
 					
 					// How many muchroom cards + berserker cards do we have for this row?
 					for ( var i:int = 0; i < hand.length; ++i)
@@ -183,26 +183,26 @@ package red.game.witcher3.menus.gwint
 						}
 					}
 					
-					trace( "GFX | Zerkers [" + numZerkers + "]" );
-					trace( "GFX | Shrooms [" + numShrooms + "]" );
+					CardManager.log("Zerkers [" + numZerkers + "]" );
+					CardManager.log("Shrooms [" + numShrooms + "]" );
 					
 					// If we have at least 1 berserker and 1 mushroom then switch to Berserker tactic.
 					if (numZerkers && numShrooms &&
 						( _decidedCardTransaction.sourceCardInstanceRef.templateRef.hasEffect(CardTemplate.CardEffect_Morph) ||
 						_decidedCardTransaction.sourceCardInstanceRef.templateRef.hasEffect(CardTemplate.CardEffect_Mushroom)))
 					{
-						trace( "GFX |" );
+						CardManager.log("->");
 						attitude = TACTIC_BESERKER;
 						berserkerSelectedRowType = rowType;
 						berserkerMushroomPlaced = _decidedCardTransaction.sourceCardInstanceRef.templateRef.hasEffect(CardTemplate.CardEffect_Mushroom);
 						switch( berserkerSelectedRowType )
 						{
-							case CardTemplate.CardType_Melee:	trace( "GFX | Activating Berserker Tactic on row: Melee" ); break;
-							case CardTemplate.CardType_Ranged:	trace( "GFX | Activating Berserker Tactic on row: Ranged" ); break;
-							case CardTemplate.CardType_Siege:	trace( "GFX | Activating Berserker Tactic on row: Siege" ); break;
+							case CardTemplate.CardType_Melee:	CardManager.log("Activating Berserker Tactic on row: Melee" ); break;
+							case CardTemplate.CardType_Ranged:	CardManager.log("Activating Berserker Tactic on row: Ranged" ); break;
+							case CardTemplate.CardType_Siege:	CardManager.log("Activating Berserker Tactic on row: Siege" ); break;
 						}
 					}
-					trace( "GFX +--------------------------------------------------------------" );
+					CardManager.log("+--------------------------------------------------------------" );
 				}
 			}
 			else if (_currentRoundCritical && _decidedCardTransaction != null && !_decidedCardTransaction.sourceCardInstanceRef.templateRef.hasEffect(CardTemplate.CardEffect_UnsummonDummy) && 
@@ -212,7 +212,7 @@ package red.game.witcher3.menus.gwint
 				attitude = TACTIC_PASS;
 			}
 			
-			trace("GFX -#AI# the ai decided on the following transaction: " + _decidedCardTransaction);
+			CardManager.log("#AI# the ai decided on the following transaction: " + _decidedCardTransaction);
 		}
 		
 		protected function state_update_ChooseMove():void
@@ -223,7 +223,7 @@ package red.game.witcher3.menus.gwint
 				
 				if (attitude != TACTIC_PASS)
 				{
-					trace("GFX -#AI#--------------- WARNING ---------- AI is passing since chosen tactic was unable to find a transaction is liked");
+					CardManager.log("#AI#--------------- WARNING ---------- AI is passing since chosen tactic was unable to find a transaction is liked");
 				}
 				attitude = TACTIC_PASS; // If the other attitudes did not find something valid to play, then technically its a pass.
 			}
@@ -241,7 +241,7 @@ package red.game.witcher3.menus.gwint
 		
 		protected function state_begin_SendingCard():void
 		{
-			trace("GFX -#AI# AI is sending the following card into transaction: ", _decidedCardTransaction.sourceCardInstanceRef);
+			CardManager.log("#AI# AI is sending the following card into transaction: ", _decidedCardTransaction.sourceCardInstanceRef);
 			startCardTransaction(_decidedCardTransaction.sourceCardInstanceRef.instanceId);
 		}
 		
@@ -351,32 +351,32 @@ package red.game.witcher3.menus.gwint
 				var opponentRoundStatus:int = gameFlowControllerRef.playerControllers[opponentID].currentRoundStatus;
 			// }
 			
-			trace("GFX -#AI# ###############################################################################");			
-			trace("GFX -#AI#---------------------------- AI Deciding his next move --------------------------------");
-			trace("GFX -#AI#------ previousTactic: " + attitudeToString(attitude));
-			trace("GFX -#AI#------ playerCardsInHand: " + playerCardsInHand);
-			trace("GFX -#AI#------ opponentCardsInHand: " + opponentCardsInHand);
-			trace("GFX -#AI#------ cardAdvantage: " + cardAdvantage);
-			trace("GFX -#AI#------ scoreDifference: " + scoreDifference + ", his score: " + cardManagerRef.currentPlayerScores[playerID] + ", enemy score: " + cardManagerRef.currentPlayerScores[opponentID]);
-			trace("GFX -#AI#------ opponent has won: " + opponentHasWon);
-			trace("GFX -#AI#------ has won: " + hasWon);
-			trace("GFX -#AI#------ Num units in hand: " + numUnitsInHand);
+			CardManager.log("#AI# ###############################################################################");			
+			CardManager.log("#AI#---------------------------- AI Deciding his next move --------------------------------");
+			CardManager.log("#AI#------ previousTactic: " + attitudeToString(attitude));
+			CardManager.log("#AI#------ playerCardsInHand: " + playerCardsInHand);
+			CardManager.log("#AI#------ opponentCardsInHand: " + opponentCardsInHand);
+			CardManager.log("#AI#------ cardAdvantage: " + cardAdvantage);
+			CardManager.log("#AI#------ scoreDifference: " + scoreDifference + ", his score: " + cardManagerRef.currentPlayerScores[playerID] + ", enemy score: " + cardManagerRef.currentPlayerScores[opponentID]);
+			CardManager.log("#AI#------ opponent has won: " + opponentHasWon);
+			CardManager.log("#AI#------ has won: " + hasWon);
+			CardManager.log("#AI#------ Num units in hand: " + numUnitsInHand);
 			if (gameFlowControllerRef.playerControllers[opponentID].currentRoundStatus == ROUND_PLAYER_STATUS_DONE)
 			{
-				trace("GFX -#AI#------ has opponent passed: true");
+				CardManager.log("#AI#------ has opponent passed: true");
 			}
 			else
 			{
-				trace("GFX -#AI#------ has opponent passed: false");
+				CardManager.log("#AI#------ has opponent passed: false");
 			}
-			trace("GFX =#AI#=======================================================================================");
-			trace("GFX -#AI#-----------------------------   AI CARDS AT HAND   ------------------------------------");
+			CardManager.log("#AI#=======================================================================================");
+			CardManager.log("#AI#-----------------------------   AI CARDS AT HAND   ------------------------------------");
 			
 			for (i = 0; i < cardsInHand.length; ++i)
 			{
-				trace("GFX -#AI# Card Points[ ", cardsInHand[i].templateRef.power, " ], Card -", cardsInHand[i]);
+				CardManager.log("#AI# Card Points[ ", cardsInHand[i].templateRef.power, " ], Card -", cardsInHand[i]);
 			}
-			trace("GFX =#AI#=======================================================================================");
+			CardManager.log("#AI#=======================================================================================");
 			
 			var playerFaction:int = cardManagerRef.playerDeckDefinitions[playerID].getDeckFaction();
 			var opponentFaction:int = cardManagerRef.playerDeckDefinitions[opponentID].getDeckFaction();
@@ -859,7 +859,7 @@ package red.game.witcher3.menus.gwint
 							}
 						}
 						
-						trace("GFX [ WARNING ] -#AI#---- Uh oh, was in TACTIC_WAIT_DUMMY but was unable to get a valid dummy transaction :S");
+						CardManager.log("[ WARNING ] #AI#---- Uh oh, was in TACTIC_WAIT_DUMMY but was unable to get a valid dummy transaction :S");
 					}
 					break;
 				case TACTIC_SPY:

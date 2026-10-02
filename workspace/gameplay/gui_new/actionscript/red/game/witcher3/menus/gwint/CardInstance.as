@@ -1,5 +1,7 @@
-package red.game.witcher3.menus.gwint
+﻿package red.game.witcher3.menus.gwint
 {
+	import red.core.utils.Debug;
+
 	public class CardInstance
 	{
 		public static const INVALID_INSTANCE_ID:int = -1;
@@ -25,42 +27,55 @@ package red.game.witcher3.menus.gwint
 		public var BanishInsteadOfGraveyard:Boolean = false;
 		
 		public var InstancePositioning:Boolean = false;
+
+		public var originalCardInstance:CardInstance;
+		public var originalCardListId:int;
+
+		public var debugVerbose:int = 0;
+
+		public function log(...args)
+		{
+			CardManager.log.apply(null, args);
+		}
 		
 		public function getTotalPower(ignoreWeather:Boolean = false):int
 		{
-			var iter:int;
-			var currentBuffer:CardInstance;
+			var i:int = 0;
+			var effectingCard:CardInstance;
 			var affectedByWeather:Boolean = false;
 			var hornCounter:int = 0;	// Using a counter instead of a bool since cards like dandelion are essentially secondary horn sources
 			var moraleCounter:int = 0;
 			var tightBondsCounter:int = 0;
 			var cardManager:CardManager = CardManager.getInstance();
-			
+
+			log("getTotalPower of : instanceId:" + instanceId + " templateId:" + templateId);
+
 			if (!templateRef.isType(CardTemplate.CardType_Hero))
 			{
-				for (iter = 0; iter < effectedByCardsRefList.length; ++iter)
+				for (i = 0; i < effectedByCardsRefList.length; ++i)
 				{
-					currentBuffer = effectedByCardsRefList[iter];
+					effectingCard = effectedByCardsRefList[i];
+					log("	- effected by : " + effectingCard.templateId);
 					
-					if (currentBuffer.templateRef.isType(CardTemplate.CardType_Weather))
+					if (effectingCard.templateRef.isType(CardTemplate.CardType_Weather))
 					{
 						affectedByWeather = true;
 					}
 					
-					if (currentBuffer.templateRef.hasEffect(CardTemplate.CardEffect_Horn) ||
-						currentBuffer.templateRef.hasEffect(CardTemplate.CardEffect_Siege_Horn) ||
-						currentBuffer.templateRef.hasEffect(CardTemplate.CardEffect_Range_Horn) ||
-						currentBuffer.templateRef.hasEffect(CardTemplate.CardEffect_Melee_Horn))
+					if (effectingCard.templateRef.hasEffect(CardTemplate.CardEffect_Horn) ||
+						effectingCard.templateRef.hasEffect(CardTemplate.CardEffect_Siege_Horn) ||
+						effectingCard.templateRef.hasEffect(CardTemplate.CardEffect_Range_Horn) ||
+						effectingCard.templateRef.hasEffect(CardTemplate.CardEffect_Melee_Horn))
 					{
 						++hornCounter;
 					}
 					
-					if (currentBuffer.templateRef.hasEffect(CardTemplate.CardEffect_ImproveNeighbours))
+					if (effectingCard.templateRef.hasEffect(CardTemplate.CardEffect_ImproveNeighbours))
 					{
 						++moraleCounter;
 					}
 					
-					if (currentBuffer.templateRef.hasEffect(CardTemplate.CardEffect_SameTypeMorale))
+					if (effectingCard.templateRef.hasEffect(CardTemplate.CardEffect_SameTypeMorale))
 					{
 						++tightBondsCounter;
 					}
@@ -69,15 +84,18 @@ package red.game.witcher3.menus.gwint
 			
 			var totalPower:int = cardManager.getCardTemplate(templateId).power;
 			
-			if (!ignoreWeather && affectedByWeather)
+			if (!ignoreWeather )
 			{
-				if (cardManager.halfWeatherEnabled(listsPlayer))
+				if(affectedByWeather)
 				{
-					totalPower = Math.max(0, Math.floor(cardManager.getCardTemplate(templateId).power / 2));
-				}
-				else
-				{
-					totalPower = Math.min(1, cardManager.getCardTemplate(templateId).power);
+					if (cardManager.halfWeatherEnabled(listsPlayer))
+					{
+						totalPower = Math.max(0, Math.floor(cardManager.getCardTemplate(templateId).power / 2));
+					}
+					else
+					{
+						totalPower = Math.min(1, cardManager.getCardTemplate(templateId).power);
+					}
 				}
 			}
 			
@@ -93,7 +111,7 @@ package red.game.witcher3.menus.gwint
 			additionalPower += moraleCounter;
 			
 			if (hornCounter > 0) // To prevent stacking with Dandilion
-			//for (iter = 0; iter < hornCounter; ++iter)
+			//for (i = 0; i < hornCounter; ++i)
 			{
 				additionalPower += totalPower + additionalPower;
 			}
@@ -124,7 +142,7 @@ package red.game.witcher3.menus.gwint
 		
 		public function toString():String
 		{
-			return " powerChange[ " + this.getOptimalTransaction().powerChangeResult + " ] , strategicValue[ " + this.getOptimalTransaction().strategicValue +  " ] , CardName[ " + templateRef.title + " ] [Gwint CardInstance] instanceID:" + instanceId + ", owningPlayer[ " + owningPlayer + " ], templateId[ " + templateId + " ], inList[ " + inList + " ]";
+			return templateRef.title;
 		}
 		
 		public function canBeCastOn(cardInstance:CardInstance):Boolean
@@ -135,7 +153,7 @@ package red.game.witcher3.menus.gwint
 			}
 			
 			if (templateRef.hasEffect(CardTemplate.CardEffect_UnsummonDummy) && cardInstance.templateRef.isType(CardTemplate.CardType_Creature) && cardInstance.listsPlayer == listsPlayer &&
-			    cardInstance.inList != CardManager.CARD_LIST_LOC_HAND && cardInstance.inList != CardManager.CARD_LIST_LOC_GRAVEYARD && cardInstance.inList != CardManager.CARD_LIST_LOC_LEADER)
+			    cardInstance.inList != CardManager.CARD_LIST_LOC_HAND && cardInstance.inList != CardManager.CARD_LIST_LOC_GRAVEYARD && cardInstance.inList != CardManager.CARD_LIST_LOC_LEADER )
 			{
 				return true;
 			}
@@ -146,6 +164,8 @@ package red.game.witcher3.menus.gwint
 		public function canBePlacedInSlot(slotID:int, playerID:int):Boolean
 		{
 			var cardManagerRef:CardManager = CardManager.getInstance();
+
+			var opponentListsPlayer = listsPlayer == CardManager.PLAYER_1 ? CardManager.PLAYER_2 : CardManager.PLAYER_1;
 			
 			// Automatically discount these
 			if (slotID == CardManager.CARD_LIST_LOC_DECK || slotID == CardManager.CARD_LIST_LOC_GRAVEYARD)
@@ -161,11 +181,16 @@ package red.game.witcher3.menus.gwint
 			
 			// Player Validation
 			// {
-			if (playerID == listsPlayer && templateRef.isType(CardTemplate.CardType_Spy))
+			if (playerID == listsPlayer 
+				&& (templateRef.isType(CardTemplate.CardType_Spy) 
+				|| (templateRef.isType(CardTemplate.CardType_Opponent_Row_Modifier) && !templateRef.isType(CardTemplate.CardType_Row_Modifier))))
 			{
 				return false;
 			}
-			else if (!templateRef.isType(CardTemplate.CardType_Spy) && playerID != listsPlayer && (templateRef.isType(CardTemplate.CardType_Creature) || templateRef.isType(CardTemplate.CardType_Row_Modifier)))
+			else if (!templateRef.isType(CardTemplate.CardType_Spy) 
+					&& playerID != listsPlayer 
+					&& (templateRef.isType(CardTemplate.CardType_Creature) 
+						|| (templateRef.isType(CardTemplate.CardType_Row_Modifier) && !templateRef.isType(CardTemplate.CardType_Opponent_Row_Modifier))))
 			{
 				return false;
 			}
@@ -188,7 +213,7 @@ package red.game.witcher3.menus.gwint
 					return true;
 				}
 			}
-			else if (templateRef.isType(CardTemplate.CardType_Row_Modifier))
+			else if (templateRef.isType(CardTemplate.CardType_Row_Modifier) && playerID == listsPlayer)
 			{
 				if (slotID == CardManager.CARD_LIST_LOC_MELEEMODIFIERS && templateRef.isType(CardTemplate.CardType_Melee) && cardManagerRef.getCardInstanceList(CardManager.CARD_LIST_LOC_MELEEMODIFIERS, listsPlayer).length == 0)
 				{
@@ -203,9 +228,43 @@ package red.game.witcher3.menus.gwint
 					return true;
 				}
 			}
+			else if (templateRef.isType(CardTemplate.CardType_Opponent_Row_Modifier) && playerID == opponentListsPlayer)
+			{
+				if (slotID == CardManager.CARD_LIST_LOC_MELEEMODIFIERS && templateRef.isType(CardTemplate.CardType_Melee) && cardManagerRef.getCardInstanceList(CardManager.CARD_LIST_LOC_MELEEMODIFIERS, opponentListsPlayer).length == 0)
+				{
+					return true;
+				}
+				else if (slotID == CardManager.CARD_LIST_LOC_RANGEDMODIFIERS && templateRef.isType(CardTemplate.CardType_Ranged) && cardManagerRef.getCardInstanceList(CardManager.CARD_LIST_LOC_RANGEDMODIFIERS, opponentListsPlayer).length == 0)
+				{
+					return true;
+				}
+				else if (slotID == CardManager.CARD_LIST_LOC_SEIGEMODIFIERS && templateRef.isType(CardTemplate.CardType_Siege) && cardManagerRef.getCardInstanceList(CardManager.CARD_LIST_LOC_SEIGEMODIFIERS, opponentListsPlayer).length == 0)
+				{
+					return true;
+				}
+			}
 			// }
 			
 			return false;
+		}
+
+		public function getDefaultSpawnList(preferredList:int = -1):int
+		{
+			var possibleLists = new Vector.<int>;
+
+			if (templateRef.isType(CardTemplate.CardType_Melee))
+				possibleLists.push(CardManager.CARD_LIST_LOC_MELEE);
+				
+			if (templateRef.isType(CardTemplate.CardType_Ranged))
+				possibleLists.push(CardManager.CARD_LIST_LOC_RANGED);
+
+			if (templateRef.isType(CardTemplate.CardType_Siege))
+				possibleLists.push(CardManager.CARD_LIST_LOC_SEIGE);
+
+			if(possibleLists.length == 0 || possibleLists.indexOf(preferredList) != -1)
+				return preferredList;
+
+			return possibleLists[0];
 		}
 		
 		protected var _lastCalculatedPowerPotential:CardTransaction = new CardTransaction();
@@ -217,8 +276,6 @@ package red.game.witcher3.menus.gwint
 			_lastCalculatedPowerPotential.powerChangeResult = 0;
 			_lastCalculatedPowerPotential.strategicValue = 0;
 			_lastCalculatedPowerPotential.sourceCardInstanceRef = this;
-			var weatherCardList:Vector.<CardInstance> = cardManager.getCardInstanceList(CardManager.CARD_LIST_LOC_WEATHERSLOT, CardManager.PLAYER_INVALID);
-			var currentWeatherCard:CardInstance = weatherCardList.length > 0 ? weatherCardList[0] : null;
 			var cardList:Vector.<CardInstance>;
 			var opponentPlayer = listsPlayer == CardManager.PLAYER_1 ? CardManager.PLAYER_2 : CardManager.PLAYER_1;
 			var currentRowList:Vector.<CardInstance>;
@@ -234,7 +291,6 @@ package red.game.witcher3.menus.gwint
 			// {
 				if (templateRef.isType(CardTemplate.CardType_Creature))
 				{
-										
 					_lastCalculatedPowerPotential.targetPlayerID = templateRef.isType(CardTemplate.CardType_Spy) ? opponentPlayer : listsPlayer;
 					
 					if (templateRef.isType(CardTemplate.CardType_Melee))
@@ -524,6 +580,9 @@ package red.game.witcher3.menus.gwint
 					}
 					
 					_lastCalculatedPowerPotential.powerChangeResult = totalChange;
+
+					log("Weather Total Power Change : " + totalChange);
+
 					_lastCalculatedPowerPotential.strategicValue = Math.max(0, cardManager.cardValues.weatherCardValue - totalChange);
 					
 					if (templateRef.hasEffect(CardTemplate.CardEffect_ClearSky))
@@ -870,7 +929,7 @@ package red.game.witcher3.menus.gwint
 							totalScorchPower = scorchRowList[i].getTotalPower();
 							_lastCalculatedPowerPotential.powerChangeResult += totalScorchPower;
 							onlyScorchedCardsPower += totalScorchPower;
-							//trace("GFX -#IA#-----MARCIN------- Last calculated: [ " + _lastCalculatedPowerPotential.powerChangeResult + " ] onlyScorched: [ " + onlyScorchedCardsPower + " ]");
+							//log("GFX -#IA#-----MARCIN------- Last calculated: [ " + _lastCalculatedPowerPotential.powerChangeResult + " ] onlyScorched: [ " + onlyScorchedCardsPower + " ]");
 						}
 						
 						if (Math.random() >= (2 / scorchRowList.length) || Math.random() >= (4 / onlyScorchedCardsPower))
@@ -905,7 +964,7 @@ package red.game.witcher3.menus.gwint
 							totalScorchPower = scorchRowList[i].getTotalPower();
 							_lastCalculatedPowerPotential.powerChangeResult += totalScorchPower;
 							onlyScorchedCardsPower += totalScorchPower;
-							//trace("GFX -#IA#-----MARCIN------- Last calculated: [ " + _lastCalculatedPowerPotential.powerChangeResult + " ] onlyScorched: [ " + onlyScorchedCardsPower + " ]");
+							//log("GFX -#IA#-----MARCIN------- Last calculated: [ " + _lastCalculatedPowerPotential.powerChangeResult + " ] onlyScorched: [ " + onlyScorchedCardsPower + " ]");
 						}
 						
 						if (Math.random() >= (2 / scorchRowList.length) || Math.random() >= (4 / onlyScorchedCardsPower))
@@ -967,11 +1026,11 @@ package red.game.witcher3.menus.gwint
 						}
 						forNurseList.sort(powerChangeSorter);
 						currentInstance = forNurseList[forNurseList.length - 1];
-						// trace("GFX -#IA#- Nurse considers ressurecting:", currentInstance);
+						// log("GFX -#IA#- Nurse considers ressurecting:", currentInstance);
 						ressurectedCardValue = currentInstance.getOptimalTransaction().powerChangeResult;
 						_lastCalculatedPowerPotential.powerChangeResult += ressurectedCardValue;
 						
-						// trace("GFX -#IA#- Data for Nurse - playerCardsInHand.length[ "+ playerCardsInHand.length + " ] , ressurectedCardValue[ " + ressurectedCardValue + " ]");
+						// log("GFX -#IA#- Data for Nurse - playerCardsInHand.length[ "+ playerCardsInHand.length + " ] , ressurectedCardValue[ " + ressurectedCardValue + " ]");
 						if (Math.random() <= (1 / playerCardsInHand.length) || Math.random() >= (8 / ressurectedCardValue))
 						{
 							_lastCalculatedPowerPotential.strategicValue = 0;
@@ -1034,18 +1093,38 @@ package red.game.witcher3.menus.gwint
 		{
 			return _lastCalculatedPowerPotential;
 		}
+
+		public function clearEffects()
+		{
+			while (effectingCardsRefList.length > 0)
+			{
+				log("		removeFromEffectingList(effectingCardsRefList[0])", effectingCardsRefList[0])
+				removeFromEffectingList(effectingCardsRefList[0]);
+			}
+		}
+
+		public function clearEffectedCards()
+		{
+			while (effectedByCardsRefList.length > 0)
+			{
+				log("		effectedByCardsRefList[0].removeFromEffectingList(this)", effectedByCardsRefList[0])
+				effectedByCardsRefList[0].removeFromEffectingList(this);
+			}
+			
+			effectingCardsRefList.length = 0;
+		}
 		
 		public function onFinishedMovingIntoHolder(listID:int, playerID:int):void 
 		{
 			if (lastListApplied != listID || lastListPlayerApplied != playerID) 
 			{
-				trace("GFX - finished Moving into holder:", listID, ", playerID:", playerID, ", for cardInstance:", this);
+				log("finished Moving into holder:", listID, ", playerID:", playerID, ", for cardInstance:", this);
 				
 				var cardManagerRef:CardManager = CardManager.getInstance();
 				lastListApplied = listID;
 				lastListPlayerApplied = playerID;
 				var it:int;
-				var currentList:Vector.<CardInstance>;
+				var weathers:Vector.<CardInstance>;
 				var currentCard:CardInstance;
 				var cardFXManager:CardFXManager = CardFXManager.getInstance();
 				
@@ -1056,19 +1135,23 @@ package red.game.witcher3.menus.gwint
 				
 				// If we are going to graveyard, remove all buffs applied to us. The removing of buffs we are applying should be couple with the logic that applies it (BELOW)
 				{
-					while (effectingCardsRefList.length > 0)
-					{
-						removeFromEffectingList(effectingCardsRefList[0]);
-					}
-					
-					while (effectedByCardsRefList.length > 0)
-					{
-						effectedByCardsRefList[0].removeFromEffectingList(this);
-					}
-					
-					effectingCardsRefList.length = 0;
+					log("remove from effectingCardsRefList and effectedByCardsRefList", this);
+					log("		effectingCardsRefList", effectingCardsRefList);
+
+					clearEffects();
+					clearEffectedCards();
+
+					log("unregisterActiveEffectCardInstance(this)", this);
 					cardManagerRef.cardEffectManager.unregisterActiveEffectCardInstance(this);
+
+					log("powerChangeCallback()");
+
+					if(powerChangeCallback == null)
+					{
+						throw Error("wtf happened to powerChangeCallback, it's null");
+					}
 					powerChangeCallback();
+					log("after powerChangeCallback()");
 					
 					if (listID == CardManager.CARD_LIST_LOC_GRAVEYARD || listID == CardManager.CARD_LIST_LOC_HAND)
 					{
@@ -1084,30 +1167,30 @@ package red.game.witcher3.menus.gwint
 				{
 					if (templateRef.hasEffect(CardTemplate.CardEffect_ClearSky))
 					{
-						var cardList:Vector.<CardInstance> = cardManagerRef.getCardInstanceList(CardManager.CARD_LIST_LOC_WEATHERSLOT, CardManager.PLAYER_INVALID);
+						weathers = cardManagerRef.getCardInstanceList(CardManager.CARD_LIST_LOC_WEATHERSLOT, CardManager.PLAYER_INVALID);
 						
-						trace("GFX - Applying Clear weather effect, numTargets: " + cardList.length);
+						log("Applying Clear weather effect, numTargets: " + weathers.length);
 						
-						while (cardList.length > 0)
+						while (weathers.length > 0)
 						{
-							cardManagerRef.sendToGraveyard(cardList[0]);
+							cardManagerRef.sendToGraveyard(weathers[0]);
 						}
 					}
 					else
 					{
-						currentList = new Vector.<CardInstance>();
+						weathers = new Vector.<CardInstance>();
 						var weatherList:Vector.<CardInstance> = cardManagerRef.getCardInstanceList(CardManager.CARD_LIST_LOC_WEATHERSLOT, CardManager.PLAYER_INVALID);
 						
 						for each (var curWeather:CardInstance in weatherList)
 						{
-							currentList.push(curWeather);
+							weathers.push(curWeather);
 						}
 						
-						if (templateRef.effectFlags.length == 2) // Skellige storm
+						if (templateRef.effectFlags.length > 1) // Skellige storm 
 						{
-							for (it = 0; it < currentList.length; ++it)
+							for (it = 0; it < weathers.length; ++it)
 							{
-								currentCard = currentList[it];
+								currentCard = weathers[it];
 								
 								if (currentCard != this)
 								{	
@@ -1124,9 +1207,9 @@ package red.game.witcher3.menus.gwint
 						}
 						else
 						{
-							for (it = 0; it < currentList.length; ++it)
+							for (it = 0; it < weathers.length; ++it)
 							{
-								currentCard = currentList[it];
+								currentCard = weathers[it];
 								
 								if (currentCard.templateRef.effectFlags.indexOf(templateRef.getFirstEffect()) != -1 && currentCard != this) // Same weather card, just needs to be replaced, no sfx
 								{
@@ -1152,6 +1235,7 @@ package red.game.witcher3.menus.gwint
 			
 			if (indexOf != -1)
 			{
+				log("removeFromEffectingList: instanceId:", instanceId, "templateId:", templateId, "cardInstance: instanceId:", cardInstance.instanceId, "templateId:", cardInstance.templateId);
 				effectingCardsRefList.splice(indexOf, 1);
 				cardInstance.removeEffect(this);
 				powerChangeCallback();
@@ -1169,25 +1253,84 @@ package red.game.witcher3.menus.gwint
 		
 		protected function addEffect(sourceOfEffect:CardInstance):void
 		{
+			var cardManagerRef:CardManager = CardManager.getInstance();
+			var cardEffectManagerRef:CardEffectManager = cardManagerRef.cardEffectManager;
+
+			log("add effect", sourceOfEffect.templateId, ":", this);
+
 			effectedByCardsRefList.push(sourceOfEffect);
 			powerChangeCallback();
 			
-			//trace("GFX ----- Effected Added sourceID: ", sourceOfEffect.instanceId, ", targetID:", this.instanceId);
+			//log("GFX ----- Effected Added sourceID: ", sourceOfEffect.instanceId, ", targetID:", this.instanceId);
 		}
 		
-		protected function removeEffect(sourceEffect:CardInstance):void
+		protected function removeEffect(sourceOfEffect:CardInstance):void
 		{
-			var indexOf:int = effectedByCardsRefList.indexOf(sourceEffect);
+			log("remove effect", sourceOfEffect.templateId, ":", this);
+
+			var cardManagerRef:CardManager = CardManager.getInstance();
+			var cardEffectManagerRef:CardEffectManager = cardManagerRef.cardEffectManager;
+
+			var indexOf:int = effectedByCardsRefList.indexOf(sourceOfEffect);
 			if (indexOf != -1)
 			{
 				effectedByCardsRefList.splice(indexOf, 1);
 				powerChangeCallback();
-				//trace("GFX ----- Removing Added Effect sourceID: ", sourceEffect.instanceId, ", targetID:", this.instanceId);
 			}
 			else
 			{
-				//trace("GFX ------------------- WARNING, tried to remove effect fromID:", sourceEffect.instanceId, ", but could not find reference in list of:", this.instanceId);
+				//log("GFX ------------------- WARNING, tried to remove effect fromID:", sourceEffect.instanceId, ", but could not find reference in list of:", this.instanceId);
 			}
+		}
+
+		public function getFirstEffectCard(cardEffect:int):CardInstance
+		{
+			for (var i = 0; i<effectedByCardsRefList.length; ++i)
+			{
+				if(effectedByCardsRefList[i].templateRef.hasEffect(cardEffect))
+					return effectedByCardsRefList[i];
+			}
+			return null;
+		}
+
+		public function onAddedToList(newListId:int, oldListID:int, playerId:int)
+		{
+			var cardManagerRef:CardManager = CardManager.getInstance();
+			var i:int;
+			var cardList:Vector.<CardInstance>;
+
+			// sent to graveyard and game is not over
+			if (newListId == CardManager.CARD_LIST_LOC_GRAVEYARD)
+			{
+				if (!GwintGameFlowController.getInstance().isGameOver() )
+				{
+					if(templateRef.hasEffect(CardTemplate.CardEffect_SuicideSummon))
+					{
+						if (templateRef.summonFlags.length > 0)
+						{
+							GwintGameMenu.mSingleton.playSound(
+								templateRef.factionIdx == CardTemplate.FactionId_Skellige ?
+									"gui_gwint_hero" :
+									"gui_gwint_cow_death");
+						}
+						
+						for (i = 0; i < templateRef.summonFlags.length; ++i)
+						{
+							cardManagerRef.addPendingCardToSpawn(templateRef.summonFlags[i], listsPlayer);
+						}
+					}
+				}
+			}
+		}
+
+		public function onRemovingFromList(oldListID:int, playerId:int)
+		{
+
+		}
+
+		public function onRemovedFromList(oldListID:int, playerId:int)
+		{
+			
 		}
 		
 		// #J used by the CardFXManager callback for playing fx so added in unused parameter to make life easier.
@@ -1202,22 +1345,23 @@ package red.game.witcher3.menus.gwint
 			var gameFlowRef:GwintGameFlowController = GwintGameFlowController.getInstance();
 			var effectedList:int = CardManager.CARD_LIST_LOC_INVALID;
 			
-			trace("GFX - updateEffectsApplied Called ----------");
-			
 			// Creatures
 			// {
-				if (templateRef.isType(CardTemplate.CardType_Creature) && !templateRef.isType(CardTemplate.CardType_Hero))
 				{
-					cardList = cardManagerRef.cardEffectManager.getEffectsForList(inList, listsPlayer);
-					
-					trace("GFX - fetched: ", cardList.length, ", effects for list:", inList, ", and Player:", listsPlayer);
-					
-					for (it = 0; it < cardList.length; ++it)
+					if (templateRef.isType(CardTemplate.CardType_Creature))
 					{
-						currentInstance = cardList[it];
-						if (currentInstance != this)
+						cardList = cardManagerRef.cardEffectManager.getEffectsForList(inList, listsPlayer);
+
+						for (it = 0; it < cardList.length; ++it)
 						{
-							currentInstance.addToEffectingList(this);
+							currentInstance = cardList[it];
+							if (currentInstance != this)
+							{
+								if (!templateRef.isType(CardTemplate.CardType_Hero))
+								{
+									currentInstance.addToEffectingList(this);
+								}
+							}
 						}
 					}
 				}
@@ -1237,7 +1381,7 @@ package red.game.witcher3.menus.gwint
 							cardManagerRef.getAllCreaturesNonHero(CardManager.CARD_LIST_LOC_MELEE, CardManager.PLAYER_2, cardList);
 							cardManagerRef.cardEffectManager.registerActiveEffectCardInstance(this, CardManager.CARD_LIST_LOC_MELEE, CardManager.PLAYER_1);
 							cardManagerRef.cardEffectManager.registerActiveEffectCardInstance(this, CardManager.CARD_LIST_LOC_MELEE, CardManager.PLAYER_2);
-							trace("GFX - Applying Melee Weather Effect");
+							log("Applying Melee Weather Effect");
 						}
 						
 						if (templateRef.hasEffect(CardTemplate.CardEffect_Ranged))
@@ -1246,7 +1390,7 @@ package red.game.witcher3.menus.gwint
 							cardManagerRef.getAllCreaturesNonHero(CardManager.CARD_LIST_LOC_RANGED, CardManager.PLAYER_2, cardList);
 							cardManagerRef.cardEffectManager.registerActiveEffectCardInstance(this, CardManager.CARD_LIST_LOC_RANGED, CardManager.PLAYER_1);
 							cardManagerRef.cardEffectManager.registerActiveEffectCardInstance(this, CardManager.CARD_LIST_LOC_RANGED, CardManager.PLAYER_2);
-							trace("GFX - Applying Ranged Weather Effect");
+							log("Applying Ranged Weather Effect");
 						}
 						
 						if (templateRef.hasEffect(CardTemplate.CardEffect_Siege))
@@ -1255,7 +1399,7 @@ package red.game.witcher3.menus.gwint
 							cardManagerRef.getAllCreaturesNonHero(CardManager.CARD_LIST_LOC_SEIGE, CardManager.PLAYER_2, cardList);
 							cardManagerRef.cardEffectManager.registerActiveEffectCardInstance(this, CardManager.CARD_LIST_LOC_SEIGE, CardManager.PLAYER_1);
 							cardManagerRef.cardEffectManager.registerActiveEffectCardInstance(this, CardManager.CARD_LIST_LOC_SEIGE, CardManager.PLAYER_2);
-							trace("GFX - Applying SIEGE Weather Effect");
+							log("Applying SIEGE Weather Effect");
 						}
 						
 						for (it = 0; it < cardList.length; ++it)
@@ -1274,7 +1418,7 @@ package red.game.witcher3.menus.gwint
 					var scorchList:Vector.<CardInstance> = cardManagerRef.getScorchTargets();
 					var i:int;
 					
-					trace("GFX - Applying Scorch Effect, number of targets: " + scorchList.length);
+					log("Applying Scorch Effect, number of targets: " + scorchList.length);
 					
 					GwintGameMenu.mSingleton.playSound("gui_gwint_scorch");
 					for (i = 0; i < scorchList.length; ++i)
@@ -1293,7 +1437,7 @@ package red.game.witcher3.menus.gwint
 					{
 						scorchMeleeList = cardManagerRef.getScorchTargets(CardTemplate.CardType_Melee, notListPlayer);
 						
-						trace("GFX - Applying scorchMeleeList, number of targets: " + scorchMeleeList.length);
+						log("Applying scorchMeleeList, number of targets: " + scorchMeleeList.length);
 						
 						GwintGameMenu.mSingleton.playSound("gui_gwint_scorch");
 						for (it = 0; it < scorchMeleeList.length; ++it)
@@ -1313,7 +1457,7 @@ package red.game.witcher3.menus.gwint
 					{
 						scorchRangedList = cardManagerRef.getScorchTargets(CardTemplate.CardType_Ranged, notListPlayer);
 						
-						trace("GFX - Applying scorchRangedList, number of targets: " + scorchRangedList.length);
+						log("Applying scorchRangedList, number of targets: " + scorchRangedList.length);
 						
 						GwintGameMenu.mSingleton.playSound("gui_gwint_scorch");
 						for (it = 0; it < scorchRangedList.length; ++it)
@@ -1333,7 +1477,7 @@ package red.game.witcher3.menus.gwint
 					{
 						scorchSiegeList = cardManagerRef.getScorchTargets(CardTemplate.CardType_Siege, notListPlayer);
 						
-						trace("GFX - Applying scorchSiegeList, number of targets: " + scorchSiegeList.length);
+						log("Applying scorchSiegeList, number of targets: " + scorchSiegeList.length);
 						
 						GwintGameMenu.mSingleton.playSound("gui_gwint_scorch");
 						for (it = 0; it < scorchSiegeList.length; ++it)
@@ -1349,7 +1493,7 @@ package red.game.witcher3.menus.gwint
 				if (templateRef.hasEffect(CardTemplate.CardEffect_Horn))
 				{
 					// Step 1 (TODO?) removed this buff from all currently buffed units (in case its being moved to graveyard/another row
-					trace("GFX - Applying Horn Effect ----------");
+					log("Applying Horn Effect ----------");
 					
 					// Step 2, see if it is effecting a row and buff the respective card instances
 					effectedList = CardManager.CARD_LIST_LOC_INVALID;
@@ -1366,7 +1510,7 @@ package red.game.witcher3.menus.gwint
 						effectedList = CardManager.CARD_LIST_LOC_SEIGE;
 					}
 					
-					if (effectedList != CardManager.PLAYER_INVALID)
+					if (effectedList != CardManager.CARD_LIST_LOC_INVALID)
 					{
 						cardList = cardManagerRef.getCardInstanceList(effectedList, listsPlayer);
 						
@@ -1471,7 +1615,7 @@ package red.game.witcher3.menus.gwint
 					copyList = new Vector.<CardInstance>();
 					cardManagerRef.GetRessurectionTargets(listsPlayer, copyList, true);
 					
-					trace("GFX - Applying Nurse Effect");
+					log("Applying Nurse Effect");
 
 					if (copyList.length > 0)
 					{
@@ -1501,7 +1645,7 @@ package red.game.witcher3.menus.gwint
 				{
 					cardList = cardManagerRef.getCardInstanceList(inList, listsPlayer);
 					
-					trace("GFX - Applying Improve Neightbours effect");
+					log("Applying Improve Neightbours effect");
 					
 					for (it = 0; it < cardList.length; ++it)
 					{
@@ -1525,7 +1669,7 @@ package red.game.witcher3.menus.gwint
 					cardList = new Vector.<CardInstance>();
 					cardManagerRef.getAllCreaturesNonHero(inList, listsPlayer, cardList);
 					
-					trace("GFX - Applying Right Bonds effect");
+					log("Applying Right Bonds effect");
 					
 					var foundOtherCard:Boolean = false;
 					
@@ -1578,7 +1722,7 @@ package red.game.witcher3.menus.gwint
 						}
 					}
 					
-					trace("GFX - Applying Summon Clones Effect, found summons: " + hasSummons);
+					log("Applying Summon Clones Effect, found summons: " + hasSummons);
 					
 					if (hasSummons)
 					{
@@ -1587,12 +1731,11 @@ package red.game.witcher3.menus.gwint
 				}
 			// }
 			
-			// Draw Card
+			// Draw Card (x2)
 			// {
 				if (templateRef.hasEffect(CardTemplate.CardEffect_Draw2))
 				{
-					trace("GFX - applying draw 2 effect");
-					
+					log("applying draw 2 effect");
 					cardManagerRef.drawCards(listsPlayer == CardManager.PLAYER_1 ? CardManager.PLAYER_2 : CardManager.PLAYER_1, 2);
 				}
 			// }
@@ -1732,43 +1875,47 @@ package red.game.witcher3.menus.gwint
 				var currentCardInHand:CardInstance;
 				var preWeatherDeBuff:int = 0;
 				var effectList:Vector.<CardInstance>;
-				var typeToCheck:int;
+				var listsToCheck = new Vector.<int>;
 				var effectCard_it:int;
 				
 				if (templateRef.hasEffect(CardTemplate.CardEffect_Melee))
 				{
-					typeToCheck = CardManager.CARD_LIST_LOC_MELEE;
+					listsToCheck.push(CardManager.CARD_LIST_LOC_MELEE);
 				}
-				else if (templateRef.hasEffect(CardTemplate.CardEffect_Ranged))
+				if (templateRef.hasEffect(CardTemplate.CardEffect_Ranged))
 				{
-					typeToCheck = CardManager.CARD_LIST_LOC_RANGED;
+					listsToCheck.push(CardManager.CARD_LIST_LOC_RANGED);
 				}
-				else if (templateRef.hasEffect(CardTemplate.CardEffect_Siege))
+				if (templateRef.hasEffect(CardTemplate.CardEffect_Siege))
 				{
-					typeToCheck = CardManager.CARD_LIST_LOC_SEIGE;
+					listsToCheck.push(CardManager.CARD_LIST_LOC_SEIGE);
 				}
-				
-				effectList = cardManager.cardEffectManager.getEffectsForList(typeToCheck, listsPlayer);
-				
-				for (var list_it:int = 0; list_it < cardsInHand.length; ++list_it)
+
+				for (var listToCheck_it:int = 0; listToCheck_it < listsToCheck.length; ++listToCheck_it)
 				{
-					currentCardInHand = cardsInHand[list_it];
-					// RangedMelee is too complicated to put in this quick fallback and is so ignored as it would require a check of other weather effects
-					if (currentCardInHand.templateRef.isType(CardTemplate.CardType_Creature) && !currentCardInHand.templateRef.isType(CardTemplate.CardType_RangedMelee)
-						&& currentCardInHand.templateRef.isType(typeToCheck)) 
+					var listToCheck = listsToCheck[listToCheck_it];
+					effectList = cardManager.cardEffectManager.getEffectsForList(listToCheck, listsPlayer);
+					
+					for (var list_it:int = 0; list_it < cardsInHand.length; ++list_it)
 					{
-						// Add current board buffs to card (has disadvantage of not checking how the cards in your hand will interact with each other but its better than nothing
-						for (effectCard_it = 0; effectCard_it < effectList.length; ++effectCard_it)
+						currentCardInHand = cardsInHand[list_it];
+						// RangedMelee is too complicated to put in this quick fallback and is so ignored as it would require a check of other weather effects
+						if (currentCardInHand.templateRef.isType(CardTemplate.CardType_Creature) && !currentCardInHand.templateRef.isType(CardTemplate.CardType_RangedMelee)
+							&& currentCardInHand.templateRef.isType(listsToCheck)) 
 						{
-							currentCardInHand.effectedByCardsRefList.push(effectList[effectCard_it]);
+							// Add current board buffs to card (has disadvantage of not checking how the cards in your hand will interact with each other but its better than nothing
+							for (effectCard_it = 0; effectCard_it < effectList.length; ++effectCard_it)
+							{
+								currentCardInHand.effectedByCardsRefList.push(effectList[effectCard_it]);
+							}
+							
+							preWeatherDeBuff = currentCardInHand.getTotalPower();
+							
+							currentCardInHand.effectedByCardsRefList.push(this);
+							lossPointsPotential += Math.max(0, preWeatherDeBuff - currentCardInHand.getTotalPower());
+							
+							currentCardInHand.effectedByCardsRefList.length = 0;
 						}
-						
-						preWeatherDeBuff = currentCardInHand.getTotalPower();
-						
-						currentCardInHand.effectedByCardsRefList.push(this);
-						lossPointsPotential += Math.max(0, preWeatherDeBuff - currentCardInHand.getTotalPower());
-						
-						currentCardInHand.effectedByCardsRefList.length = 0;
 					}
 				}
 				
@@ -1778,6 +1925,21 @@ package red.game.witcher3.menus.gwint
 			{
 				return 0;
 			}
+		}
+
+		private function internalReplaceWith(templateId:int, targetPlayer:int, targetList:int, rememberOriginal:Boolean)
+		{
+			var cardManagerRef:CardManager = CardManager.getInstance();
+			var replacement = cardManagerRef.spawnCardInstance(templateId, targetPlayer);
+			if(rememberOriginal)
+				replacement.originalCardInstance = this;
+			replacement.originalCardListId = targetList;
+			BanishInsteadOfGraveyard = true;
+			cardManagerRef.sendToGraveyard(this);
+			cardManagerRef.addCardInstanceToList(replacement, targetList, targetPlayer);
+			replacement.InstancePositioning = false;
+			CardFXManager.getInstance().spawnFX(replacement, null, CardFXManager.getInstance()._placeFiendFXClassRef);
+			replacement.onFinishedMovingIntoHolder(targetList, targetPlayer);
 		}
 	}
 }

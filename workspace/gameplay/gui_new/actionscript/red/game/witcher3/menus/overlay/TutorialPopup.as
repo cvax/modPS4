@@ -31,6 +31,17 @@
 	import scaleform.clik.ui.InputDetails;
 	import red.game.witcher3.utils.CommonUtils;
 	import red.core.CoreComponent;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
+	import flash.events.Event;
+	import red.game.witcher3.constants.PlatformType;
+	import flash.display.Loader;
+	import flash.display.LoaderInfo;
+	import flash.system.ApplicationDomain;
+	import flash.system.LoaderContext;
+	import flash.net.URLRequest;
+	import flash.utils.getDefinitionByName;
+	import red.game.witcher3.menus.common.W3VideoObject;
 
 	/**
 	 * Tempory tutorial popup
@@ -50,7 +61,7 @@
 		protected static const BUTTONS_PADDING:Number = 15;
 		protected static const BUTTONS_OFFSET:Number = 10;
 
-		protected static const TOP_OFFSET_FOR_TITLE:Number = 90;
+		protected static const TOP_OFFSET_FOR_TITLE:Number = 42;
 		protected static const SAFE_TEXTFIELD_OFFSET:Number = 5;
 		protected static const BLOCK_PADDING:Number = 2;
 		protected static const GLOSSARY_RIGHT_PADDING:Number = 60;
@@ -58,24 +69,28 @@
 		protected static const GLOSSARY_HEIGHT:Number = 70;
 		protected static const BOTTOM_PADDING:Number = 10;
 
-		public var btnAccept:InputFeedbackButton;
-		public var btnGlossary:InputFeedbackButton;
-		public var txtTitle:TextField;
-		public var txtDescription:TextField;
-		public var topDelemiter:Sprite;
-		public var background:MovieClip;
-		public var titleModule:TutorialPopupTitle;
-		public var mcErrorFeedback:MovieClip;
-		public var mcCorrectFeedback:MovieClip;
-		public var contentMask:Sprite;
+		public var btnAccept			:InputFeedbackButton;
+		public var btnGlossary			:InputFeedbackButton;
+		public var txtTitle				:TextField;
+		public var txtDescription		:TextField;
+		public var topDelemiter			:Sprite;
+		public var background			:MovieClip;
+		public var titleModule			:TutorialPopupTitle;
+		public var mcErrorFeedback		:MovieClip;
+		public var mcCorrectFeedback	:MovieClip;
+		public var contentMask			:Sprite;
 		
-		public var borderLineTop:Sprite;
-		public var borderLineBottom:Sprite;
+		public var borderLineTop		:Sprite;
+		public var borderLineBottom		:Sprite;
 		
-		protected var _autosize:Boolean;
-		protected var _data:Object;
-		protected var _imageLoader:UILoader;
+		protected var _autosize			:Boolean;
+		protected var _data				:Object;
+		protected var _imageLoader		:UILoader;
+
+		private var isSwitchAnim 		: Boolean;
 		
+		public var	mcVideoObject		: W3VideoObject;
+
 		public function TutorialPopup()
 		{
 			visible = false;
@@ -100,7 +115,7 @@
 
 		public function playFeedbackAnimation(isCorrect:Boolean):void
 		{
-			if (isCorrect)
+			if ( isCorrect )
 			{
 				mcCorrectFeedback.gotoAndPlay(2);
 			}
@@ -131,24 +146,28 @@
 
 		protected function populateData():void
 		{
+			trace("TutorialPopup::populateData");
+
 			var waitImageLoading:Boolean = false;
-			
-			if (_data.imagePath)
+			if ( _data.imagePath )
 			{
 				loadImage(_data.imagePath);
 				waitImageLoading = true;
 			}
 
-			if (_data.messageTitle)
+			SetSwitchAnimation();
+
+			if ( _data.messageTitle )
 			{
+				txtTitle.visible = true;
 				txtTitle.text = _data.messageTitle;
 				txtTitle.text = CommonUtils.toUpperCaseSafe(txtTitle.text);
-				//txtTitle.width = txtTitle.textWidth + CommonConstants.SAFE_TEXT_PADDING;
+				txtTitle.width = txtTitle.textWidth + CommonConstants.SAFE_TEXT_PADDING;
 				txtTitle.height = txtTitle.textHeight + CommonConstants.SAFE_TEXT_PADDING;
 				txtTitle.textColor = (_data.isUiTutorial ? 0x0 : 0xAD8F51);
 				topDelemiter.visible = true;
-				
-				var format:TextFormat = new TextFormat();
+
+				var format:TextFormat = txtTitle.getTextFormat(); //new overwrites centering of title
 				if (CoreComponent.isArabicAligmentMode)
 				{
 					format.font = "$NormalFont";
@@ -157,22 +176,29 @@
 				{
 					format.font = "$BoldFont";
 				}
-				
+
 				txtTitle.setTextFormat(format);
+
+				trace("TutorialPopup::populateData - title : ", _data.messageTitle );
+			}
+			else
+			{
+				txtTitle.visible = false;
+				topDelemiter.visible = false;
 			}
 			if (_data.messageText)
 			{
 				txtDescription.width = MIN_WIDTH;
 				txtDescription.multiline = true;
 				txtDescription.wordWrap = true;
-				
+
 				var msgText:String = CommonUtils.fixFontStyleTags(_data.messageText);
-				
+
 				if (_data.isUiTutorial)
 				{
 					_data.messageText = "<font color = '#0'>" + msgText + "</font>";
 				}
-				
+
 				if ( CoreComponent.isArabicAligmentMode )
 				{
 					txtDescription.htmlText = "<p align=\"right\">" + _data.messageText +"</p>";
@@ -182,7 +208,8 @@
 					txtDescription.htmlText = _data.messageText;
 				}
 				txtDescription.visible = true;
-				
+
+				trace("TutorialPopup::populateData - text : ", _data.messageText );
 				/*
 				 * don't used
 				 * 
@@ -200,7 +227,7 @@
 					txtDescription.wordWrap = false;
 				}
 				*/
-				
+
 			}
 			if (_data.enableGlossaryLink)
 			{
@@ -208,6 +235,7 @@
 				btnGlossary.overrideTextColor = _data.isUiTutorial ? 0 : -1;
 				btnGlossary.label = "[[panel_title_glossary]]";
 				btnGlossary.setDataFromStage(NavigationCode.GAMEPAD_BACK, -1, KeyCode.PAD_PS4_OPTIONS, 1000);
+				btnGlossary.addEventListener( GestureEventEx.GESTURE_TAP, handleGlossaryTap, false, 0, true );
 				btnGlossary.visible = true;				
 				btnGlossary.holdCallback = handleGlossaryLink;
 				btnGlossary.validateNow();
@@ -222,6 +250,7 @@
 				btnAccept.overrideTextColor = _data.isUiTutorial ? 0 : -1;
 				btnAccept.label = "[[panel_continue]]";
 				btnAccept.setDataFromStage(NavigationCode.GAMEPAD_A, KeyCode.SPACE);				
+				btnAccept.addEventListener( GestureEventEx.GESTURE_TAP, handleAcceptTap, false, 0, true );
 				btnAccept.visible = true;
 				btnAccept.validateNow();
 			}
@@ -229,9 +258,9 @@
 			{
 				btnAccept.visible = false;
 			}
-			
+
 			background.gotoAndStop(_data.isUiTutorial ? "ui" : "game");
-			
+
 			if (!waitImageLoading)
 			{
 				alignContent();
@@ -242,19 +271,26 @@
 		{
 			var currentHeight:Number = 0;
 			var currentWidth:Number = 0;
-			
+
 			var screenRect:Rectangle = CommonUtils.getScreenRect();
-			
+
 			var safePadding:Number;
-			
+
 			if (topDelemiter.visible)
 			{
-				currentHeight += (TOP_OFFSET_FOR_TITLE + BLOCK_PADDING);
+				currentHeight += (TOP_OFFSET_FOR_TITLE + BLOCK_PADDING) - BOTTOM_PADDING;
 			}
 			else
 			{
 				currentHeight += BLOCK_PADDING * 4;
 			}
+
+			if(txtTitle.visible)
+			{
+				txtTitle.height = txtTitle.textHeight + SAFE_TEXTFIELD_OFFSET;
+				currentHeight += txtTitle.height;
+			}
+
 			if (txtDescription.visible)
 			{
 				txtDescription.y = currentHeight;
@@ -269,6 +305,7 @@
 			{
 				btnAccept.y = currentHeight + GLOSSARY_PADDING + GLOSSARY_HEIGHT / 2;
 			}
+
 			if (btnGlossary.visible)
 			{
 				btnGlossary.y = currentHeight + GLOSSARY_PADDING + GLOSSARY_HEIGHT / 2;
@@ -280,6 +317,18 @@
 			}
 			
 			currentHeight += BOTTOM_PADDING;
+			
+			if(isSwitchAnim && mcVideoObject)
+			{	
+			 	trace( "DebugTutorial : align switch animation::e : ", isSwitchAnim , mcVideoObject);
+				mcVideoObject.y = txtDescription.height + BLOCK_PADDING + 45;
+				currentHeight += 270 ;
+			}
+			else
+			{
+				trace( "DebugTutorial anim : no switch animation to align, isSwitchAnim:  " + isSwitchAnim);
+			}
+		
 			background.height = currentHeight + BLOCK_PADDING;
 			
 			// Width
@@ -308,17 +357,22 @@
 			mcCorrectFeedback.y = mcErrorFeedback.y = background.y;
 			mcCorrectFeedback.width = mcErrorFeedback.width = background.width;
 			mcCorrectFeedback.height = mcErrorFeedback.height = background.height;
-			
+
 			var centerPointX:Number = Math.round(currentWidth / 2) + safePadding;
 			var centerPointY:Number = Math.round(currentHeight / 2);
-			
+
 			txtDescription.x = centerPointX - txtDescription.width / 2;
 			topDelemiter.x = centerPointX;
 			topDelemiter.y =  txtTitle.y + txtTitle.height + BOTTOM_PADDING;
+
+			if(txtTitle.visible)
+				txtDescription.y = topDelemiter.y + BOTTOM_PADDING * 1.5;
+			else
+				txtDescription.y = txtTitle.y;
 			txtTitle.x = centerPointX - txtTitle.width / 2;
-			
+
 			// controls
-			
+
 			if (btnAccept.visible && btnGlossary.visible)
 			{
 				btnGlossary.x = centerPointX + BUTTONS_PADDING - BUTTONS_OFFSET;
@@ -329,9 +383,9 @@
 				btnGlossary.x = centerPointX - btnGlossary.getViewWidth() / 2;
 				btnAccept.x = centerPointX - btnAccept.getViewWidth() / 2;
 			}
-			
+
 			const OFFSET_FOR_WIDE_SCREEN = 0;
-			
+
 			if (_data.showAnimation)
 			{
 				contentMask.y = centerPointY;
@@ -340,11 +394,11 @@
 				contentMask.height = 1;
 				borderLineTop.y = centerPointY - 1;
 				borderLineBottom.y = centerPointY + 1;
-				
+
 				GTweener.removeTweens(contentMask);
 				GTweener.removeTweens(borderLineTop);
 				GTweener.removeTweens(borderLineBottom);
-				
+
 				const animDuration = .4;
 				GTweener.to(contentMask, animDuration, { height : (background.height) }, { ease:Sine.easeInOut, onComplete:handleShown } );
 				GTweener.to(borderLineTop, animDuration, { y : 0 }, { ease:Sine.easeInOut } );
@@ -358,8 +412,94 @@
 				borderLineTop.y = 0;
 				borderLineBottom.y = background.height - 1;
 			}
+
+			// if(_imageLoader)
+			// {
+			// 	_imageLoader.y += txtDescription.height + BLOCK_PADDING + 130;
+			// 	_imageLoader.x += 125;
+
+			// 	background.height += 440;
+			// }		
+
+			dispatchEvent(new Event(Event.RESIZE));		
+		}
+
+		private function SetSwitchAnimation()
+		{
+			if( InputManager.getInstance().getPlatform() != PlatformType.PLATFORM_SWITCH2)
+			{
+				isSwitchAnim = false;
+				mcVideoObject.visible = false;
+				return;
+			}
+			var stringName : String = String(_data.scriptTag);
 			
-			dispatchEvent(new Event(Event.RESIZE));
+			trace( "DebugTutorial SetSwitchAnimation:"+ stringName );
+
+			switch(stringName)
+			{
+				case "TutorialSignCastVesemirMotionControls":
+					StartLoadSwitchAnim( _data.extraInfo );					
+					break;
+
+				case "TutorialSignCastMotionControls":
+					StartLoadSwitchAnim( _data.extraInfo );																	
+					break;
+
+				case "TutorialHorseSpeed2MotionControls":
+					StartLoadSwitchAnim("horse_acceleration_canter");		
+					break;					
+
+				case "TutorialHorseStopMotionControls":
+					StartLoadSwitchAnim("horse_stop");		
+					break;
+
+				case "TutorialHorseSummonMotionControls":
+					StartLoadSwitchAnim("horse_summon");		
+					break;
+
+				case "TutorialPotionEquippedPrimaryMotionControls":
+					StartLoadSwitchAnim("primary_consumable");		
+					break;
+
+				case "TutorialPotionEquippedSecondaryMotionControls":
+					StartLoadSwitchAnim("secondary_consumable");		
+					break;
+
+				case "TutorialThrowHoldGyroscope":
+					StartLoadSwitchAnim("gyro_aiming_bomb");		
+					break;
+
+				case "TutorialCrossbowMotionControls":
+					StartLoadSwitchAnim("crossbow");		
+					break;
+
+				case "TutorialPetardsMotionControls":
+					StartLoadSwitchAnim("throw_bomb");		
+					break;
+
+				default:
+					isSwitchAnim = false;
+					mcVideoObject.visible = false;
+					break;
+			}
+		}
+		
+		private function StartLoadSwitchAnim( name : String)
+		{
+			trace( "DebugTutorial tutorialpopup: StartLoadSwitchAnim:"+ name );
+			isSwitchAnim = true;
+
+			if(mcVideoObject)
+			{
+				mcVideoObject.visible = true;
+				mcVideoObject.PlayVideo("movies\\gui\\embedded\\tutorials\\switch2\\" + name + ".usm", true);
+				alignContent();				
+			}
+			else
+			{
+				trace( "DebugTutorial tutorialpopup: NOMC:"+ name );
+			}
 		}
 
 		private const HOLD_CANVAS_OFFSET:Number = 200;
@@ -374,6 +514,12 @@
 			btnGlossary.visible = false;
 			txtTitle.text = "";
 			removeImageLoader();
+			
+			if(mcVideoObject)
+			{
+				mcVideoObject.visible = false;
+				isSwitchAnim = false;
+			}			
 		}
 
 		private function loadImage(imagePath:String):void
@@ -421,18 +567,35 @@
 				dispatchEvent( new GameEvent( GameEvent.CALL, 'OnGotoGlossary' ) );
 			}
 		}
-		
+
+		protected function handleGlossaryTap(event:GestureEvent) : void
+		{
+			trace("TutorialPopup - handleGlossaryTap");
+			handleGlossaryLink();
+		}
+
+		protected function close()
+		{
+			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnCloseByUser' ) );
+		}
+
 		public function proccedInput(event:InputEvent, useDownEvent:Boolean = false):void
 		{
 			var details    : InputDetails = event.details;
 			var isEnable   : Boolean = _data && _data.enableAcceptButton && visible && parent.visible;
 			var isKeyUp    : Boolean = details.value == (useDownEvent ? InputValue.KEY_DOWN : InputValue.KEY_UP);
 			var iskeyValid : Boolean = details.code == KeyCode.ESCAPE || details.navEquivalent == NavigationCode.GAMEPAD_A;
-			
+
 			if ( isEnable && isKeyUp && iskeyValid )
 			{
-				dispatchEvent( new GameEvent( GameEvent.CALL, 'OnCloseByUser' ) );
+				close();
 			}
+		}
+
+		protected function handleAcceptTap(event:GestureEvent) : void
+		{
+			trace("TutorialPopup - handleAcceptTap");
+			close();
 		}
 	}
 }

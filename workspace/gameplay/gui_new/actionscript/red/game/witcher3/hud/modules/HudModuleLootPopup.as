@@ -2,8 +2,10 @@
 {
 	import flash.events.TimerEvent;
 	import flash.utils.Timer;
+	
 	import red.core.events.GameEvent;
 	import red.game.witcher3.hud.modules.lootpopup.HudLootItemModule;
+
 	import scaleform.clik.events.InputEvent;
 
 	public class HudModuleLootPopup extends HudModuleBase
@@ -57,6 +59,14 @@
 
 
 			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnConfigUI' ) );
+		}
+		//>------------------------------------------------------------------------------------------------------------------
+		//-------------------------------------------------------------------------------------------------------------------
+		override public function setPlatform(platformType:uint):void
+		{
+			super.setPlatform(platformType);
+
+			mcLootItemModule.setPlatform(platformType);
 		}
 		//>------------------------------------------------------------------------------------------------------------------
 		//-------------------------------------------------------------------------------------------------------------------

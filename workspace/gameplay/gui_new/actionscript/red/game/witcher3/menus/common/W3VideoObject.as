@@ -4,8 +4,6 @@ package red.game.witcher3.menus.common
 	
 	import flash.display.MovieClip;
 	
-	import flash.events.Event;
-	
 	import flash.media.Video;
 	import flash.net.NetConnection;
 	import flash.net.NetStream;
@@ -21,107 +19,92 @@ package red.game.witcher3.menus.common
 	
 	public class W3VideoObject extends UIComponent
 	{
-		
 		public var video : MovieClip;
-		private var ns:NetStream;
-		private var videoToPlay:String;
+
+		private var m_videoObj : Video;
+		private var m_netConnection : NetConnection;
+		private var m_netStream : NetStream;
+		private var m_netClient : Object;
+		private var m_currentMovie : String;
+		private var m_loop : Boolean;
+		private var m_soundTransform : SoundTransform;
+		private var m_subSoundTransform : SoundTransform;
 		
 		public function W3VideoObject()
 		{
 			super();
+
+			m_videoObj = new Video(video.width, video.height);
+
+			video.addChild(m_videoObj);
+
+			m_netConnection = new NetConnection();
+			m_netConnection.connect(null);
+
+			m_netStream = new NetStream(m_netConnection);
+
+			m_videoObj.attachNetStream(m_netStream);
+
+			m_netClient = new Object();
+			m_netClient.onMetaData = handleMetaDataEvent;
+			m_netClient.onCuePoint = handleCuePointEvent;
+			m_netClient.onSubtitle = handleSubtitleEvent;
+
+			m_netStream.client = m_netClient;
+			//m_netStream.bufferTime = 1.5;
+
+			SetSoundVolume( 1.0 );
+
+			m_netStream.addEventListener(NetStatusEvent.NET_STATUS, statusHandler, false, 0, true);
 		}
 		
 		protected override function configUI():void
 		{
 			super.configUI();
-			update();
 		}
 		
-		private function update()
+		public function PlayVideo(movieName : String, loop : Boolean ) : void
 		{
-		}
-		
-		public function OpenVideo(movieName : String, loop : Boolean )
-		{
-			videoToPlay = movieName;
-			//videoToPlay = "W3_DEMO_START.usm";
-			/*if ( ns )
+			if (m_currentMovie == movieName && m_loop == loop)
 			{
-				ns.close();
-			}*/
-			var myVideo:Video = new Video(video.width, video.height);
-			video.addChild(myVideo);
-			
-			var nc:NetConnection = new NetConnection();
-			nc.connect(null);
-			ns = new NetStream(nc);
-			
-			myVideo.attachNetStream(ns);
-
-			var netClient:Object = new Object();
-			netClient.onMetaData = handleMetaDataEvent;
-			netClient.onCuePoint = handleCuePointEvent;
-			netClient.onSubtitle = handleSubtitleEvent;
-			ns.client = netClient;
-
-			var sound:SoundTransform = new SoundTransform( 1.0 );
-			var subSound:SoundTransform = new SoundTransform( 1.0 );
-			
-			ns.soundTransform = sound;
-			
-			if ( Extensions.enabled )
-			{
-				ns["subSoundTransform"] = subSound;
+				return;
 			}
 
-			//btn_play.selected = true;
+			m_videoObj.clear();
+			m_netStream.close()
 
-			ns.bufferTime = 1.5;
-			
-			//ns.reloadThresholdTime = 0.3;
-			//ns.numberOfFramePools = 1;
-			//ns.openTimeout = 0;
-			
+			m_currentMovie = movieName;
+			m_loop = loop;
+
 			if ( Extensions.isScaleform )
 			{
-				ns["loop"] = loop;
+				m_netStream["loop"] = m_loop;
 			}
 			
-			ns.play(videoToPlay);
-			ns.addEventListener(NetStatusEvent.NET_STATUS, statusHandler);
-			trace("video play "+videoToPlay);
+			m_netStream.play(m_currentMovie);
+			
+			trace("video play " + m_currentMovie);
 		}
 		
-		function statusHandler(event:NetStatusEvent):void {
+		private function statusHandler(event : NetStatusEvent) : void
+		{
 			trace("status: " + event.info.code);
 
 			if(event.info.code == "NetStream.Play.Start")
 			{
-		//		ns.audioTrack = 16;
-		//		ns.voiceTrack = 17;
-		//		ns.subAudioTrack = 18;
-		//		ns.subtitleTrack = 1;
-		//		ns.s
+
 			}
 
-			if (event.info.code == "NetStream.Play.Stop") {
-				dispatchEvent( new GameEvent( GameEvent.CALL, 'OnSkipMovie' ) );
-				//ns.seek(0);
-				//ns.play(videoToPlay);
-				//myvideo.clear();
+			if (event.info.code == "NetStream.Play.Stop")
+			{
+				//dispatchEvent( new GameEvent( GameEvent.CALL, 'OnSkipMovie' ) );
 			}
 		}
 		
-		/*
-		public function get IconPath():String { return _iconPath; }
-		public function set IconPath(value:String):void
+		private function handleMetaDataEvent(meta : Object) : void
 		{
-			_iconPath = value;
-			updateIcon();
-		}*/
-		
-		function handleMetaDataEvent(meta:Object):void {
-			if (meta) {
+			if (meta)
+			{
 				trace("duration: "    + meta.duration);
 				trace("width: "       + meta.width);
 				trace("height: "      + meta.height);
@@ -132,35 +115,43 @@ package red.game.witcher3.menus.common
 				trace("cuePoints: "      + meta.cuePointsCount);
 			}
 		}
-		function handleCuePointEvent(item:Object):void {
-			if (item) {
+
+		private function handleCuePointEvent(item : Object) : void
+		{
+			if (item)
+			{
 				trace("cuePoint: " + item.name + ", " + item.time + ", " + item.type);
-				for (var param:String in item.parameters) {
+
+				for (var param : String in item.parameters)
+				{
 					trace("\t" + param + ":\t" + item.parameters[param]);
 				}
 			}
 		}
-		function handleSubtitleEvent(msg:String) {
-			if (msg) {
+
+		private function handleSubtitleEvent(msg : String) : void
+		{
+			if (msg)
+			{
 				trace("subtitle: " + msg);
 			}
 		}
 		
 		public function PauseVideo() : void
 		{
-			ns.togglePause();
+			m_netStream.togglePause();
 		}
 		
-		public function SetSoundVolume(value:Number)
+		public function SetSoundVolume(value : Number) : void
 		{
-			var sound:SoundTransform = new SoundTransform( value );
-			var subSound:SoundTransform = new SoundTransform( value );
+			m_soundTransform = new SoundTransform( value );
+			m_subSoundTransform = new SoundTransform( value );
 			
-			ns.soundTransform = sound;
+			m_netStream.soundTransform = m_soundTransform;
 			
 			if ( Extensions.enabled )
 			{
-				ns["subSoundTransform"] = subSound;
+				m_netStream["subSoundTransform"] = m_subSoundTransform;
 			}
 		}
 	}

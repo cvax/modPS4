@@ -14,6 +14,8 @@ package red.game.witcher3.slots
 	import red.game.witcher3.interfaces.IDropTarget;
 	import red.game.witcher3.managers.InputManager;
 	import scaleform.clik.events.InputEvent;
+	import red.game.witcher3.menus.character_menu.MenuCharacterDupe;
+	import scaleform.clik.constants.InputValue;
 	
 	/**
 	 * ...
@@ -124,6 +126,9 @@ package red.game.witcher3.slots
 			{
 				return;
 			}
+
+			if(event.details.value == InputValue.KEY_DOWN)
+				return;
 			
 			if (keyCode == KeyCode.PAD_A_CROSS || keyCode == KeyCode.ENTER || keyCode == KeyCode.NUMPAD_ENTER || keyCode == KeyCode.SPACE)
 			{
@@ -134,7 +139,11 @@ package red.game.witcher3.slots
 					event.handled = true;
 				}
 			}
-			if (keyCode == KeyCode.PAD_X_SQUARE)
+
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
+			if ((isSwitchPlatform && keyCode == KeyCode.PAD_Y_TRIANGLE) ||		// Y on switch
+				(!isSwitchPlatform && keyCode == KeyCode.PAD_X_SQUARE))			// X on other platforms
 			{
 				fireActionEvent(InventoryActionType.SUB_ACTION, SlotActionEvent.EVENT_SECONDARY_ACTION);
 				if (event)
@@ -152,7 +161,7 @@ package red.game.witcher3.slots
 		
 		override protected function fireTooltipShowEvent(isMouseTooltip:Boolean = false):void
 		{
-			if (!(activeSelectionEnabled || !InputManager.getInstance().isGamepad()) && isParentEnabled())
+			if (!(activeSelectionEnabled || InputManager.getInstance().isMouse()) && isParentEnabled())
 			{
 				return;
 			}
@@ -266,6 +275,11 @@ package red.game.witcher3.slots
 				else
 				{
 					dispatchEvent( new GameEvent( GameEvent.CALL, 'OnEquipMutagen', [uint(itemData.id), slotType] ) );
+				}
+				if(parent && parent.parent && parent.parent.parent is MenuCharacterDupe)
+				{
+					(parent.parent.parent as MenuCharacterDupe).moveHighlightOverMutagenSlot(this);
+					(parent.parent.parent as MenuCharacterDupe).changeHighlightSize(0.5);
 				}
 				
 				// update selection

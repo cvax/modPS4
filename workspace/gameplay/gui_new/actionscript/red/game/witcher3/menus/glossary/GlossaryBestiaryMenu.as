@@ -40,6 +40,7 @@ package red.game.witcher3.menus.glossary
 	import flash.external.ExternalInterface;
 
 	import red.game.witcher3.menus.common.DropdownListModuleBase;
+	import red.game.witcher3.utils.CommonUtils;
 
 	Extensions.enabled = true;
 	Extensions.noInvisibleAdvance = true;
@@ -84,6 +85,11 @@ package red.game.witcher3.menus.glossary
 			super.configUI();
 			stage.addEventListener( InputEvent.INPUT, handleInput, false, 0, true );
 			addEventListener( GridEvent.ITEM_CHANGE, onGridItemChange, false, 0, true );
+
+			mcMainListModule.enableTouch( true );
+			mcMainListModule.mcDropDownList.listHeight = 750;
+			mcMainListModule.mcScrollBar.height = 740;
+			mcTextAreaModule.enableTouch( true );
 
 			_contextMgr.defaultAnchor = mcAnchor_MODULE_Tooltip;
 			_contextMgr.addGridEventsTooltipHolder(stage);
@@ -133,6 +139,7 @@ package red.game.witcher3.menus.glossary
 			}
 
 			var details:InputDetails = event.details;
+			CommonUtils.fixupKeyCode( details );
             var keyPress:Boolean = details.value == InputValue.KEY_UP;// (details.value == InputValue.KEY_DOWN || details.value == InputValue.KEY_HOLD);
 
 			if (keyPress)

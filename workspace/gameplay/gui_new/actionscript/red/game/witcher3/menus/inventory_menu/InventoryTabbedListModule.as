@@ -29,8 +29,10 @@ package red.game.witcher3.menus.inventory_menu
 	import red.game.witcher3.slots.SlotBase;
 	import red.game.witcher3.slots.SlotInventoryGrid;
 	import red.game.witcher3.slots.SlotsListGrid;
+	import red.game.witcher3.slots.SlotsListBase;
 	import red.game.witcher3.utils.CommonUtils;
 	import scaleform.clik.core.UIComponent;
+	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.data.DataProvider;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.events.ListEvent;
@@ -80,11 +82,18 @@ package red.game.witcher3.menus.inventory_menu
 			
 			stage.addEventListener(SlotBase.NEW_FLAG_CLEARED, onNewFlagCleared, true, 0, true);
 
+			enableSelectTabWithTap( true );
+
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, dataBindingKey + ".itemUpdate", [handleItemUpdate]));
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, dataBindingKey + ".itemsUpdate", [handleItemsUpdate]));
 
 			if (mcPlayerGrid)
 			{
+				mcPlayerGrid.enableTouch( true );
+				mcPlayerGrid.enableScrollWithPan( true );
+				mcPlayerGrid.addEventListener( SlotsListBase.EVENT_SELECTED_TAPPED, onSlotItemTappedTwice, false, 0, true );
+				mcPlayerGrid.addEventListener( SlotsListBase.EVENT_SELECTED_DOUBLE_TAPPED, onSlotItemTappedTwice, false, 0, true );
+
 				mcPlayerGrid.gridMaskOffset = gridMaskOffset;
 				mcPlayerGrid.focusable = false;
 				mcPlayerGrid.handleScrollBar = true;
@@ -94,6 +103,18 @@ package red.game.witcher3.menus.inventory_menu
 			}
 			
 			bToCloseEnabled = true;
+		}
+
+		private function onSlotItemTappedTwice( event : Event ) : void
+		{
+			var gridSelected : SlotInventoryGrid = mcPlayerGrid.getSelectedRenderer() as SlotInventoryGrid;
+			var selected : SlotInventoryGrid = event.target.getSelectedRenderer() as SlotInventoryGrid;
+			trace( "InventoryTabbedListModule::onSlotItemTappedTwice : ", gridSelected, selected, event );
+			//Since we disabled focus handling (mcPlayerGrid.focusable = false) We have to check if we are in focus manually.
+			if ( isOpen && hasFocus && selected )
+			{
+				selected.tryExecuteAssignedAction();
+			}
 		}
 				
 		public function setItemSections(sectionsList:GridTabSections):void
@@ -575,7 +596,7 @@ package red.game.witcher3.menus.inventory_menu
 		
 		override public function handleInput( event:InputEvent ):void
 		{
-			if (!InputManager.getInstance().isGamepad() && event.details.code == KeyCode.ESCAPE )
+			if (InputManager.getInstance().isMouse() && (event.details.code == KeyCode.ESCAPE || event.details.navEquivalent == NavigationCode.GAMEPAD_B) )
 			{
 				// close menu
 				return;

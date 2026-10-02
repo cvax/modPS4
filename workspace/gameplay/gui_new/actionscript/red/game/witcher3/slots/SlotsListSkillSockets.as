@@ -11,30 +11,47 @@ package red.game.witcher3.slots
 	public class SlotsListSkillSockets extends SlotsListPreset
 	{
 		private var _slotContainer:MovieClip;
+
+		override protected function configUI():void
+		{
+			super.configUI();
+			
+			_allowKeyDowns = true;
+		}
 		
 		override protected function initRenderers():void
 		{
+			trace("GFX # initRenderers");
 			super.initRenderers();
 			
 			// hack to restore proper indexes
-			/*
+			
 			if (_renderers)
 			{
 				_renderers.sort(rendererNameSorter);
 				_renderers.forEach( function(t:SlotBase) { t.index = _renderers.indexOf(t)  } );
 			}
-			*/
-		}
+			
+		}		
 		
-		/*
 		override protected function rendererNameSorter(element1:IBaseSlot, element2:IBaseSlot):Number
 		{
-			var uiComponent1:SlotSkillSocket = element1 as MutationItemRenderer;
-			var uiComponent2:MutationItemRenderer = element2 as MutationItemRenderer;
-			
-			return (uiComponent1.slotNavigationId < uiComponent2.slotNavigationId) ? -1 : 1;
+			var uiComponent1:SlotSkillSocket = element1 as SlotSkillSocket;
+			var uiComponent2:SlotSkillSocket = element2 as SlotSkillSocket;
+
+			if (!uiComponent1 && !uiComponent2) {
+
+				var mcElem1 : MovieClip = element1 as MovieClip;
+				var mcElem2 : MovieClip = element2 as MovieClip;
+				return (mcElem1.name < mcElem2.name)? -1 : 1;
+			}
+
+			if(uiComponent1 && !uiComponent2) return -1;
+			else if(uiComponent2 && !uiComponent1) return 1;
+
+			return (uiComponent1.slotId < uiComponent2.slotId) ? -1 : 1;
 		}
-		*/
+		
 		
 		/*
 		override public function findSelection():void
@@ -59,6 +76,19 @@ package red.game.witcher3.slots
 			trace("GFX * RES SEL: ", selectedIndex);
 		}
 		*/
+		/*
+		public function traceRenderers():void
+		{
+			var renderersCount:int = _renderers.length;
+
+			var targetRenderer:MovieClip;
+			
+			for (var i:int = 0; i < renderersCount; i++)
+			{
+				targetRenderer = _renderers[i] as MovieClip;
+				trace("GFX - i:", i , targetRenderer.name);
+			}
+		}*/
 		
 		override protected function populateData():void
 		{

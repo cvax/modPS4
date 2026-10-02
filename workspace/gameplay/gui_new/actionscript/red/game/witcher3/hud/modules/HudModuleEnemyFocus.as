@@ -11,7 +11,6 @@
 	import red.game.witcher3.constants.CommonConstants;
 	import red.game.witcher3.hud.modules.HudModuleBase;
 	import scaleform.clik.controls.StatusIndicator;
-	import flashx.textLayout.formats.Float;
 	import com.gskinner.motion.GTween;
 	import com.gskinner.motion.GTweener;
 	import com.gskinner.motion.easing.Exponential;

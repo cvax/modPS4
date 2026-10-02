@@ -1,7 +1,11 @@
 package red.game.witcher3.menus.gwint
 {
+	import flash.events.Event;
+	import flash.events.GestureEvent;
 	import flash.events.MouseEvent;
+	
 	import red.core.constants.KeyCode;
+	import red.core.events.GestureEventEx;
 	import red.game.witcher3.constants.GwintInputFeedback;
 	import red.game.witcher3.controls.InputFeedbackButton;
 	import red.game.witcher3.controls.W3ChoiceDialog;
@@ -9,13 +13,15 @@ package red.game.witcher3.menus.gwint
 	import red.game.witcher3.events.GwintHolderEvent;
 	import red.game.witcher3.events.InputFeedbackEvent;
 	import red.game.witcher3.managers.InputFeedbackManager;
+	import red.game.witcher3.managers.InputManager;
+
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.events.ListEvent;
 	import scaleform.clik.ui.InputDetails;
 	import scaleform.gfx.MouseEventEx;
-	
+
 	public class HumanPlayerController extends BasePlayerController
 	{
 		protected var _handHolder:GwintCardHolder;
@@ -71,10 +77,11 @@ package red.game.witcher3.menus.gwint
 				}
 				
 				_skipButton.addEventListener(MouseEvent.CLICK, handleSkipTurn, false, 0, true);
+				_skipButton.enablePressToHold(true);
 			}
 		}
 		
-		private function handleSkipTurn(event:MouseEvent = null):void
+		private function handleSkipTurn(event:Event = null):void
 		{
 			skipTurn();
 		}
@@ -194,7 +201,8 @@ package red.game.witcher3.menus.gwint
 				var leaderCard:CardLeaderInstance = CardManager.getInstance().getCardLeader(playerID);
 				if (leaderCard && leaderCard.canBeUsed)
 				{
-					InputFeedbackManager.appendButtonById(GwintInputFeedback.leaderCard, NavigationCode.GAMEPAD_X, KeyCode.X, "gwint_use_leader");
+					var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+					InputFeedbackManager.appendButtonById(GwintInputFeedback.leaderCard, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.X, "gwint_use_leader");
 				}
 				if (_handHolder.cardSlotsList.length > 0)
 				{
@@ -378,7 +386,7 @@ package red.game.witcher3.menus.gwint
 				return;
 			}
 			
-			trace("GFX handleCardSelected <", _stateMachine.currentState, "> ", event.cardSlot);
+			// CardManager.log("handleCardSelected <", _stateMachine.currentState, "> ", event.cardSlot);
 			
 			if (event.cardSlot)
 			{
@@ -415,7 +423,7 @@ package red.game.witcher3.menus.gwint
 				return;
 			}
 			
-			trace("GFX handleHolderSelected <", _stateMachine.currentState, "> ", _transactionCard, event.cardHolder);
+			CardManager.log("handleHolderSelected <", _stateMachine.currentState, "> ", _transactionCard, event.cardHolder);
 			
 			switch (_stateMachine.currentState)
 			{
@@ -459,7 +467,7 @@ package red.game.witcher3.menus.gwint
 			{
 				return;
 			}
-			trace("GFX handleCardChosen <", _stateMachine.currentState, "> ", event.cardSlot);
+			CardManager.log("handleCardChosen <", _stateMachine.currentState, "> ", event.cardSlot);
 			
 			if (event.cardSlot)
 			{
@@ -497,7 +505,7 @@ package red.game.witcher3.menus.gwint
 		
 		protected function handleHolderChosen(event:GwintHolderEvent):void
 		{
-			trace("GFX handleHolderChosen <", _stateMachine.currentState, "> ", _transactionCard, event.cardHolder);
+			CardManager.log("handleHolderChosen <", _stateMachine.currentState, "> ", _transactionCard, event.cardHolder);
 			
 			if (_transactionCard && _stateMachine.currentState == "ChoosingHandler")
 			{
@@ -547,7 +555,39 @@ package red.game.witcher3.menus.gwint
 				_boardRenderer.handleMouseMove(event);
 			}
 		}
-		
+
+		private function toggleZoom( event : Event ) : void
+		{
+			if (_stateMachine.currentState == "Idle" || _stateMachine.currentState == "ChoosingCard")
+			{
+				if (_currentZoomedHolder == null)
+				{
+					tryStartZoom();
+					if (mcChoiceDialog.visible)
+					{
+						mcChoiceDialog.ignoreNextRightClick = true;
+					}
+				}
+				else
+				{
+					closeZoomCB( -1);
+					event.stopImmediatePropagation();
+				}
+			}
+		}
+
+		private function cancelCardTransaction( restoreSelection : Boolean = false ) : void
+		{
+			_boardRenderer.activateAllHolders(true);
+			if ( restoreSelection )
+			{
+				_boardRenderer.selectCard( _transactionCard );
+			}
+			declineCardTransaction();
+			
+			_stateMachine.ChangeState("ChoosingCard");
+		}
+
 		override public function handleMouseClick(event:MouseEvent):void
 		{
 			if (_boardRenderer && _currentZoomedHolder == null)
@@ -566,33 +606,65 @@ package red.game.witcher3.menus.gwint
 				}
 				else if (superMouseEvent.buttonIdx == MouseEventEx.RIGHT_BUTTON && !CardTweenManager.getInstance().isAnyCardMoving())
 				{
-					if (_transactionCard == null)
+					if (_transactionCard )
 					{
-						if (_stateMachine.currentState == "Idle" || _stateMachine.currentState == "ChoosingCard")
-						{
-							if (_currentZoomedHolder == null)
-							{
-								tryStartZoom();
-								if (mcChoiceDialog.visible)
-								{
-									mcChoiceDialog.ignoreNextRightClick = true;
-								}
-							}
-							else
-							{
-								closeZoomCB( -1);
-								event.stopImmediatePropagation();
-							}
-						}
+						cancelCardTransaction();
 					}
 					else
 					{
-						_boardRenderer.activateAllHolders(true);
-						//_boardRenderer.selectCard(_transactionCard);
-						declineCardTransaction();
-						
-						_stateMachine.ChangeState("ChoosingCard");
+						toggleZoom( event );
 					}
+				}
+			}
+		}
+
+		override public function handleGesture(event : GestureEvent):void
+		{
+			if (_boardRenderer && _currentZoomedHolder == null)
+			{
+				switch ( event.type )
+				{
+					case GestureEventEx.GESTURE_TAP :
+					{
+						if (_stateMachine.currentState == "WaitConfirmation")
+						{
+							_cardConfirmation = true;
+						}
+						else
+						{
+							_boardRenderer.handleGestureTap(event);
+						}	
+					}
+					break;
+					case GestureEvent.GESTURE_TWO_FINGER_TAP : 
+					{
+						if (!CardTweenManager.getInstance().isAnyCardMoving())
+						{
+							if ( _transactionCard )
+							{
+								cancelCardTransaction( true );
+							}
+							else if ( _currentZoomedHolder )
+							{
+								toggleZoom( event );
+							}
+						}
+					}
+					break;
+
+					case GestureEventEx.GESTURE_PRESS : 
+					{
+						trace("HumanPlayerController::handleGesture - PRESS");
+						if ( !_currentZoomedHolder && event.phase == "begin" )
+						{
+							var selectedCardHolder : GwintCardHolder = _boardRenderer.getSelectedCardHolder();
+							if ( selectedCardHolder && selectedCardHolder.hitTestPoint(event.stageX, event.stageY))
+							{
+								toggleZoom( event );
+							}
+						}
+					}
+					break;
 				}
 			}
 		}
@@ -602,6 +674,7 @@ package red.game.witcher3.menus.gwint
 			var details:InputDetails = event.details;
 			var keyUp:Boolean = (details.value == InputValue.KEY_UP );
 			var navCommand:String = details.navEquivalent;
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 			
 			// Disabling input while cards are animating to prevent bugs
 			if (CardTweenManager.getInstance().isAnyCardMoving())
@@ -632,22 +705,25 @@ package red.game.witcher3.menus.gwint
 						case NavigationCode.GAMEPAD_B:
 							if (_transactionCard)
 							{
-								_boardRenderer.activateAllHolders(true);
-								_boardRenderer.selectCard(_transactionCard);
-								declineCardTransaction();
 								event.handled = true;
-								
-								_stateMachine.ChangeState("ChoosingCard");
+
+								cancelCardTransaction( true );
 							}
 							break;
 						case NavigationCode.GAMEPAD_X:
-							tryPutLeaderInTransaction();
+						case NavigationCode.GAMEPAD_Y:
+							if ((isSwitchPlatform && navCommand == NavigationCode.GAMEPAD_Y) ||		// Y on switch
+								(!isSwitchPlatform && navCommand == NavigationCode.GAMEPAD_X))		// X on other platforms
+							{
+								tryPutLeaderInTransaction();
+							}
 							break;
 						case NavigationCode.GAMEPAD_R2:
 							if (_stateMachine.currentState == "Idle" || _stateMachine.currentState == "ChoosingCard")
 							{
 								tryStartZoom();
 							}
+							break;
 					}
 					switch (details.code)
 					{
@@ -692,7 +768,8 @@ package red.game.witcher3.menus.gwint
 			
 			if (_stateMachine.currentState == "ChoosingCard")
 			{
-				InputFeedbackManager.appendButtonById(GwintInputFeedback.endTurn, NavigationCode.GAMEPAD_Y, -1, "qwint_skip_turn");
+				var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+				InputFeedbackManager.appendButtonById(GwintInputFeedback.endTurn, isSwitchPlatform ? NavigationCode.GAMEPAD_X : NavigationCode.GAMEPAD_Y, -1, "qwint_skip_turn");
 				
 				if (_skipButton)
 				{
@@ -712,6 +789,9 @@ package red.game.witcher3.menus.gwint
 			{
 				_currentZoomedHolder = _boardRenderer.getSelectedCardHolder();
 			}
+
+			if (_currentZoomedHolder == null)
+				return;
 			
 			if (_currentZoomedHolder.cardHolderID == CardManager.CARD_LIST_LOC_HAND && _currentZoomedHolder.playerID == CardManager.PLAYER_2) // Disabling zooming of enemy hand
 			{
@@ -809,7 +889,8 @@ package red.game.witcher3.menus.gwint
 				
 				if (leaderCard && leaderCard.canBeUsed)
 				{
-					InputFeedbackManager.appendButtonById(GwintInputFeedback.leaderCard, NavigationCode.GAMEPAD_X, KeyCode.X, "gwint_use_leader");
+					var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+					InputFeedbackManager.appendButtonById(GwintInputFeedback.leaderCard, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.X, "gwint_use_leader");
 				}
 				
 				mcChoiceDialog.cardsCarousel.removeEventListener(ListEvent.INDEX_CHANGE, onCarouselSelectionChanged, false);

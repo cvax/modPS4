@@ -33,6 +33,7 @@ package red.game.witcher3.controls
 		public var mcIconSteam:MovieClip;
 		public var mcIconXbox:MovieClip;
 		public var mcIconPS:MovieClip;
+		public var mcIconSwitch:MovieClip;
 		public var mcMouseIcon1:KeyboardButtonMouseIcon;
 		public var mcMouseIcon2:KeyboardButtonMouseIcon;
 		public var mcKeyboardIcon1:KeyboardButtonIcon;
@@ -52,6 +53,7 @@ package red.game.witcher3.controls
 			if (mcIconXbox) mcIconXbox.visible = false;
 			if (mcIconPS) mcIconPS.visible = false;
 			if (mcIconSteam) mcIconSteam.visible = false;
+			if (mcIconSwitch) mcIconSwitch.visible = false;
 			if (mcMouseIcon1) mcMouseIcon1.visible = false;
 			if (mcMouseIcon2) mcMouseIcon2.visible = false;
 			if (mcKeyboardIcon1) mcKeyboardIcon1.visible = false;
@@ -161,12 +163,41 @@ package red.game.witcher3.controls
 					return mcIconXbox;
 				case EInputDeviceType.IDT_Steam:
 					return mcIconSteam;
+				case EInputDeviceType.IDT_Switch2:
+				case EInputDeviceType.IDT_Switch2_Mouser:
+					return mcIconSwitch;
+			}
+
+			return getPadIconByPlatformFallback();
+		}
+
+		private function getPadIconByPlatformFallback():MovieClip
+		{
+			var platformType:uint = InputManager.getInstance().getPlatform();
+
+			switch (platformType)
+			{
+				case PlatformType.PLATFORM_PS4:
+				case PlatformType.PLATFORM_PS5:
+					return mcIconPS;
+				case PlatformType.PLATFORM_SWITCH2:
+					return mcIconSwitch;
+				case PlatformType.PLATFORM_XBOX1:
+				case PlatformType.PLATFORM_XB_SCARLETT_ANACONDA:
+				case PlatformType.PLATFORM_XB_SCARLETT_LOCKHART:
+				case PlatformType.PLATFORM_PC:
+				case PlatformType.PLATFORM_PC_GDK:
 				default:
 					// modPS4++
 					// return mcIconXbox;
 					return mcIconPS;
 					// modPS4--
 			}
+
+			// modPS4++
+			// return mcIconXbox;
+			return mcIconPS;
+			// modPS4--
 		}
 		
 		protected function setupKeyboardIcon():Boolean

@@ -38,6 +38,7 @@ package red.game.witcher3.menus.death_screen
 		public var mcListItem2 : BaseListItem;
 		public var mcListItem3 : BaseListItem;
 		public var mcListItem4 : BaseListItem;
+		public var mcListItem5 : BaseListItem;
 
 		private var _focusHandler : FocusHandler;
 		private var _inputEnabled : Boolean = true;
@@ -127,9 +128,11 @@ package red.game.witcher3.menus.death_screen
 			mcListItem2.validateNow();
 			mcListItem3.validateNow();
 			mcListItem4.validateNow();
+			mcListItem5.validateNow();
 			mcListItem2.y = mcListItem1.y + mcListItem1.textField.textHeight + itemsPadding;
 			mcListItem3.y = mcListItem2.y + mcListItem2.textField.textHeight + itemsPadding;
-			mcListItem4.y = mcListItem1.y - mcListItem1.textField.textHeight - itemsPadding; 
+			mcListItem4.y = mcListItem3.y + mcListItem3.textField.textHeight + itemsPadding; 
+			mcListItem5.y = mcListItem4.y + mcListItem4.textField.textHeight + itemsPadding; 
 		}
 		
 		public function SendPressEvent( event : ListEvent = null ):void

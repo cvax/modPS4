@@ -10,6 +10,7 @@ package red.game.witcher3.menus.photomode
 	import scaleform.clik.ui.InputDetails;
 	import scaleform.clik.interfaces.IListItemRenderer;
 	import scaleform.clik.events.SliderEvent;
+	import scaleform.clik.constants.NavigationCode;
 	import red.core.constants.KeyCode;
 	import flash.events.KeyboardEvent;
 	import red.core.events.GameEvent;
@@ -17,44 +18,107 @@ package red.game.witcher3.menus.photomode
 	import flash.text.TextFieldAutoSize;
 	import red.game.witcher3.menus.photomode.PhotomodeSliderDataModel;
 	import red.game.witcher3.managers.InputManager;
-	
-	public class PhotomodeSliderRenderer extends BaseListItem implements IListItemRenderer
+	import flash.events.MouseEvent;
+	import flash.utils.setTimeout;
+	import flash.events.FocusEvent;
+	import red.game.witcher3.utils.CommonUtils;
+
+	public class PhotomodeSliderRenderer extends PhotomodeRenderer
 	{	
 		public var m_txtValue : TextField;
 		public var m_txtLabel : TextField;
 		public var m_slider : Slider;
+
+		public var arrowNavigation : Boolean = true;
+		public var wasdNavigation : Boolean = true;
+		public var l_stickNavigation : Boolean = true;
 		
 		private var _currentDataModel : PhotomodeSliderDataModel;
 		private var _valuePrecision : Number;
+
+		private var _callbackFunctionName : String;
+		private var _callbackDelay : Number;
+
+		private var _disabled : Boolean = false;
 		
 		public function PhotomodeSliderRenderer() 
 		{
             super();
 			preventAutosizing = true;
         }
+
+		override protected function configUI():void 
+		{
+			super.configUI();
+			//Super CLIK ListItemRenderer disables mouseChildren but we need that for slider event handling
+			//So re-enable it if we are not disabled
+			mouseEnabled = !_disabled;
+            mouseChildren = !_disabled;
+			
+			m_slider.addEventListener(SliderEvent.VALUE_CHANGE, onValueChange);
+			m_slider.addEventListener(FocusEvent.FOCUS_IN, onSliderFocusChange);
+			m_slider.addEventListener(MouseEvent.MOUSE_DOWN, onSliderClicked, false, int.MAX_VALUE) //<-- intended control, add back value change events
+
+			this.removeEventListener(InputEvent.INPUT, handleInput);
+
+			stage.addEventListener(InputEvent.INPUT, handleInput, false, 0, true);
+        }
 		
+		private function changeFrame() : void
+		{
+			if( _disabled )
+			{
+				// trace("PhotomodeSlider::changeFrame::disabled [" + m_txtLabel.text + "]");
+				gotoAndStop("inactive");
+			}
+			else if ( selected )
+			{
+				// trace("PhotomodeSlider::changeFrame::focused [" + m_txtLabel.text + "]");
+				gotoAndStop("focused");
+			}
+			else
+			{
+				// trace("PhotomodeSlider::changeFrame::unfocused [" + m_txtLabel.text + "]");
+				gotoAndStop("unfocused");
+			}
+		}
+
         public override function set selected(value:Boolean):void 
 		{
             super.selected = value;
-			
-			if (value){
-				gotoAndStop("focused");
-			}
-			else{
-				gotoAndStop("unfocused");
+			// trace("PhotomodeSlider::set selected = " + value.toString() + " [" + m_txtLabel.text + "]");
+
+			changeFrame();
+			if ( value )
+			{
+				onSelected();
 			}
         }
 		
         public override function set enabled(value:Boolean):void 
-		{
-            if (value == super.enabled) 
-				return;
-				
-            super.enabled = value;
+		{				
+			super.enabled = value;
+			// trace("PhotomodeSlider::set enabled = " + value.toString() + " [" + m_txtLabel.text + "]");
 			
 			m_slider.enabled = value;
 			this.visible = value;
+
+			if( value )
+			{
+				mouseEnabled = value;
+            	mouseChildren = value;
+			}
         }
+
+		public function set disabled(value : Boolean):void
+		{
+			_disabled = value;
+			// trace("PhotomodeSlider::set disabled = " + value.toString() + " [" + m_txtLabel.text + "]");
+
+			changeFrame();
+			mouseEnabled = !_disabled;
+            mouseChildren = !_disabled;
+		}
 		
 		public override function setListData(listData:ListData):void 
 		{
@@ -63,17 +127,23 @@ package red.game.witcher3.menus.photomode
         }
         
         public override function setData(data:Object):void 
-		{
+		{	
 			if (data == null)
 				return;
+
+			super.setData(data);
 			
-			var dataModel : PhotomodeSliderDataModel = data.data as PhotomodeSliderDataModel;
-			
+			var dataModel : PhotomodeSliderDataModel;
+			dataModel = data.sliderData;
+
 			if (dataModel == null)
 				return;
-				
-			if (_currentDataModel == dataModel)
-				return;
+
+			m_slider.focused = 0;
+			
+			//#LT Removing this sameness check, because it does not work well with loading data from WS
+			/*if (_currentDataModel == dataModel)
+				return;*/
 				
 			_currentDataModel = dataModel;
 			
@@ -101,30 +171,67 @@ package red.game.witcher3.menus.photomode
 				m_txtValue.text = dataModel.currentValue.toFixed( _valuePrecision ).toString();
 				m_slider.value = dataModel.currentValue;
 			}
+
+			if(data.data.hasOwnProperty("callback"))
+			{
+				_callbackFunctionName = data.data["callback"];
+				_callbackDelay = data.data["callbackDelay"];
+			}
+			else
+			{
+				_callbackFunctionName = "";
+			}
+
+			disabled = data.data.hasOwnProperty("disabled");
         }
-       
-        override protected function configUI():void 
+
+		private function onSliderFocusChange():void
 		{
-			super.configUI();	
-			
-			m_slider.addEventListener(SliderEvent.VALUE_CHANGE, onValueChange);
-			
+			// trace("Slider::onSliderFocusChange [" + m_txtLabel.text + "]");
+
+			//making sure its after the m_slider configUI!
+			allowValueChangeEvents = true;
 			m_slider.removeEventListener(InputEvent.INPUT, m_slider.handleInput);
-			this.removeEventListener(InputEvent.INPUT, handleInput);
-			stage.addEventListener(InputEvent.INPUT, handleInput, false, 0, true);
-			
-			dispatchEvent( new GameEvent( GameEvent.REGISTER, "photomode.update_param", [onUpdateParam] ) );
-        }
+		}
+
+		private function callTheCallback():void
+		{
+			dispatchEvent( new GameEvent( GameEvent.CALL, _callbackFunctionName ) );
+		}
+
+		private function onSliderClicked(event : MouseEvent)
+		{
+			// trace("Slider::onSliderClicked [" + m_txtLabel.text + "]");
+			allowValueChangeEvents = true;
+		}
 		
 		private function onValueChange(event : SliderEvent)
 		{
+			// trace("Slider::onValueChange [" + m_txtLabel.text + "]");
+
 			m_txtValue.text = _currentDataModel.stringValues.length > 0 ? _currentDataModel.stringValues[event.value] : event.value.toFixed( _valuePrecision ).toString();
 			_currentDataModel.currentValue = event.value;
 			
-			dispatchEvent( new GameEvent( GameEvent.CALL, "OnParameterChanged", [ _currentDataModel.id, event.value ] ) );	
+			if(allowValueChangeEvents)
+			{
+				dispatchEvent( new GameEvent( GameEvent.CALL, "OnParameterChanged", [ _currentDataModel.id, event.value ] ) );	
+			}
+			if(_callbackFunctionName)
+			{
+				if(_callbackDelay <= 0)
+					callTheCallback();
+				else 
+					setTimeout(callTheCallback, _callbackDelay);
+			}
+
+			m_slider.focused = 0;
 		}
-	
-		
+
+		public override function onDestroy():void
+		{
+			m_slider.removeEventListener(SliderEvent.VALUE_CHANGE, onValueChange);
+		}
+
 		public override function handleInput(event:InputEvent):void 
 		{
 			var details:InputDetails = event.details;
@@ -133,35 +240,47 @@ package red.game.witcher3.menus.photomode
 			if (!keyDown)
 				return;
 				
-			if (!selected)
+			if (!selected || _disabled)
 				return;
-				
-			trace(details);
-			
-			switch (details.code) 
+
+			// this is only for photomode if the slider is hidden but visible is only a local parameter
+			if(!visible || (parent && !parent.visible) 
+			|| (parent && parent.parent && !parent.parent.visible)
+			|| (parent && parent.parent && parent.parent.parent && !parent.parent.parent.visible))
+				return;
+
+			switch (details.navEquivalent)
 			{
-			case KeyCode.PAD_DIGIT_RIGHT:
-				m_slider.value += m_slider.snapInterval;
+				case NavigationCode.RIGHT :
+					if ((!InputManager.getInstance().isGamepad() && ((details.code == KeyCode.D && wasdNavigation) || (details.code == KeyCode.RIGHT && arrowNavigation)))
+						|| (InputManager.getInstance().isGamepad() && details.code == KeyCode.RIGHT && l_stickNavigation))
+						{
+							allowValueChangeEvents = true;
+							m_slider.value += m_slider.snapInterval;
+						}
 				break;
-			case KeyCode.RIGHT:
-				if (InputManager.getInstance().isGamepad())
-					break;
-				m_slider.value += m_slider.snapInterval;
+				case NavigationCode.LEFT :
+					if ((!InputManager.getInstance().isGamepad() && ((details.code == KeyCode.A && wasdNavigation) || (details.code == KeyCode.LEFT && arrowNavigation)))
+						|| (InputManager.getInstance().isGamepad() && details.code == KeyCode.LEFT && l_stickNavigation))
+						{
+							allowValueChangeEvents = true;
+							m_slider.value -= m_slider.snapInterval;
+						}
 				break;
-			case KeyCode.PAD_DIGIT_LEFT:
-				m_slider.value -= m_slider.snapInterval;
-					break;
-			case KeyCode.LEFT:
-				if (InputManager.getInstance().isGamepad())
-					break;
-				m_slider.value -= m_slider.snapInterval;
+				case NavigationCode.DPAD_LEFT:
+					allowValueChangeEvents = true;
+					m_slider.value -= m_slider.snapInterval;
 				break;
-			default:
+				case NavigationCode.DPAD_RIGHT:
+					allowValueChangeEvents = true;
+					m_slider.value += m_slider.snapInterval;
 				break;
 			}
+
+			m_slider.focused = 0;
 		}
 		
-		private function onUpdateParam( param : Object):void 
+		public override function onUpdateParam( param : Object):void 
 		{
 			var id : uint = param.id;
 			var value : Number = param.value;
@@ -182,7 +301,7 @@ package red.game.witcher3.menus.photomode
 			{	
 				var charIdx = valueStr.length - i;
 				
-				trace( "charIdx: " + charIdx.toString() + ", char: " + valueStr.charAt( valueStr.length - i - 1 ).toString() );
+				//trace( "charIdx: " + charIdx.toString() + ", char: " + valueStr.charAt( valueStr.length - i - 1 ).toString() );
 				
 				if ( ( charIdx >= 0 ) && ( valueStr.charAt( valueStr.length - i - 1 ) == "0" ) )
 				{
@@ -194,6 +313,11 @@ package red.game.witcher3.menus.photomode
 			}
 			
 			return precision;
+		}
+
+		private function onSelected():void
+		{
+			dispatchEvent( new GameEvent( GameEvent.CALL, "OnParameterSelected", [ _currentDataModel.id ] ) );	
 		}
 	}
 }

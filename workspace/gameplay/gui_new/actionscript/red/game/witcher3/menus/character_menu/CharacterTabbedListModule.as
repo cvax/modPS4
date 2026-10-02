@@ -83,14 +83,20 @@ package red.game.witcher3.menus.character_menu
 			setTabData(new DataProvider( [ { icon:"Sword", locKey:"[[panel_character_skill_sword]]" },
 										   { icon:"Signs", locKey:"[[panel_character_skill_signs]]" },
 										   { icon:"Alchemy", locKey:"[[panel_character_skill_alchemy]]" },
-										   { icon:"Perks", locKey:"[[panel_character_perks_name]]" },
+										   { icon:"Perks", locKey:"[[skill_tree_name_survival]]" },
 										   { icon:"Mutagens", locKey:"[[panel_inventory_paperdoll_slotname_mutagen]]" } ] ));
 			
+			//Configure tabs to be tappable, also enable scrolling by default.
+			//It has to be separate because we want to disable scrolling with pan during a drag and drop
+			enableSelectTabWithTap( true );
+
 			addToListContainer(mcSkillSlotList);
 			addToListContainer(mcMutagenSlotList);
 			
 			if (mcSkillSlotList)
 			{
+				mcSkillSlotList.enableTouch( true );
+				//mcSkillSlotList.enableScrollWithPan( true );
 				mcSkillSlotList.focusable = false;
 				_inputHandlers.push(mcSkillSlotList);
 				mcSkillSlotList.addEventListener( ListEvent.INDEX_CHANGE, onSkillSelectionChanged, false, 0, true );
@@ -98,6 +104,8 @@ package red.game.witcher3.menus.character_menu
 			
 			if (mcMutagenSlotList)
 			{
+				mcMutagenSlotList.enableTouch( true );
+				mcMutagenSlotList.enableScrollWithPan( true );
 				mcMutagenSlotList.focusable = false;
 				_inputHandlers.push(mcMutagenSlotList);
 				mcMutagenSlotList.visible = false;
@@ -155,9 +163,7 @@ package red.game.witcher3.menus.character_menu
 					txtSpentPoints.text = "[[panel_character_points_spent]]";
 					txtSpentPoints.appendText(": " + mcNumSkillPoints[currentIndex]);
 					txtSpentPoints.text = CommonUtils.toUpperCaseSafe(txtSpentPoints.text);
-					
 				}
-
 			}
 			else
 			{
@@ -165,9 +171,7 @@ package red.game.witcher3.menus.character_menu
 				{
 					txtSpentPoints.visible = false;
 				}
-			
 			}
-			
 		}
 		public function updateLockedIcons()
 		{
@@ -182,21 +186,21 @@ package red.game.witcher3.menus.character_menu
 			switch(currentIndex)
 			{
 				case TabIndex_Sword:
-					unlockval1 	= 	8;
-					unlockval2 	=	20;
-					unlockval3 	=	30;
+					unlockval1 	= 	6; //NGE - 8
+					unlockval2 	=	12; //NGE - 20
+					unlockval3 	=	18; //NGE - 30
 					break;
 					
 				case TabIndex_Signs:
-					unlockval1 	= 	6;
-					unlockval2 	=	18;
-					unlockval3 	=	28;
+					unlockval1 	= 	6; //NGE - 6
+					unlockval2 	=	12; //NGE - 18
+					unlockval3 	=	18; //NGE - 28
 					break;
 					
 				case TabIndex_Alchemy:
-					unlockval1 	= 	8;
-					unlockval2 	=	20;
-					unlockval3 	=	28;
+					unlockval1 	= 	6; //NGE - 8
+					unlockval2 	=	12; //NGE - 20
+					unlockval3 	=	18; //NGE - 28
 					break;
 					
 				
@@ -301,14 +305,16 @@ package red.game.witcher3.menus.character_menu
 						if (currentSkill.data.level < currentSkill.data.maxLevel && currentSkill.data.updateAvailable && _pointsCount > 0)
 						{
 							var text:String = currentSkill.data.level == 0 ? "panel_character_popup_title_buy_skill" : "panel_character_popup_title_upgrade_skill";
-							_inputSymbolIDX = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X, KeyCode.E, text);
+							var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
+							_inputSymbolIDX = InputFeedbackManager.appendButton(this, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.E, text);
 							
 							if (_buySkillBtnRef)
 							{
 								_buySkillBtnRef.label = text;
 								_buySkillBtnRef.enabled = true;
 								
-								if (!InputManager.getInstance().isGamepad())
+								if (InputManager.getInstance().isMouse())
 								{
 									_buySkillBtnRef.visible = true;
 								}
@@ -325,7 +331,7 @@ package red.game.witcher3.menus.character_menu
 			
 			if (_buySkillBtnRef)
 			{
-				if (event.isGamepad)
+				if (!event.isMouse)
 				{
 					_buySkillBtnRef.visible = false;
 				}
@@ -488,7 +494,7 @@ package red.game.witcher3.menus.character_menu
         public function set dropSelection(value:Boolean):void
 		{
 			_dropSelection = value;
-			mcStateDropTarget.visible = _dropSelection && !InputManager.getInstance().isGamepad() && SlotsTransferManager.getInstance().isDragging();
+			mcStateDropTarget.visible = _dropSelection && InputManager.getInstance().isMouse() && SlotsTransferManager.getInstance().isDragging();
 		}
 		
 		public function get disableMutagenEquipping():Boolean { return _disableMutagenEquipping; }

@@ -4,6 +4,7 @@ package red.game.witcher3.menus.gwint
 	import red.game.witcher3.utils.FiniteStateMachine;
 	import scaleform.clik.core.UIComponent;
 	import scaleform.clik.events.InputEvent;
+	import flash.events.GestureEvent;
 	
 	public class BasePlayerController extends UIComponent
 	{
@@ -93,6 +94,11 @@ package red.game.witcher3.menus.gwint
 			{
 				_transactionCard.cardState = CardSlot.STATE_CAROUSEL;
 			}
+		}
+		
+		public function get transactionCard():CardSlot
+		{
+			return _transactionCard;
 		}
 		
 		function BasePlayerController()
@@ -227,20 +233,10 @@ package red.game.witcher3.menus.gwint
 			}
 		}
 		
-		/*
-		 *  Handle user input
-		 */
-		
-		public function handleUserInput(event:InputEvent):void 
-		{
-		}
-		
-		public function handleMouseMove(event:MouseEvent):void
-		{
-		}
-		
-		public function handleMouseClick(event:MouseEvent):void
-		{
-		}
+		//User input stubs, override them for the HumanPlayer
+		public function handleUserInput(event:InputEvent):void { }
+		public function handleMouseMove(event:MouseEvent):void { }
+		public function handleMouseClick(event:MouseEvent):void { }
+		public function handleGesture(event : GestureEvent):void { }
 	}
 }

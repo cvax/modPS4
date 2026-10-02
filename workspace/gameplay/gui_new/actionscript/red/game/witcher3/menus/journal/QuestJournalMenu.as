@@ -26,17 +26,20 @@ package red.game.witcher3.menus.journal
 	import red.game.witcher3.menus.common.TextAreaModule;
 	import red.game.witcher3.menus.common.ItemDataStub;
 
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
+	import red.game.witcher3.controls.W3DropdownMenuListItem;
+	import flash.utils.setTimeout;
+
 	import scaleform.gfx.Extensions;
+
+	import red.game.witcher3.utils.CommonUtils;
 
 	Extensions.enabled = true;
 	Extensions.noInvisibleAdvance = true;
 
 	public class QuestJournalMenu extends CoreMenu
 	{
-		/********************************************************************************************************************
-				ART CLIPS
-		/ ******************************************************************************************************************/
-
 		public var 		mcQuestListModule					: QuestListModule;
 		public var 		mcObjectiveListModule				: QuestSubListModule;
 		public var 		mcTextAreaModule					: TextAreaModuleCustomInput; 
@@ -45,13 +48,13 @@ package red.game.witcher3.menus.journal
 
 		public var 		mcAnchor_MODULE_Tooltip				: MovieClip;
 
-		/********************************************************************************************************************
-				INIT
-		/ ******************************************************************************************************************/
-
+		private var _selectedQuest : QuestItemRenderer
+	
 		public function QuestJournalMenu()
 		{
 			super();
+
+			_selectedQuest = null;
 			mcQuestListModule.menuName = menuName;
 			SetDataBindings();
 		}
@@ -108,27 +111,73 @@ package red.game.witcher3.menus.journal
 			_contextMgr.defaultAnchor = mcAnchor_MODULE_Tooltip;
 			_contextMgr.addGridEventsTooltipHolder(stage);
 			
-			mcQuestListModule.addEventListener(ListEvent.INDEX_CHANGE, handleListItemChanged, false, 0, true);
+			mcQuestListModule.addEventListener(ListEvent.INDEX_CHANGE, onSelectedQuestChanged, false, 0, true);
+			mcQuestListModule.enableTouch( true );
+			mcQuestListModule.selectModuleOnClick = true;
+
+			mcTextAreaModule.enableTouch( true );
 		}
-		
-		private function handleListItemChanged(event:ListEvent):void
+
+		protected function onItemTappedAgain( event : GestureEvent ) : void
 		{
-			trace("GFX ------------------- handleListItemChanged ", event.itemData);
-			
-			if (event.itemData)
+			if (mcQuestListModule.hasFocus)
 			{
-				mcTextAreaModule.SetTitle(event.itemData.label);
-				mcTextAreaModule.SetText( event.itemData.description );
-				mcTextAreaModule.setDifficulty( event.itemData.reqdifficulty );
-				mcTextAreaModule.setLocation( event.itemData.secondLabel );
-				mcTextAreaModule.setHeaderColor(event.itemData.isStory);
-				mcTextAreaModule.setCrest(event.itemData.questArea);
-				mcTextAreaModule.ShowSkullIcon(event.itemData.isdeadlydifficulty);
+				_selectedQuest.handleEntryPress();
 			}
-		
-			
+		}
+
+		private function addSelectedItemTapListeners() : void
+		{
+			_selectedQuest.addEventListener( GestureEventEx.GESTURE_TAP, onItemTappedAgain, false, 0, true );
+			_selectedQuest.addEventListener( GestureEventEx.GESTURE_DOUBLE_TAP, onItemTappedAgain, false, 0, true );
 		}
 		
+		private function removeSelectedItemTapListeners() : void
+		{
+			_selectedQuest.removeEventListener( GestureEventEx.GESTURE_TAP, onItemTappedAgain, false );
+			_selectedQuest.removeEventListener( GestureEventEx.GESTURE_DOUBLE_TAP, onItemTappedAgain, false );
+		}
+
+		private function onSelectedQuestChanged( event:ListEvent ) : void
+		{
+			trace( "QuestJournalMenu::onSelectedQuestChanged : ", event );
+			//Check the object first to avoid errors, dropdown lists can contain various stuff, 
+			//like plain strings for category names. So do some basic filtering.
+			if ( event.itemRenderer is QuestItemRenderer )
+			{
+				//Update text are if we have got some data
+				if ( event.itemData )
+				{
+					mcTextAreaModule.SetTitle(event.itemData.label);
+					mcTextAreaModule.SetText( event.itemData.description );
+					mcTextAreaModule.setDifficulty( event.itemData.reqdifficulty );
+					mcTextAreaModule.setLocation( event.itemData.secondLabel );
+					mcTextAreaModule.setHeaderColor(event.itemData.isStory);
+					mcTextAreaModule.setCrest(event.itemData.questArea);
+					mcTextAreaModule.ShowSkullIcon(event.itemData.isdeadlydifficulty);
+				}
+			
+				//Remove previous tap listener
+				if ( _selectedQuest )
+				{
+					removeSelectedItemTapListeners();
+				}
+				
+				//Add new tap listener after all events are handled
+				setTimeout( addSelectedItemTapListeners, 0 );
+				_selectedQuest = event.itemRenderer as QuestItemRenderer;
+			}
+			else
+			{
+				//We tapped something that is not a QuestItem, ( probably header ) cleanup tap listener
+				if ( _selectedQuest )
+				{
+					removeSelectedItemTapListeners();
+					_selectedQuest = null;
+				}
+			}
+		}
+
 		public function setTitle( value : String ) : void
 		{
 			if (mcTextAreaModule)
@@ -137,7 +186,7 @@ package red.game.witcher3.menus.journal
 			}
 		}
 		
-		public function setText( value : String  ) : void
+		public function setText( value : String ) : void
 		{
 			if (mcTextAreaModule)
 			{

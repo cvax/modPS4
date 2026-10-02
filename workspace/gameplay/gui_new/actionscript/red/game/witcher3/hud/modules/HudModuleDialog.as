@@ -34,6 +34,7 @@
 	import scaleform.clik.controls.StatusIndicator;
 	import flash.utils.Timer;
 	import flash.events.TimerEvent;
+	import red.core.events.GestureEventEx;
 
 	import  scaleform.clik.managers.FocusHandler;
 
@@ -129,6 +130,8 @@
 			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnConfigUI' ) );
 			
 			stage.addEventListener(MouseEvent.CLICK, handleStageClick, false, 0, true);
+			stage.addEventListener( GestureEventEx.GESTURE_TAP, handleGestureTap, false, 0, true );
+			stage.addEventListener( GestureEventEx.GESTURE_DOUBLE_TAP, handleGestureTap, false, 0, true );
 			
 			_inputHandlers.push(mcOptionContainer);
 			
@@ -275,30 +278,31 @@
 
 			if ( details.value == InputValue.KEY_DOWN && canBeSkipped )
 			{
+				var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
 				switch( details.code )
 				{
 					case KeyCode.SPACE:
 					//case KeyCode.ESCAPE:
 					case KeyCode.PAD_X_SQUARE:
-						if ( mcSkipIndicator.alpha > 0.1 )
+					case KeyCode.PAD_B_CIRCLE:
+						if (details.code == KeyCode.SPACE ||
+							(isSwitchPlatform && details.code == KeyCode.PAD_B_CIRCLE) ||		// B on switch
+							(!isSwitchPlatform && details.code == KeyCode.PAD_X_SQUARE))		// X on other platforms
 						{
-							event.handled = true;
-							SkipConfirmHide();
-							sendValue = 1;
-							dispatchEvent( new GameEvent( GameEvent.CALL, 'OnDialogSkipped', [sendValue] ) );
-							break;
+							if ( mcSkipIndicator.alpha > 0.1 )
+							{
+								event.handled = true;
+								SkipConfirmHide();
+								sendValue = 1;
+								dispatchEvent( new GameEvent( GameEvent.CALL, 'OnDialogSkipped', [sendValue] ) );
+								break;
+							}
 						}
+						// Fall through..?
 						
 					default:
-///////////////////////////////////////////
-//
-//
-//
 						if ( (details.code < KeyCode.F1 || details.code > KeyCode.F24) && details.code != KeyCode.PRINTSCREEN && mcOptionContainer.GetOptionsListLength() == 0 )
-//
-//
-//
-///////////////////////////////////////////
 						{
 							SkipConfirmShow();
 						}
@@ -306,37 +310,41 @@
 				}
 			}
 		}
+
+
+		private function skipIfIndicatiorIsVisible() : void
+		{
+			if (!canBeSkipped)
+			{
+				return;
+			}
+			
+			if ( mcSkipIndicator.alpha > 0.1 )
+			{
+				SkipConfirmHide();
+				dispatchEvent( new GameEvent( GameEvent.CALL, 'OnDialogSkipped', [1] ) );
+			}
+			else if ( mcOptionContainer.GetOptionsListLength() == 0 )
+			{
+				SkipConfirmShow();
+			}
+		}
+
+		private function handleGestureTap( event : Event ) : void
+		{
+			trace("HudModuleDialog::handleGestureTap : ", canBeSkipped, mcSkipIndicator.alpha);
+
+			skipIfIndicatiorIsVisible();
+		}
 		
 		private function handleStageClick(event:MouseEvent):void
 		{
-			trace("GFX handleStageClick ", canBeSkipped, mcSkipIndicator.alpha);
+			trace("HudModuleDialog::handleStageClick : ", canBeSkipped, mcSkipIndicator.alpha);
 			
 			var eventEx:MouseEventEx = event as MouseEventEx;
 			if (eventEx && eventEx.buttonIdx == MouseEventEx.RIGHT_BUTTON)
 			{
-				if (!canBeSkipped)
-				{
-					return;
-				}
-				
-				if ( mcSkipIndicator.alpha > 0.1 )
-				{
-					SkipConfirmHide();
-					dispatchEvent( new GameEvent( GameEvent.CALL, 'OnDialogSkipped', [1] ) );
-				}
-				else
-/////////////////////////////////////////////////////////////////////////////////////////
-//
-//
-//
-				if ( mcOptionContainer.GetOptionsListLength() == 0 )
-//
-//
-//
-/////////////////////////////////////////////////////////////////////////////////////////
-				{
-					SkipConfirmShow();
-				}
+				skipIfIndicatiorIsVisible();
 			}
 		}
 
@@ -344,15 +352,8 @@
 		{
 			super.focused = value;
 			_focusHandler.setFocus(this, 0);
-/////////////////////////////////////////////////////////
-//
-//
-//
+
 			mcOptionContainer.focused = 1;
-//
-//
-//
-/////////////////////////////////////////////////////////
 		}
 
 		public function setBarValue( _Percentage : Number ):void

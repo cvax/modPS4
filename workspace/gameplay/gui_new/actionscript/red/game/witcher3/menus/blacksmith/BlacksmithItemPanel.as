@@ -13,6 +13,7 @@ package red.game.witcher3.menus.blacksmith
 	import scaleform.clik.constants.InvalidationType;
 	import scaleform.clik.core.UIComponent;
 	import scaleform.clik.events.ButtonEvent;
+	import red.core.events.GestureEventEx;
 	
 	/**
 	 * Base panel for items info in the blacksmith menu
@@ -59,7 +60,8 @@ package red.game.witcher3.menus.blacksmith
 			if (btnExecute)
 			{
 				btnExecute.visible = false; // default
-				btnExecute.addEventListener(ButtonEvent.CLICK, handleButtonClick, false, 0, true);
+				btnExecute.addEventListener(ButtonEvent.CLICK, handleExecuteButtonClickOrTap, false, 0, true);
+				btnExecute.addEventListener( GestureEventEx.GESTURE_TAP, handleExecuteButtonClickOrTap, false, 0, true );
 			}
 			
 			// fired from timeline
@@ -188,7 +190,7 @@ package red.game.witcher3.menus.blacksmith
 			trace("GFX SUPER updateData END");
 		}
 		
-		protected function handleButtonClick(event:ButtonEvent):void
+		protected function handleExecuteButtonClickOrTap(event:Event):void
 		{
 			if (buttonCallback != null)
 			{

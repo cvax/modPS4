@@ -7,7 +7,10 @@ package red.game.witcher3.menus.blacksmith
 	import red.core.constants.KeyCode;
 	import red.core.events.GameEvent;
 	import red.game.witcher3.controls.InputFeedbackButton;
+	import red.game.witcher3.managers.InputManager;
 	import scaleform.clik.constants.NavigationCode;
+	import red.core.events.GestureEventEx;
+	import flash.utils.setTimeout;
 	
 	/**
 	 * Display info and repair cost for selected item
@@ -27,12 +30,22 @@ package red.game.witcher3.menus.blacksmith
 		override protected function configUI():void 
 		{
 			super.configUI();
-			
+
 			btnRepairAll.label = "[[repair_equipped_items]]";
-			btnRepairAll.setDataFromStage(NavigationCode.GAMEPAD_X, KeyCode.SPACE);
 			btnRepairAll.visible = false;
 			btnRepairAll.validateNow();
-			btnRepairAll.addEventListener(MouseEvent.CLICK, handleRepairClick, false, 0, true);
+			btnRepairAll.addEventListener(MouseEvent.CLICK, handleRepairAllButtonClickOrTap, false, 0, true);
+			btnRepairAll.addEventListener( GestureEventEx.GESTURE_TAP, handleRepairAllButtonClickOrTap, false, 0, true );
+
+			setTimeout( configButtonDelayed_HACK, 0 ); 
+		}
+
+		private function configButtonDelayed_HACK() : void
+		{
+			//We have to do this because InputManager platform gets set AFTER this::configUI.
+
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+			btnRepairAll.setDataFromStage(isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.SPACE);
 		}
 		
 		override protected function updateData():void 
@@ -57,7 +70,7 @@ package red.game.witcher3.menus.blacksmith
 			txtDurabilityLabel.visible = false;
 		}
 		
-		private function handleRepairClick(event:Event):void
+		private function handleRepairAllButtonClickOrTap(event:Event):void
 		{
 			dispatchEvent(new GameEvent(GameEvent.CALL, 'OnRepairAllItems'));
 		}

@@ -5,6 +5,8 @@
 	import com.gskinner.motion.GTweener;
 	import flash.display.MovieClip;
 	import flash.events.Event;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
 	import flash.geom.Rectangle;
 	import flash.text.TextField;
 	import red.core.constants.KeyCode;
@@ -26,6 +28,9 @@
 	import scaleform.clik.ui.InputDetails;
 	import scaleform.gfx.Extensions;
 	import red.game.witcher3.controls.W3UILoader;
+	import fl.transitions.easing.Strong;
+	import flash.utils.setTimeout;
+	import flash.display.DisplayObject;
 
 	/**
 	 * Common top menu
@@ -34,7 +39,6 @@
 	public class MenuCommon extends CoreMenu
 	{
 		protected static const SUBMENU_CLASS_REF:String = "SubMenuRef";
-		
 		public var mcCloseBtn:ConditionalCloseButton;
 		public var mcMenuHub:MenuHub;
 		public var mcPlayerDetails:MenuPlayerStats;
@@ -48,7 +52,6 @@
 		protected var _changeTabInputFeedback:int = 2;
 		protected var _exitInputFeedback:int = 3;
 		
-		protected var _cachedIsGamepad:Boolean;
 		protected var _navigationEnabled:Boolean;
 		protected var _blockBackNav:Boolean;
 		public var visibleScreenRect:Rectangle;
@@ -81,6 +84,8 @@
 		{
 			super.configUI();
 
+			setMenuHubVisibility(false);
+
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'panel.main.setup', [initMenuTabs]));
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'common.input.feedback.setup', [handleSetupBindings]));
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'common.input.navigation.enabled', [setNavigationEnabled]));
@@ -88,12 +93,14 @@
 			//mcMenuTabs.addEventListener(ListEvent.INDEX_CHANGE, handleIndexChange, false, 0, true);
 			InputDelegate.getInstance().addEventListener(InputEvent.INPUT, handleInput, false, 2, true);
 			mcInpuFeedback.buttonAlign = "center";
-			
+
 			mcMenuHub.addEventListener(MenuHub.OpenMenuCalled, onOpenMenuReq, false, 0, true);
-			
+			stage.addEventListener(GestureEvent.GESTURE_TWO_FINGER_TAP, handleInputGestureTwoFingerTap, false, 0, true );
+
 			if (mcCloseBtn)
 			{
 				mcCloseBtn.addEventListener(ButtonEvent.PRESS, handleClosePressed, false, 0, true);
+				mcCloseBtn.showOnSwitch2Mouser = true;
 			}
 
 			if (!Extensions.isScaleform)
@@ -138,17 +145,10 @@
 		override public function setControllerType(isGamePad:Boolean):void
 		{
 			super.setControllerType(isGamePad);
-			_cachedIsGamepad = isGamePad;
-			InputManager.getInstance().addEventListener(ControllerChangeEvent.CONTROLLER_CHANGE, handleCtrlChanged, false, 0, true);
 		}
 
 		protected function handleCtrlChanged(event:ControllerChangeEvent):void
 		{
-			if (_cachedIsGamepad != event.isGamepad)
-			{
-				dispatchEvent( new GameEvent( GameEvent.CALL, 'OnControllerChanged', [ event.isGamepad ] ));
-				_cachedIsGamepad = event.isGamepad;
-			}
 		}
 
 		protected function displayDebugData():void
@@ -192,14 +192,29 @@
 				callMenuOpen(_cachedMenuID, _cachedMenuState);
 			}
 		}
-		
+
 		public function blockMenuClosing(value:Boolean):void // WS
 		{
 			mcMenuHub.blockMenuClosing = value;
-			
+
 			if (mcCloseBtn && mcMenuHub.currentState == MenuHub.State_Hidden)
 			{
 				mcCloseBtn.visible = !value;
+			}
+
+			if ( value )
+			{
+				stage.removeEventListener(GestureEvent.GESTURE_TWO_FINGER_TAP, handleInputGestureTwoFingerTap, false );
+			}
+			else
+			{
+				//Some delay is needed to avoid navigate back firing
+				setTimeout
+				( 
+					function() : void { stage.addEventListener( GestureEvent.GESTURE_TWO_FINGER_TAP, handleInputGestureTwoFingerTap, false, 0, true ); }, 
+					500
+				);
+				
 			}
 		}
 		
@@ -220,15 +235,81 @@
 		
 		public function updateTabEnabled(menuId:uint, menuState:String, enabled:Boolean)
 		{
+			mcPlayerDetails.mcTopBar.updateTabDataEnabled(menuId, menuState, enabled);
 			mcMenuHub.updateTabDataEnabled(menuId, menuState, enabled);
 		}
-		
-		public function setMeditationBackgroundMode(value:Boolean):void //WS
+
+		public function customEase(ratio: Number, unused1: Number, unused2: Number, unused3: Number):Number
+        {
+            return ratio;
+        }
+
+		private var hiddenItems : Vector.<DisplayObject>;
+
+		public function hideChildrenExcept(except:DisplayObject = null):void
 		{
+			hiddenItems = new Vector.<DisplayObject>();
+
+			for (var i : int = 0; i < numChildren; i++)
+			{
+				var child : DisplayObject = getChildAt(i);
+
+				if(child == except)
+					continue;
+
+				if(child.visible)
+				{
+					child.visible = false;
+					hiddenItems.push(child);
+				}
+			}
+		}
+
+		public function restoreHiddenChildren():void
+		{
+			if(!hiddenItems)
+				return;
+
+			for each(var child: DisplayObject in hiddenItems)
+			{
+				if(child)
+					child.visible = true;
+			}
+
+			hiddenItems.length = 0;
+		}
+		
+		public function setMeditationBackgroundMode(value:Boolean, time:Number = 0.5):void //WS
+		{
+			//this.visible = !value;
+			if(time <= 0)
+			{
+				if(value) {
+					hideChildrenExcept(mcInpuFeedback as DisplayObject);
+				}
+				else {
+					restoreHiddenChildren();
+				}
+			}
+			else
+			{
+				GTweener.removeTweens(this);
+				if(value)
+				{
+					GTweener.to(this, time, { alpha:0 }, {ease:customEase, onComplete: function(){ visible = false;}} );
+				}
+				else
+				{
+					visible = true;
+					GTweener.to(this, time, { alpha:1 }, {ease:customEase } );
+				}
+			}
+
+
 			if (mcMeditationBackground && mcBlackBackground)
 			{
-				mcMeditationBackground.visible = value;
-				mcBlackBackground.visible = !value;
+				//mcMeditationBackground.visible = value;
+				//mcBlackBackground.visible = !value;
 				mcMenuHub.mcTabBackground.visible = !value;
 			}
 		}
@@ -324,6 +405,7 @@
 		public function lockOpenTabNavigation(locked:Boolean):void
 		{
 			mcMenuHub.rblbenabled = !locked;
+			mcPlayerDetails.mcTopBar.rblbenabled = !locked;
 		}
 		
 		public function setPlayerDetailsVisible(value:Boolean):void
@@ -407,9 +489,10 @@
         {
 			_navigationEnabled = value;
 			mcMenuHub.navigationEnabled = value;
+			mcPlayerDetails.mcTopBar.navigationEnabled = value;
         }
 		
-		protected function handleClosePressed( event : ButtonEvent ) : void
+		protected function handleClosePressed( event : Event ) : void
 		{
 			if (_blockBackNav)
 			{
@@ -490,6 +573,23 @@
 				code = details.code;
 				dispatchEvent( new GameEvent( GameEvent.CALL, 'OnHotkeyTriggered', [code] ) );
 			}
+		}
+
+		protected function handleInputGestureTwoFingerTap(event:GestureEvent):void
+		{
+			if (_blockBackNav)
+			{
+				dispatchEvent( new GameEvent( GameEvent.CALL, 'OnHideChildMenu' ) );
+			}
+			else
+			{
+				tryAndNavigateBack();
+			}
+		}
+
+		public function setMenuHubVisibility(visible:Boolean):void
+		{
+			mcMenuHub.visible = visible;
 		}
 	}
 }

@@ -9,37 +9,45 @@ package red.game.witcher3.menus.common
 {
 	import flash.display.MovieClip;
 	import flash.geom.Transform;
+	import flash.geom.Point;
+	import flash.events.Event;
+	import flash.events.MouseEvent;
 	import flash.text.TextField;
+	import flash.text.TextFieldAutoSize;
+	import flash.geom.Rectangle;
+	import flash.utils.getDefinitionByName;
+
+	import red.core.CoreComponent;
+	import red.core.events.GameEvent;
+	import red.core.constants.KeyCode;
+
+	import red.game.witcher3.controls.BaseListItem;
+	import red.game.witcher3.controls.InputFeedbackButton;
+	import red.game.witcher3.controls.W3Background;
 	import red.game.witcher3.controls.W3OptionStepper;
 	import red.game.witcher3.controls.W3OptionsSeparator;
+	import red.game.witcher3.controls.W3Slider;
+	import red.game.witcher3.events.GridEvent;
+	import red.game.witcher3.managers.InputManager;
+	import red.game.witcher3.menus.common.DownloadButton;
 	import red.game.witcher3.menus.mainmenu.IngameMenu;
+
+	import scaleform.clik.constants.InputValue;
+	import scaleform.clik.constants.InvalidationType;
+	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.data.DataProvider;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.events.ButtonEvent;
-	import flash.events.MouseEvent;
-	import red.game.witcher3.controls.BaseListItem;
-	import red.game.witcher3.controls.W3Slider;
 	import scaleform.clik.events.SliderEvent;
-	import flash.utils.getDefinitionByName;
-	import red.core.events.GameEvent;
-	import red.game.witcher3.events.GridEvent;
-	import red.game.witcher3.managers.InputManager;
-	import flash.events.Event;
-	import flash.geom.Point;
-	import flash.geom.Rectangle;
 	import scaleform.clik.events.InputEvent;
-	import red.game.witcher3.menus.common.DownloadButton;
-	import red.game.witcher3.controls.InputFeedbackButton;
-	import scaleform.clik.constants.NavigationCode;
-	import red.core.constants.KeyCode;
-	import scaleform.clik.ui.InputDetails;
-	import scaleform.clik.constants.InputValue;
-	import red.game.witcher3.controls.W3Background;
 	import scaleform.clik.events.IndexEvent;
-	import scaleform.clik.constants.InvalidationType;
-	import flash.text.TextFieldAutoSize;
-	import red.core.CoreComponent;
-	
+	import scaleform.clik.ui.InputDetails;
+	import red.core.events.GestureEventEx;
+
+	import flash.text.TextLineMetrics;
+	import com.gskinner.motion.GTween;
+	import red.game.witcher3.utils.CommonUtils;
+
 	public class W3SubMenuListItemRenderer extends BaseListItem
 	{
 		public var tfCurrentValue : TextField;
@@ -60,9 +68,6 @@ package red.game.witcher3.menus.common
 		private var _type : int;
 		public var mcSelectionHighlightPro:MovieClip;
 		private var _startingXForCurrent:Number;
-		
-		private static const gamepadButtonDownload:String = NavigationCode.GAMEPAD_X;
-		private static const keyboardButtonDownload:uint = KeyCode.ENTER;
 
 		protected static const TOGGLE_ON_STRING:String = "[[panel_mainmenu_option_value_on]]";
 		protected static const TOGGLE_OFF_STRING:String = "[[panel_mainmenu_option_value_off]]";
@@ -78,6 +83,11 @@ package red.game.witcher3.menus.common
 		protected var _selectionStartUpWidth : int;
 		protected var _textFieldStartUpX : int;
 		protected var _mcDropDownBGStartUpX : int;
+
+		private var _tweenFwd : GTween;
+		private var _tweenBwd : GTween;
+
+		private var blockHandleClick : Boolean = false;
 
 		public function W3SubMenuListItemRenderer()
 		{
@@ -134,6 +144,11 @@ package red.game.witcher3.menus.common
 			if ( !_currentValue )
 			{
 				_currentValue = data.current.toString();
+			}
+
+			if(data.currentFormat)
+			{
+				_currentValue = data.currentFormat.replace("{n}", _currentValue);
 			}
 			
 			createSubElementByType( data.type );	
@@ -205,7 +220,7 @@ package red.game.witcher3.menus.common
 				mcSlider.focused = 0;
 		}
 		
-		private function initializeStreamableUi( data:Object )
+		private function initializeStreamableUi( data:Object ) : void
 		{
 			if ( !data.streamable )
 				return;
@@ -271,9 +286,12 @@ package red.game.witcher3.menus.common
 			mcSlider.value = option.optionSelectedId;
 		}
 		
-		function createSubElementByType( type : uint )
+		private function createSubElementByType( type : uint ) : void
 		{
-			if ( mcSlider != null )
+			//Cleanup before reuse, hide stuff that is inited
+			removeEventListener( GestureEventEx.GESTURE_TAP, handleTap );
+
+			if ( mcSlider )
 			{
 				mcSlider.removeEventListener( SliderEvent.VALUE_CHANGE, OnSliderValueChanged, false );
 				mcSlider.removeEventListener( MouseEvent.MOUSE_OUT, onSliderMouseOut, false );
@@ -282,12 +300,10 @@ package red.game.witcher3.menus.common
 				mcSlider.gEvent = null;
 				mcSlider = null;
 			}
-			
-			if ( mcStepper )
-				mcStepper.visible = false;
-				
-			if ( mcSeparator )
-				mcSeparator.visible = false;
+
+			if ( mcStepper ) mcStepper.visible = false;
+			if ( mcSeparator ) mcSeparator.visible = false;
+			//------------------------------------------------------
 				
 			// set defaults
 			textField.visible = true;
@@ -302,43 +318,52 @@ package red.game.witcher3.menus.common
 			switch( type )
 			{
 				case IngameMenu.IGMActionType_Slider :
-					CreateSlider();
+					initSlider();
 					break;
 				case IngameMenu.IGMActionType_Toggle :
-					CreateToggleSlider(1);
+					initToggleSlider(1);
 					break;
 				case IngameMenu.IGMActionType_List :
-					CreateToggleSlider(data.subElements.length - 1);
+					initToggleSlider(data.subElements.length - 1);
+					break;
+				case IngameMenu.IGMActionType_Button :
+					initButton();
 					break;
 				case IngameMenu.IGMActionType_ListWithCondition :
-					CreateToggleSlider(data.subElements.length - 1);
+					initToggleSlider(data.subElements.length - 1);
 					break;
 				case IngameMenu.IGMActionType_Stepper :
 					tfCurrentValue.visible = false;
-					initializeOptionStepper( false );
+					initOptionStepper( false );
 					break;
 				case IngameMenu.IGMActionType_ToggleStepper :
 					tfCurrentValue.visible = false;
-					initializeOptionStepper( true );
+					initOptionStepper( true );
 					break;
 				case IngameMenu.IGMActionType_Separator :
 					textField.visible = false;
 					tfCurrentValue.visible = false;
 					this.selectable = false;	
 					mcBackground.visible = false;
-					initialzeSeparator();
+					initSeparator();
 					break;
 				case IngameMenu.IGMActionType_SubtleSeparator :
 					textField.visible = false;
 					tfCurrentValue.visible = false;
 					this.selectable = false;	
 					mcBackground.visible = false;
-					initialzeSubtleSeparator();
+					initSubtleSeparator();
 					break;
 			}
 		}
 		
-		function initializeOptionStepper( toggle : Boolean )
+		private function initButton() : void
+		{
+			//No need to init or create anything, the renderer is already a button that has a label
+			addEventListener( GestureEventEx.GESTURE_TAP, handleTap, false, 0, true);
+		}
+
+		private function initOptionStepper( toggle : Boolean ) : void
 		{
 			if ( mcStepper == null )
 			{
@@ -371,7 +396,7 @@ package red.game.witcher3.menus.common
 			mcStepper.addEventListener( IndexEvent.INDEX_CHANGE, onStepperValueChanged )
 		}
 		
-		function initialzeSeparator()
+		private function initSeparator() : void
 		{
 			if ( mcSeparator == null )
 			{
@@ -393,7 +418,7 @@ package red.game.witcher3.menus.common
 			this.validateNow();
 		}
 
-		function initialzeSubtleSeparator()
+		private function initSubtleSeparator() : void
 		{
 			if ( mcSeparator == null )
 			{
@@ -415,53 +440,73 @@ package red.game.witcher3.menus.common
 			this.validateNow();
 		}
 
-		function CreateSlider() : void
+		private function initSlider() : void
 		{
+			//Lazy init mcSlider, and reuse it
 			if ( mcSlider == null )
 			{
 				var classRef : Class = getDefinitionByName("SubMenuSlider") as Class;
 				mcSlider = new classRef() as W3Slider;
 			}
 			
-			// remove all listeners while reconfiguring
+			//Remove old event listeners
 			mcSlider.removeEventListener( SliderEvent.VALUE_CHANGE, OnSliderValueChanged, false);
 			mcSlider.removeEventListener(MouseEvent.MOUSE_OUT, onSliderMouseOut, false);
 			removeEventListener( ButtonEvent.PRESS, OnCallConfirm, false);
-						
+
+			//Set position, offset is for the slider thumb
 			mcSlider.x = data.isDropdownContent ? 520 : 720;
 			mcSlider.y = 35;
 			mcSlider.setActualSize(data.isDropdownContent ? 200 : 296, mcSlider.height);
-			
-			mcSlider.snapInterval = data.subElements.length >= 3 ?
-				Number((data.subElements[1] - data.subElements[0]) / data.subElements[2]) :
-				1;
-			
-			mcSlider.snapping = true;
 			mcSlider.offsetLeft = 30;
 			mcSlider.offsetRight = 35;
-			
-			mcSlider.maximum = data.subElements.length >= 2 ? 
-				Number(data.subElements[1]) :
+
+			//Set min max and step interval
+			mcSlider.minimum = data.subElements.length > 0 ? Number(data.subElements[0]) : 0;
+			mcSlider.maximum = data.subElements.length > 1 ? Number(data.subElements[1]) : 1;
+			mcSlider.snapInterval = data.subElements.length > 2 ?
+				Number((data.subElements[1] - data.subElements[0]) / data.subElements[2]) :
 				1;
+			mcSlider.snapping = true;
 			
-			mcSlider.minimum = data.subElements.length >= 1 ?
-				Number(data.subElements[0]) :
-				0;
-				
+			//Set values
 			mcSlider.previousValue = -1;
 			mcSlider.lockedValue = mcSlider.maximum + 1;
 			mcSlider.value = Number(data.current);
 			
+			if(data.currentFormat)
+			{
+				//mcSlider.value = data.currentFormat.replace("{n}", mcSlider.value);
+			}
+			
 			mcSlider.addEventListener(SliderEvent.VALUE_CHANGE, OnSliderValueChanged, false, 0, false);
 			mcSlider.addEventListener(MouseEvent.MOUSE_OUT, onSliderMouseOut, false, 0, true);
+			if(mcSlider.track) 
+			{
+				mcSlider.track.addEventListener(MouseEvent.MOUSE_DOWN, onSliderTrackMouseDown, false, 0, true);
+				mcSlider.track.addEventListener( GestureEventEx.GESTURE_TAP, onSliderTrackMouseDown, false, 0, true);
+			}
+			if(mcSlider.thumb) 
+			{
+				mcSlider.thumb.addEventListener(MouseEvent.MOUSE_DOWN, onSliderThumbMouseDown, false, 0, true);
+				mcSlider.track.addEventListener( GestureEventEx.GESTURE_TAP, onSliderThumbMouseDown, false, 0, true);
+			}
 			addEventListener(ButtonEvent.PRESS, OnCallConfirm, false, 0, false);
+			
 			addChildAt(mcSlider, getChildIndex(textField));
 			
+			mcSlider.enableTouch( true );
 			mcSlider.invalidate();
 			mcSlider.validateNow();
 		}
 
-		function OnSliderValueChanged( event : SliderEvent ) : void
+		private function cleanFixed(num:Number, decimals:int = 4):String
+		{
+			var str:String = num.toFixed(decimals);
+			return str.replace(/\.?0+$/,"");
+		}
+
+		protected function OnSliderValueChanged( event : SliderEvent ) : void
 		{
 			var sliderValue : Number;
 
@@ -475,7 +520,7 @@ package red.game.witcher3.menus.common
 			{
 				data.current = sliderValue.toString();
 				var tempValue:Number = int(Math.ceil( 100 * mcSlider.value )) / 100;
-				_currentValue = tempValue.toString();
+				_currentValue = cleanFixed(tempValue);
 				
 				if (tempValue != (int)(tempValue))
 				{
@@ -491,6 +536,11 @@ package red.game.witcher3.menus.common
 				else if (_currentValue.length > 4)
 				{
 					_currentValue = _currentValue.slice(0, 4);
+				}
+
+				if(data.currentFormat)
+				{
+					_currentValue = data.currentFormat.replace("{n}", _currentValue);
 				}
 			}
 			else if ( data.type == IngameMenu.IGMActionType_Toggle )
@@ -520,7 +570,9 @@ package red.game.witcher3.menus.common
 				_ingameMenu.mcOptionListModule.updateDescriptionText(data);
 			
 			if ( !_supressEvents ) //#J To avoid sending this when its just the initial value being set
+			{
 				dispatchEvent( new GameEvent( GameEvent.CALL, 'OnOptionValueChanged', [ data.groupID, data.tag, data.current ] ) );
+			}
 		}
 		
 		private function onStepperValueChanged( event : IndexEvent ):void 
@@ -538,11 +590,16 @@ package red.game.witcher3.menus.common
 				_ingameMenu.mcOptionListModule.updateDescriptionText(data);
 					
 			if( !_supressEvents )
+			{
 				dispatchEvent( new GameEvent( GameEvent.CALL, 'OnOptionValueChanged', [ data.groupID, data.tag, data.current ] ) );
+			}
 		}
 
-		function CreateToggleSlider( value : int ) : void
+		//Dont let "toggle" mislead you. This is more of an integer / discrete slider
+		//It can have more than 2 states (eg.: a list of values to choose from)
+		private function initToggleSlider( count : int ) : void
 		{
+			//Lazy init mcSlider, and reuse it
 			if ( mcSlider == null )
 			{
 				var classRef : Class = _type == IngameMenu.IGMActionType_Toggle ? 
@@ -551,33 +608,35 @@ package red.game.witcher3.menus.common
 					
 				mcSlider = new classRef() as W3Slider;			
 			}
-			
+
+			//Remove old event listeners
 			mcSlider.removeEventListener( SliderEvent.VALUE_CHANGE, OnSliderValueChanged, false);
 			mcSlider.removeEventListener(MouseEvent.MOUSE_OUT, onSliderMouseOut, false);
 			removeEventListener( ButtonEvent.PRESS, OnCallConfirm, false);
 			
+			//Set position, offset is for the slider thumb
+			mcSlider.x = data.isDropdownContent? 520 : 720;
+			mcSlider.y = 35;
 			if (_type == IngameMenu.IGMActionType_Toggle)
 			{
-				mcSlider.x = data.isDropdownContent? 520 : 720;
-				mcSlider.y = 35;
 				mcSlider.setActualSize( data.isDropdownContent ? 100 : 140, mcSlider.actualHeight );
 				mcSlider.offsetLeft = 35;
 				mcSlider.offsetRight = 45;
 			}
 			else
 			{
-				mcSlider.x = data.isDropdownContent ? 520 : 720;
-				mcSlider.y = 35;
 				mcSlider.setActualSize( data.isDropdownContent ? 200 : 296, mcSlider.actualHeight );
 				mcSlider.offsetLeft = 32;
 				mcSlider.offsetRight = 35;
 			}
 				
-			mcSlider.snapInterval = 1;
-			mcSlider.maximum = value;
+			//Set min max and step interval
 			mcSlider.minimum = 0;
+			mcSlider.maximum = count;
+			mcSlider.snapInterval = 1;
 			mcSlider.snapping = true;
-				
+
+			//Set values, map true and false to 1 and 0
 			if (data.current == "true")
 			{
 				mcSlider.value = 1;
@@ -590,9 +649,8 @@ package red.game.witcher3.menus.common
 			{
 				mcSlider.value = Number(data.current);
 			}
-			
 			updateCurrentValue();
-				
+			
 			if (_type == IngameMenu.IGMActionType_ListWithCondition)
 			{
 				mcSlider.skipValue = Number(data.skip);
@@ -600,10 +658,23 @@ package red.game.witcher3.menus.common
 				mcSlider.gEvent = new GameEvent( GameEvent.CALL, 'OnCancelOptionValueChange', [ data.groupID, data.tag ] ) ;
 			}
 			
+			//Add event listeners
 			mcSlider.addEventListener(SliderEvent.VALUE_CHANGE, OnSliderValueChanged, false, 0, false);
 			mcSlider.addEventListener(MouseEvent.MOUSE_OUT, onSliderMouseOut, false, 0, true);
+			if(mcSlider.track) {
+				mcSlider.track.addEventListener(MouseEvent.MOUSE_DOWN, onSliderTrackMouseDown, false, 0, true);
+				mcSlider.track.addEventListener( GestureEventEx.GESTURE_TAP, onSliderTrackMouseDown, false, 0, true);
+			}
+			if(mcSlider.thumb) 
+			{
+				mcSlider.thumb.addEventListener(MouseEvent.MOUSE_DOWN, onSliderThumbMouseDown, false, 0, true);
+				mcSlider.track.addEventListener( GestureEventEx.GESTURE_TAP, onSliderThumbMouseDown, false, 0, true);
+			}
+			
 			addEventListener(ButtonEvent.PRESS, OnCallConfirm, false, 0, false);
+			
 			addChildAt(mcSlider, getChildIndex(textField));
+			mcSlider.enableTouch( true );
 			
 			mcSlider.invalidate();
 			mcSlider.validateNow();
@@ -619,11 +690,11 @@ package red.game.witcher3.menus.common
 			}
 			else if (_type == IngameMenu.IGMActionType_Button)
 			{
-				dispatchEvent( new GameEvent( GameEvent.CALL, 'OnButtonClicked', [ data.tag ] ) );
+				dispatchEvent( new GameEvent( GameEvent.CALL, 'OnButtonClicked', [ data.groupID, data.tag ] ) );
 			}
 		}
 
-		function OnCallConfirm( event : ButtonEvent ) : void
+		protected function OnCallConfirm( event : ButtonEvent ) : void
 		{
 			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnConfirm' ) );
 		}
@@ -631,6 +702,9 @@ package red.game.witcher3.menus.common
 		protected function onSliderMouseOut(e:MouseEvent):void
 		{
 			mcSlider.focused = 0;
+			stage.focus = null;
+			if(mcSlider.thumb) mcSlider.thumb.focused = 0;
+			if(mcSlider.track) mcSlider.track.focused = 0;
 		}
 
 		override protected function updateText():void
@@ -669,37 +743,103 @@ package red.game.witcher3.menus.common
 						
 					if ( _ingameMenu )
 					{
+						var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
 						if( !isInstalled && !_ingameMenu.mcInputFeedbackModule.showBackground )
-							_ingameMenu.mcInputFeedbackModule.appendButton(ACTION_DOWNLOAD, gamepadButtonDownload, keyboardButtonDownload, "[[options_language_request_download]]", true);
+							_ingameMenu.mcInputFeedbackModule.appendButton(ACTION_DOWNLOAD, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.ENTER, "[[options_language_request_download]]", true);
 						else 
 							_ingameMenu.mcInputFeedbackModule.removeButton(ACTION_DOWNLOAD, true);	
 					}						
 				}
 				else
 				{
-					tfCurrentValue.htmlText =  _currentValue;;
+					tfCurrentValue.htmlText =  _currentValue;
 				}
 			}
-			
+
+			//Scroll the text if it is too long
+			if ( _tweenFwd )
+			{
+				_tweenFwd.paused = true;
+				_tweenFwd.nextTween = null;
+				_tweenFwd.target = null;
+				_tweenFwd = null;
+			}
+
+			if ( _tweenBwd )
+			{
+				_tweenBwd.paused = true;
+				_tweenBwd.nextTween = null;
+				_tweenBwd.target = null;
+				_tweenBwd = null;
+			}
+
+			var textMetrics : TextLineMetrics = tfCurrentValue.getLineMetrics(0);
+			var veryLong : Boolean = textMetrics.width > tfCurrentValue.width;
+			if ( veryLong )
+			{
+				const SPEED_PIXELS_PER_SEC : Number = 50.0;
+				const OVERSCROLL : Number = 48.0;
+				const START_DELAY : Number = 1.0;
+
+				tfCurrentValue.htmlText = tfCurrentValue.htmlText;
+				textMetrics = tfCurrentValue.getLineMetrics(0);
+
+				var pixelsToScroll : Number = ( textMetrics.width - tfCurrentValue.width ) + OVERSCROLL;
+				var scrollTime : Number = pixelsToScroll / SPEED_PIXELS_PER_SEC;
+
+				tfCurrentValue.scrollH = 0;
+				_tweenFwd = new GTween ( tfCurrentValue, scrollTime, { scrollH : pixelsToScroll } );
+				_tweenBwd = new GTween ( tfCurrentValue, scrollTime, { scrollH : -OVERSCROLL } );
+
+				_tweenFwd.paused = false;
+				_tweenFwd.nextTween = _tweenBwd;
+				_tweenFwd.delay = START_DELAY;
+
+				_tweenBwd.paused = true;
+				_tweenBwd.nextTween = _tweenFwd;
+			}
 		}
 
 		override protected function updateAfterStateChange():void
 		{
 
 		}
+
+		protected function onSliderTrackMouseDown( event : Event )
+		{
+			//Since we have handled option value change, so no need to handle it again on release
+			blockHandleClick = true;
+		}
+
+		protected function onSliderThumbMouseDown( event : Event )
+		{
+			//Since we have handled option value change, so no need to handle it again on release
+			blockHandleClick = true;
+		}
+
+		protected function handleTap( event : Event ) : void
+		{
+			trace( "W3SubMenuListItemRenderer::handleTap : ", event );
+			handleClick();
+		}
 		
 		override protected function handleClick(controllerIndex:uint = 0):void 
 		{
 			if ((data && data.disabled) || _type == IngameMenu.IGMActionType_SubtleSeparator) return;
+			if(blockHandleClick) {blockHandleClick = false; return;}
 
 			activate();
 		}
 		
 		override public function set mouseChildren (enable:Boolean) : void
 		{
-			if (_type == IngameMenu.IGMActionType_Toggle ||
+			//Lets not disable Toggle slider, so it can handle input events like gestures
+			if (
+				//_type == IngameMenu.IGMActionType_Toggle ||
 				_type == IngameMenu.IGMActionType_SubtleSeparator ||
-				(data && data.disabled))
+				( data && data.disabled  )
+			)
 			{
 				super.mouseChildren = false;
 			}
@@ -713,7 +853,10 @@ package red.game.witcher3.menus.common
 		override public function handleInput(event:InputEvent):void
 		{
 			var details:InputDetails = event.details;
-			var isDownloadAction:Boolean = details.navEquivalent == gamepadButtonDownload || details.code == keyboardButtonDownload;
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+			var isDownloadAction : Boolean = details.code == KeyCode.ENTER ||
+				(isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y) ||		// Y on switch
+				(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X);		// X on other platforms
 			
 			if ( details.value == InputValue.KEY_DOWN && isDownloadAction )
 			{
@@ -742,6 +885,14 @@ package red.game.witcher3.menus.common
 			}
 			
 			super.selected = value;
+
+			if(!value && mcSlider)
+			{
+				mcSlider.focused = 0;
+				stage.focus = null;
+				if(mcSlider.thumb) mcSlider.thumb.focused = 0;
+				if(mcSlider.track) mcSlider.track.focused = 0;
+			}
 
             // Return focus to menu
 			if (!value && (_type == IngameMenu.IGMActionType_List || _type == IngameMenu.IGMActionType_ListWithCondition))

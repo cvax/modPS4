@@ -65,6 +65,8 @@
 		private const BTN_ID_ACCEPT 	: int = 1;
 		private const BTN_ID_EXIT  		: int = 2;
 		private const BTN_ID_MEDITATION : int = 3;
+
+		private const BTN_ID_SWITCH_RANGED 	: int = 4;
 		
 		/*
 		public var btnSwitchItem   : InputFeedbackButton;
@@ -219,8 +221,10 @@
 			private const BTN_ID_EXIT  		: int = 2;
 			private const BTN_ID_MEDITATION : int = 3;
 			*/
+
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 			
-			mcInputFeedback.appendButton( BTN_ID_MEDITATION, NavigationCode.GAMEPAD_X, KeyCode.SPACE, "[[panel_title_meditation]]" );
+			mcInputFeedback.appendButton( BTN_ID_MEDITATION, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.SPACE, "[[panel_title_meditation]]" );
 			mcInputFeedback.appendButton( BTN_ID_EXIT, NavigationCode.GAMEPAD_B, KeyCode.ESCAPE, "[[panel_button_common_back_to_game]]", true );
 			
 			InputManager.getInstance().addEventListener(ControllerChangeEvent.CONTROLLER_CHANGE, handleControllerChange, false, 0, true);
@@ -260,7 +264,6 @@
 					
 					setSelectedItem( curSlotName, true );
 				}
-				
 			}
 		}
 		
@@ -695,6 +698,8 @@
 			
 			var navCodeNextItem:String;
 			var navCodePriorItem:String;
+			var navCodeNextRangedBolt:String;
+			var navCodePriorRangedBolt:String;
 			var keyCodeNavigate:int;
 
 			var details:InputDetails = event.details;
@@ -717,12 +722,16 @@
 			{
 				navCodePriorItem = NavigationCode.LEFT;
 				navCodeNextItem = NavigationCode.RIGHT;
+				navCodeNextRangedBolt = NavigationCode.UP;
+				navCodePriorRangedBolt = NavigationCode.DOWN;
 				keyCodeNavigate = KeyCode.PAD_RIGHT_STICK_AXIS;
 			}
 			else
 			{
 				navCodePriorItem = NavigationCode.RIGHT_STICK_LEFT;
 				navCodeNextItem = NavigationCode.RIGHT_STICK_RIGHT;
+				navCodeNextRangedBolt = NavigationCode.RIGHT_STICK_UP;
+				navCodePriorRangedBolt = NavigationCode.RIGHT_STICK_DOWN;
 				keyCodeNavigate = KeyCode.PAD_LEFT_STICK_AXIS;
 			}
 			
@@ -767,13 +776,12 @@
 				{
 					itemRenderer = mcRadialMenuFields.GetSelectedRadialMenuField() as RadialMenuItemEquipped;
 					
-					if ( itemRenderer )
+					if ( itemRenderer)
 					{
 						itemRenderer.priorSubItem();
 					}
 				}
-				else
-				if ( details.navEquivalent == navCodeNextItem ||
+				else if ( details.navEquivalent == navCodeNextItem ||
 					 (!_isAlternativeInputMode && details.navEquivalent == NavigationCode.DPAD_RIGHT ) ||
 					 details.code == KeyCode.D )
 				{
@@ -782,6 +790,26 @@
 					if ( itemRenderer )
 					{
 						itemRenderer.nextSubItem();
+					}
+				}
+				else if ( details.navEquivalent == navCodePriorRangedBolt || details.code == KeyCode.W )
+				{
+					itemRenderer = mcRadialMenuFields.GetSelectedRadialMenuField() as RadialMenuItemEquipped;
+					
+					if ( itemRenderer)
+					{
+						if(itemRenderer.getCurrentSlotName() == "Crossbow")
+							itemRenderer.priorSubItemRanged();
+					}
+				}
+				else if ( details.navEquivalent == navCodeNextRangedBolt || details.code == KeyCode.S )
+				{
+					itemRenderer = mcRadialMenuFields.GetSelectedRadialMenuField() as RadialMenuItemEquipped;
+					
+					if ( itemRenderer)
+					{
+						if(itemRenderer.getCurrentSlotName() == "Crossbow")
+							itemRenderer.nextSubItemRanged();
 					}
 				}
 			}
@@ -1008,6 +1036,14 @@
 				//textField.visible = false;
 			}
 		}
+
+		public function requestItemFeedbackUpdate()
+		{
+			var curSelection : RadialMenuItemEquipped =  mcRadialMenuFields.GetSelectedRadialMenuField() as RadialMenuItemEquipped;
+
+			if(curSelection)
+				updateSelectedSlotItemFeedback(curSelection);
+		}
 		
 		private function updateSelectedSlotItemFeedback( curSelection : RadialMenuItemEquipped ):void
 		{
@@ -1019,7 +1055,6 @@
 			{
 				mcInputFeedback.removeButton( BTN_ID_ACCEPT, true );
 			}
-			
 			if ( curSelection.isSwitchable() )
 			{
 				var buttonLabel : String;
@@ -1032,7 +1067,6 @@
 				else
 					buttonLabel = "[[hud_radial_change_item]]";
 				// NGE
-				
 				mcInputFeedback.removeButton( BTN_ID_SWITCH, false );
 				
 				if (_isAlternativeInputMode)
@@ -1048,6 +1082,27 @@
 			else
 			{
 				mcInputFeedback.removeButton( BTN_ID_SWITCH, true );
+			}
+			if ( curSelection.isRangedSwitchable() )
+			{
+				var buttonLabelRanged : String;
+				
+				buttonLabelRanged = "[[hud_radial_change_ranged]]";
+				mcInputFeedback.removeButton( BTN_ID_SWITCH_RANGED, false );
+				
+				if (_isAlternativeInputMode)
+				{
+					mcInputFeedback.appendButton( BTN_ID_SWITCH_RANGED, "gamepad_L_Scroll", KeyCode.W, buttonLabelRanged, true );
+				}
+				else
+				{
+					mcInputFeedback.appendButton( BTN_ID_SWITCH_RANGED, NavigationCode.GAMEPAD_RSTICK_SCROLL, KeyCode.W, buttonLabelRanged, true );
+				}
+				
+			}
+			else
+			{
+				mcInputFeedback.removeButton( BTN_ID_SWITCH_RANGED, true );
 			}
 		}
 		
@@ -1433,7 +1488,9 @@
 				if ( value )
 				{
 					mcMeditationBtnBck.alpha = 1;
-					mcInputFeedback.appendButton( BTN_ID_MEDITATION, NavigationCode.GAMEPAD_X, KeyCode.SPACE, "[[panel_title_meditation]]", true );
+
+					var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+					mcInputFeedback.appendButton( BTN_ID_MEDITATION, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.SPACE, "[[panel_title_meditation]]", true );
 				}
 				else
 				{

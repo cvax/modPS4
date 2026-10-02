@@ -12,6 +12,7 @@ package red.game.witcher3.menus.gwint
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.gfx.MouseEventEx;
+	import flash.events.GestureEvent;
 	
 	public class GwintBoardRenderer extends SlotsListBase
 	{
@@ -320,7 +321,7 @@ package red.game.witcher3.menus.gwint
 					}
 				}
 				
-				trace("GFX ----- Analyzing slot for placement, valid: " + validSlot + ", for slot: " + currentRenderer);
+				CardManager.log("----- Analyzing slot for placement, valid: " + validSlot + ", for slot: " + currentRenderer);
 				
 				currentRenderer.selectable = validSlot;
 				currentRenderer.alwaysHighlight = validSlot;
@@ -594,14 +595,8 @@ package red.game.witcher3.menus.gwint
 			selectedIndex = -1;
 		}*/
 		
-		public function handleMouseMove(event:MouseEvent):void
+		private function updateCardHolderSelectedIndex( stageX : Number, stageY : Number ) : void
 		{
-			// Disable mouse events while the choice dialog is visible
-			if (GwintGameMenu.mSingleton.mcChoiceDialog.visible)
-			{
-				return;
-			}
-			
 			var i:int;
 			var currentRenderer:GwintCardHolder;
 			var collisionIndex:int = -1;
@@ -610,17 +605,17 @@ package red.game.witcher3.menus.gwint
 			{
 				currentRenderer = _renderers[i] as GwintCardHolder;
 				
-				if (currentRenderer && (currentRenderer.selectable || currentRenderer.cardSelectionEnabled) && currentRenderer.handleMouseMove(event.stageX, event.stageY))
+				if (currentRenderer && (currentRenderer.selectable || currentRenderer.cardSelectionEnabled) && currentRenderer.handleMouseMove(stageX, stageY))
 				{
 					collisionIndex = i;
 					break;
 				}
 			}
-			
+
 			selectedIndex = collisionIndex;
 		}
-		
-		public function handleLeftClick(event:MouseEvent):void
+
+		public function handleMouseMove(event:MouseEvent):void
 		{
 			// Disable mouse events while the choice dialog is visible
 			if (GwintGameMenu.mSingleton.mcChoiceDialog.visible)
@@ -628,13 +623,34 @@ package red.game.witcher3.menus.gwint
 				return;
 			}
 			
-			handleMouseMove(event); // Make sure selection is updated to current mouse position
+			updateCardHolderSelectedIndex( event.stageX, event.stageY );
+		}
+
+		private function handleGestureTapOrMouseLeftClick( stageX : Number, stageY : Number ) : void 
+		{
+			// Disable events while the choice dialog is visible
+			if (GwintGameMenu.mSingleton.mcChoiceDialog.visible)
+			{
+				return;
+			}
+
+			updateCardHolderSelectedIndex( stageX, stageY );
 			
 			var curSelectedHolder:GwintCardHolder = getSelectedCardHolder();
 			if (curSelectedHolder)
 			{
-				curSelectedHolder.handleLeftClick(event);
+				curSelectedHolder.handleTapOrLeftClick();
 			}
+		}
+
+		public function handleLeftClick( event:MouseEvent ):void
+		{
+			handleGestureTapOrMouseLeftClick( event.stageX, event.stageY );
+		}
+
+		public function handleGestureTap( event:GestureEvent ):void
+		{
+			handleGestureTapOrMouseLeftClick( event.stageX, event.stageY );
 		}
 		
 		protected function onTooltipHideEnded(curTween:GTween):void

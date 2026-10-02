@@ -8,6 +8,7 @@
 package red.game.witcher3.menus.mainmenu
 {
 	import flash.display.MovieClip;
+	import flash.display.DisplayObject;
 	import flash.text.TextField;
 	import red.game.witcher3.controls.BaseListItem;
 	import red.game.witcher3.events.GridEvent;
@@ -22,6 +23,7 @@ package red.game.witcher3.menus.mainmenu
 		public var _CapitalizeAll : Boolean = true;
 		public var _IsBackButton : Boolean = false;
 		public var mcFrame : MovieClip;
+		public var mcModdedSymbol : MovieClip;
 
 		public function W3MenuListItemRenderer()
 		{
@@ -45,8 +47,15 @@ package red.game.witcher3.menus.mainmenu
 			{
 				_IsBackButton = data.isBackButton;
 			}
-			super.setData( data );
+			if(mcModdedSymbol)
+				mcModdedSymbol.visible = data.isNewGameAndModded;
 
+			// #LT	this is to make sure that the modded tooltip disappears
+			//		when clicking on the button, the selected event will still be called making the tooltip visible
+			//		this is the best place I could find for making sure its unselected
+			if(this.data && this.data.isNewGameAndModded && !data.isNewGameAndModded)
+				onUnselected();
+			super.setData( data );
 		}
 		
 		protected var _showOpen:Boolean = false;
@@ -132,6 +141,15 @@ package red.game.witcher3.menus.mainmenu
 		{
 			super.selected = value;
 			trace("HUD W3MLIR selected "+value + " gamepad? "+InputManager.getInstance().isGamepad()+" stage "+stage);
+
+			if(!data || !data.isNewGameAndModded)
+				return;
+			
+			if(value)
+				onSelected();
+			else
+				onUnselected();
+			
 			//if (InputManager.getInstance().isGamepad())
 			//{
 				/*if (_selected)
@@ -213,6 +231,37 @@ package red.game.witcher3.menus.mainmenu
 			targetRect.x = globalPoint.x;
 			targetRect.y = globalPoint.y;
 			return targetRect;
+		}
+
+		public function GetIngameMenu():IngameMenu
+		{
+			var obj : DisplayObject = this;
+			while(obj.parent)
+			{
+				if(obj.parent is IngameMenu)
+					return obj.parent as IngameMenu;
+				
+				obj = obj.parent;
+			}
+			return null;
+		}
+
+		public function onSelected():void
+		{
+			var igm : IngameMenu = GetIngameMenu();
+			if(igm != null)
+			{
+				igm.showModdedTooltip(this, true);
+			}
+		}
+
+		public function onUnselected():void
+		{
+			var igm : IngameMenu = GetIngameMenu();
+			if(igm != null)
+			{
+				igm.showModdedTooltip(this, false);
+			}
 		}
 	}
 }

@@ -17,7 +17,7 @@
 		private static var _currentMaxIdx:uint = 0;
 		private static var _buttonsList:Object = {}
 		
-		public static function appendButtonById(actionId:uint, gamepadNavCode:String, keyboardKeyCode:int, label:String, hold:Boolean = false):void
+		public static function appendButtonById(actionId:uint, gamepadNavCode:String, keyboardKeyCode:int, label:String, hold:Boolean = false, holdDuration:Number = 0):void
 		{
 			if (!eventDispatcher) return
 			
@@ -27,7 +27,7 @@
 				eventDispatcher.dispatchEvent(new GameEvent(GameEvent.CALL, "OnAppendButton", [actionId, gamepadNavCode, keyboardKeyCode, label]) );
 			}
 			else
-				eventDispatcher.dispatchEvent(new GameEvent(GameEvent.CALL, "OnAppendGFxButton", [actionId, gamepadNavCode, keyboardKeyCode, label, hold]) );
+				eventDispatcher.dispatchEvent(new GameEvent(GameEvent.CALL, "OnAppendGFxButton", [actionId, gamepadNavCode, keyboardKeyCode, label, hold, holdDuration]) );
 				
 				
 			
@@ -50,7 +50,7 @@
 		 * @param	keyboardKeyCode ASCII key code for keyboard
 		 * @param	label Localized string
 		 */
-		public static function appendButton(context:EventDispatcher, gamepadNavCode:String, keyboardKeyCode:int, label:String, hold:Boolean = false):int
+		public static function appendButton(context:EventDispatcher, gamepadNavCode:String, keyboardKeyCode:int, label:String, hold:Boolean = false, holdDuration:Number = 0):int
 		{
 			var contextComponent:UIComponent = context as UIComponent;
 			if (contextComponent && !contextComponent.initialized)
@@ -65,7 +65,7 @@
 			}
 			else
 			{
-				context.dispatchEvent(new GameEvent(GameEvent.CALL, "OnAppendGFxButton", [_currentMaxIdx, gamepadNavCode, keyboardKeyCode, label, hold]) );
+				context.dispatchEvent(new GameEvent(GameEvent.CALL, "OnAppendGFxButton", [_currentMaxIdx, gamepadNavCode, keyboardKeyCode, label, hold, holdDuration]) );
 			}
 			return _currentMaxIdx;
 		}

@@ -100,6 +100,7 @@ package red.game.witcher3.menus.noticeboard
 			if (mcCloseBtn)
 			{
 				mcCloseBtn.addEventListener(ButtonEvent.PRESS, handleClosePressed, false, 0, true);
+				mcCloseBtn.showOnSwitch2Mouser = true;
 			}
 			
 			//InputManager.getInstance().addEventListener(ControllerChangeEvent.CONTROLLER_CHANGE, handleControllerChange, false, 0, true);

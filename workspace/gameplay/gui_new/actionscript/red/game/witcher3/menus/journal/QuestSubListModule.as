@@ -32,6 +32,10 @@ package red.game.witcher3.menus.journal
 	import red.game.witcher3.menus.common.JournalRewardModule;
 	import red.game.witcher3.utils.CommonUtils;
 	import scaleform.clik.controls.UILoader;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
+	import flash.utils.setTimeout;
+	import scaleform.clik.events.ButtonEvent;
 
 	public class QuestSubListModule extends JournalRewardModule
 	{
@@ -50,20 +54,15 @@ package red.game.witcher3.menus.journal
 		public var mcListItem8 : ObjectiveItemRenderer;
 		public var mcListItem9 : ObjectiveItemRenderer;
 		public var mcListItem10 : ObjectiveItemRenderer;
-
-		
-	
-
 		public var mcScrollbar : ScrollBar;
 
 		//public var tfQuest: TextField;
 		public var tfObjectives : TextField;
-
 		public var mcObjectivesBackground : MovieClip;
 	
-
 		public var mcExpansionIcon1 : UILoader;
 		public var mcExpansionIcon2 : UILoader;
+		public var mcExpansionIcon3 : UILoader;
 		public var mcExpIconAnchor : MovieClip;
 		
 		private var _expansionIcon : int;
@@ -73,6 +72,7 @@ package red.game.witcher3.menus.journal
 		/ ******************************************************************************************************************/
 
 		protected var _trackInputFeedback:int = -1;
+		private var _selectedObjective : ObjectiveItemRenderer
 
 		/********************************************************************************************************************
 			PRIVATE CONSTANTS
@@ -111,10 +111,13 @@ package red.game.witcher3.menus.journal
 		protected function Init() : void
 		{
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, dataBindingKey, [handleDataSet]));
-			mcList.addEventListener( ListEvent.INDEX_CHANGE, OnListItemClick, false, 0, true ); // #B maybe shuld be Event change ?
+			mcList.addEventListener( ListEvent.INDEX_CHANGE, onSelectedObjectiveChanged, false, 0, true ); // #B maybe shuld be Event change ?
+			addEventListener( GestureEventEx.GESTURE_TAP, onModuleTap, false, 0, true);
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, dataBindingKey + '.questname', [handleQuestNameSet]));
 
 			stage.addEventListener( W3ScrollingList.REPOSITION, repositionRenderers, false, 0, true);
+
+			mcList.enableTouch( true );
 
 			//mcList.selectedIndex = 0;
 			//tfObjectives.htmlText = "[[panel_journal_quest_objectives]]";
@@ -164,15 +167,57 @@ package red.game.witcher3.menus.journal
 			PRIVATE FUNCTIONS
 		/ ******************************************************************************************************************/
 
-		private function OnListItemClick( event:ListEvent ):void
+		protected function onItemTappedAgain( event : GestureEvent ) : void
 		{
+			if (hasFocus)
+			{
+				_selectedObjective.handleButtonPress( null );
+			}
+		}
+
+		private function addSelectedItemTapListeners() : void
+		{
+			_selectedObjective.addEventListener( GestureEventEx.GESTURE_TAP, onItemTappedAgain, false, 0, true );
+			_selectedObjective.addEventListener( GestureEventEx.GESTURE_DOUBLE_TAP, onItemTappedAgain, false, 0, true );
+		}
+		
+		private function removeSelectedItemTapListeners() : void
+		{
+			_selectedObjective.removeEventListener( GestureEventEx.GESTURE_TAP, onItemTappedAgain, false );
+			_selectedObjective.removeEventListener( GestureEventEx.GESTURE_DOUBLE_TAP, onItemTappedAgain, false );
+		}
+
+		private function onSelectedObjectiveChanged( event:ListEvent ):void
+		{
+			//NOTE : some dead / unimplemented code. OnObjectiveSelected is empty in WS too
 			/*mcList.selectedIndex = event.index;
 			var mcListItem : ObjectiveItemRenderer = mcList.getRendererAt(mcList.selectedIndex) as ObjectiveItemRenderer;
 			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnObjectiveSelected', [mcListItem.data.tag]) );*/
+
 			mcList.validateNow();
 			repositionRenderers();
+
+			configureInputFeedbackButtons();
+
+			if ( _selectedObjective )
+			{
+				removeSelectedItemTapListeners();
+				_selectedObjective = null;
+			}
+			
+			_selectedObjective = event.itemRenderer as ObjectiveItemRenderer;
+			addSelectedItemTapListeners();
 		}
 		
+		private function onModuleTap(event:Event):void
+		{
+			//Bring the module to focus if the user tapped it.
+			if ( !hasFocus )
+			{
+				dispatchEvent(new Event(EVENT_MOUSE_FOCUSE));
+			}
+		}
+
 		override protected function handleSlotClick(event:ListEvent):void
 		{
 			// don't want this behavior from base module implementation
@@ -255,8 +300,8 @@ package red.game.witcher3.menus.journal
 			var lastIndex:int =  Math.min(mcList.dataProvider.length, mcList.getRenderers().length) - 1;
 			var lastRenderer : ObjectiveItemRenderer = mcList.getRendererAt(lastIndex) as ObjectiveItemRenderer;
 			
-			trace("Minimap --------------- lastIndex ", lastIndex, mcList.dataProvider.length, mcList.getRenderers().length );
-			trace("Minimap --------------- lastRenderer", lastRenderer);
+			trace("QuestSubListModule::handleDataSet - lastIndex ", lastIndex, mcList.dataProvider.length, mcList.getRenderers().length );
+			trace("QuestSubListModule::handleDataSet - lastRenderer", lastRenderer);
 			
 			if ( lastRenderer )
 			{
@@ -281,24 +326,40 @@ package red.game.witcher3.menus.journal
 						mcExpansionIcon1.visible = false;
 					if ( mcExpansionIcon2 )
 						mcExpansionIcon2.visible = false;
+					if ( mcExpansionIcon3 )
+						mcExpansionIcon3.visible = false;
 					break;
 				case 1:
 					if ( mcExpansionIcon1)
 						mcExpansionIcon1.visible = true;
 					if ( mcExpansionIcon2 )
 						mcExpansionIcon2.visible = false;
+					if ( mcExpansionIcon3 )
+						mcExpansionIcon3.visible = false;
 					break;
 				case 2:
 					if ( mcExpansionIcon1)
 						mcExpansionIcon1.visible = false;
 					if ( mcExpansionIcon2 )
 						mcExpansionIcon2.visible = true;
+					if ( mcExpansionIcon3 )
+						mcExpansionIcon3.visible = false;
+					break;
+				case 3:
+					if ( mcExpansionIcon1)
+						mcExpansionIcon1.visible = false;
+					if ( mcExpansionIcon2 )
+						mcExpansionIcon2.visible = false;
+					if ( mcExpansionIcon3 )
+						mcExpansionIcon3.visible = true;
 					break;
 			}
 			if ( mcExpansionIcon1 )
-				mcExpansionIcon1.y = lastRenderer.y + lastRenderer.height ;
+				mcExpansionIcon1.y = lastRenderer.y + lastRenderer.height  -  mcExpansionIcon2.height / 2;
 			if ( mcExpansionIcon2 )
-				mcExpansionIcon2.y = lastRenderer.y + lastRenderer.height  -  mcExpansionIcon2.height/2;
+				mcExpansionIcon2.y = lastRenderer.y + lastRenderer.height  -  mcExpansionIcon2.height / 2;
+			if ( mcExpansionIcon3 )
+				mcExpansionIcon3.y = lastRenderer.y + lastRenderer.height  -  mcExpansionIcon3.height / 2;
 		}
 
 		public function repositionRenderers():void
@@ -331,19 +392,19 @@ package red.game.witcher3.menus.journal
 			}*/
 		}
 
-		private function updateInputFeedback():void
+		private function configureInputFeedbackButtons():void
 		{
 			var renderer:ObjectiveItemRenderer;
 			renderer = mcList.getSelectedRenderer() as ObjectiveItemRenderer;
 			
-			var shouldShow:Boolean = _focused > 0 && renderer && renderer.data && !renderer.data.tracked && renderer.data.status == 1;
+			var showTrackQuestButton : Boolean = hasFocus && renderer && renderer.data && !renderer.data.tracked && renderer.data.status == 1;
 			
-			if (shouldShow && _trackInputFeedback < 0)
+			if (showTrackQuestButton && _trackInputFeedback < 0)
 			{
 				_trackInputFeedback = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_A, KeyCode.ENTER, "panel_button_journal_track");
 				InputFeedbackManager.updateButtons(this);
 			}
-			else if (!shouldShow && _trackInputFeedback >= 0)
+			else if (!showTrackQuestButton && _trackInputFeedback >= 0)
 			{
 				InputFeedbackManager.removeButton(this, _trackInputFeedback);
 				InputFeedbackManager.updateButtons(this);
@@ -363,7 +424,7 @@ package red.game.witcher3.menus.journal
 
 			super.focused = value;
 
-			updateInputFeedback();
+			configureInputFeedbackButtons();
 
 			var rewardRenderer:SlotBase;
 			if ( value )
@@ -385,11 +446,6 @@ package red.game.witcher3.menus.journal
 			}
 			
 			setActiveSelectionEnabled(value != 0 && !_lastMoveWasMouse);
-		}
-		
-		override protected function handleControllerChanged(event:Event):void
-		{
-			super.handleControllerChanged(event);
 		}
 		
 		protected var _lastMoveWasMouse:Boolean = false;
@@ -420,18 +476,16 @@ package red.game.witcher3.menus.journal
 
 			var details:InputDetails = event.details;
             var keyPress:Boolean = (details.value == InputValue.KEY_DOWN || details.value == InputValue.KEY_HOLD);
+			var reconfigureInputFeedbackButtons : Boolean = false;
 
 			if ( keyPress )
 			{
 				trace("JOURNAL");
 				switch (details.navEquivalent)
 				{
-					/* case NavigationCode.GAMEPAD_A:
-						if (selected)
-						{
-
-							event.handled = true;
-						}*/
+					case NavigationCode.GAMEPAD_A:
+						reconfigureInputFeedbackButtons = true;
+					break;
 					case NavigationCode.UP:
 						if ( mcRewards.GetSelectedIndex() > -1 )
 						{
@@ -501,7 +555,11 @@ package red.game.witcher3.menus.journal
 						mcList.handleInput(event);
 					}
 				}
-				updateInputFeedback();
+
+				if ( reconfigureInputFeedbackButtons )
+				{
+					configureInputFeedbackButtons();
+				}
 			}
 		}
 		

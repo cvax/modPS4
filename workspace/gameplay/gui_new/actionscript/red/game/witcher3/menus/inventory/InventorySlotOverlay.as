@@ -34,6 +34,8 @@ package red.game.witcher3.menus.inventory
 		public var mcOilIndicator:Sprite;
 		public var mcCollapsedTooltipIcon:MovieClip;
 		public var tfQuantity:TextField;
+		public var mcTransmogIndicator:MovieClip;
+		public var mcIconLock:MovieClip;
 
 		/********************************************************************************************************************
 			COMPONENT PROPERTIES
@@ -111,6 +113,16 @@ package red.game.witcher3.menus.inventory
 			if (mcCollapsedTooltipIcon)
 			{
 				mcCollapsedTooltipIcon.visible = false;
+			}
+
+			if(mcTransmogIndicator)
+			{
+				mcTransmogIndicator.visible = false;
+			}
+
+			if(mcIconLock)
+			{
+				mcIconLock.visible = false;
 			}
 			
 			_socketsContainer = new Sprite();
@@ -283,10 +295,18 @@ package red.game.witcher3.menus.inventory
 				if (_dyeColor)
 				{
 					mcDyeColor.gotoAndStop(_dyeColor);
+					if(!mcDyeColor.visible)
+					{
+						mcTransmogIndicator.y -= mcDyeColor.height + 5;
+					}
 					mcDyeColor.visible = true;
 				}
 				else
 				{
+					if(mcDyeColor.visible)
+					{
+						mcTransmogIndicator.y += mcDyeColor.height + 5;
+					}
 					mcDyeColor.visible = false;
 				}
 			}
@@ -326,6 +346,27 @@ package red.game.witcher3.menus.inventory
 			}
 		}
 		
+		public function setTransmogIcon(value:Boolean, anim:Boolean, reset):void
+		{
+			if(mcTransmogIndicator)
+			{
+				mcTransmogIndicator.visible = value;
+				if(reset)
+					mcTransmogIndicator.gotoAndStop("reset");
+				else
+					mcTransmogIndicator.gotoAndStop(anim?"play":"stop");
+			}
+		}
+
+		public function setLockIcon(value:Boolean)
+		{
+			if(mcIconLock)
+			{
+				parent.alpha = value?0.65:1;
+				mcIconLock.visible = value;
+			}
+			
+		}
 		
 		public function setPreviewIcon(value:Boolean):void
 		{
@@ -364,7 +405,7 @@ package red.game.witcher3.menus.inventory
 				}
 				if ( mcDyeColor ) 
 				{
-						mcDyeColor.y = _targetRect.y + _targetRect.height - mcCollapsedTooltipIcon.height + 5;
+					mcDyeColor.y = _targetRect.y + _targetRect.height - mcCollapsedTooltipIcon.height + 5;
 				}
 				if (mcOilIndicator)
 				{
@@ -399,6 +440,24 @@ package red.game.witcher3.menus.inventory
 				if (tfQuantity)
 				{
 					tfQuantity.y =  _targetRect.y + _targetRect.height - tfQuantity.textHeight - icon_padding;
+				}
+				if(mcTransmogIndicator)
+				{
+					mcTransmogIndicator.x = _targetRect.x + icon_padding;
+					mcTransmogIndicator.y = _targetRect.y + _targetRect.height - mcTransmogIndicator.height - icon_padding_top;
+					mcTransmogIndicator.y -= mcDyeColor.visible ? (mcDyeColor.height + 5) : 0;
+
+					//#LT hack for larger inventory transmog indicator
+					if(mcTransmogIndicator.width > 36)
+					{
+						mcTransmogIndicator.x = _targetRect.x + _targetRect.width / 2 - mcTransmogIndicator.width / 2;
+						mcTransmogIndicator.y = _targetRect.y + _targetRect.height / 2 - mcTransmogIndicator.height / 2;
+					}
+				}
+				if(mcIconLock)
+				{
+					mcIconLock.x = _targetRect.x + _targetRect.width / 2;
+					mcIconLock.y = _targetRect.y + _targetRect.height / 2;
 				}
 			}
 		}

@@ -13,14 +13,13 @@ package red.game.witcher3.menus.common
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.managers.InputDelegate;
 	import scaleform.clik.ui.InputDetails;
-	
+	import flash.events.TransformGestureEvent;
 
 	public class TextAreaModuleCustomInput extends TextAreaModule
 	{
 		public static const TEXT_HEADER_PADDING 	: int = 10;
 		
 		public var	_scrollSpeed : Number = 1;
-		
 		
 		function TextAreaModuleCustomInput()
 		{
@@ -34,7 +33,7 @@ package red.game.witcher3.menus.common
 			SetAsActiveContainer(true);
 			updateInputFeedback();
 		}
-	
+
 		private function handleCustomInput(event:InputEvent ): void
 		{
 			var details:InputDetails = event.details;
@@ -49,7 +48,7 @@ package red.game.witcher3.menus.common
 				mcScrollbar.position -= yvalue;
 			}
 		}
-		
+
 		override public function hasSelectableItems():Boolean
 		{
 			return false;

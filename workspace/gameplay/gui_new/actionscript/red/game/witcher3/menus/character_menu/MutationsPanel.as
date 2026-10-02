@@ -31,6 +31,9 @@ package red.game.witcher3.menus.character_menu
 	import scaleform.clik.events.ListEvent;
 	import scaleform.clik.ui.InputDetails;
 	import scaleform.gfx.MouseEventEx;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
+	import red.game.witcher3.slots.SlotsListBase;
 	
 	/**
 	 * @author Getsevich Yaroslav
@@ -108,6 +111,7 @@ package red.game.witcher3.menus.character_menu
 		private var tooltipTimer:Timer;
 		
 		private var _cachedChangeList:Object;
+		private var _tapHappened:Boolean = false;
 		
 		public function MutationsPanel()
 		{
@@ -121,6 +125,7 @@ package red.game.witcher3.menus.character_menu
 			mcMutationList.addEventListener(ListEvent.ITEM_DOUBLE_CLICK, hanldeMutationDoubleClick, false, 0, true);
 			mcMutationList.addEventListener(ListEvent.ITEM_ROLL_OVER, hanldeMutationOver, false, 0, true );
 			mcMutationList.addEventListener(ListEvent.ITEM_ROLL_OUT, hanldeMutationOut, false, 0, true );
+			mcMutationList.addEventListener( SlotsListBase.EVENT_SELECTED_TAPPED, handleSelectedMutationTapped, false, 0, true );
 			
 			InputManager.getInstance().addEventListener(ControllerChangeEvent.CONTROLLER_CHANGE, handleControllerChanged, false, 0, true);
 		}
@@ -129,13 +134,44 @@ package red.game.witcher3.menus.character_menu
 		{
 			super.configUI();
 		}
-		
+
+		private function handleTapBubble( event : GestureEvent ) : void 
+		{
+			trace("MutationsPanel::handleTapBubble");
+
+			_tapHappened = false;
+		}
+
+		private function handleTapCapture( event : GestureEvent ) : void 
+		{
+			trace("MutationsPanel::handleTapCapture");
+			_tapHappened = true;
+
+			if ( mcMutagenTooltip.mcButtonPanel.btnAction.hitTestPoint( event.stageX, event.stageY ) )
+			{
+				trace("MutationsPanel::handleTap - BUTTON HIT");
+
+				//Nuke the event so it wont bubble
+				event.stopImmediatePropagation();
+				event.preventDefault();
+
+				mutationAction();
+
+				_tapHappened = false;
+			}
+		}
+
 		private function handleControllerChanged(e:Event):void
 		{
 			if (_selectedMutationRenderer)
 			{
 				alignControls();
 			}
+		}
+
+		private function handleSelectedMutationTapped( event : Event )
+		{
+			mutationAction();
 		}
 		
 		private function hanldeMutationClick( event : ListEvent ):void
@@ -147,23 +183,35 @@ package red.game.witcher3.menus.character_menu
 			mutationAction();
 		}
 		
-		private function hanldeMutationOver(event:ListEvent):void
+		private function cleanupTooltipTimer() : void
 		{
+			if ( tooltipTimer )
+			{
+				tooltipTimer.stop()
+				tooltipTimer.removeEventListener( TimerEvent.TIMER, handleTooltipTimer, false );
+				tooltipTimer = null;
+			}
+		}
+
+		private function initTooltipTimer() : void
+		{
+			tooltipTimer = new Timer(500);
+			tooltipTimer.addEventListener(TimerEvent.TIMER, handleTooltipTimer, false, 0, true);
+			tooltipTimer.start();
+		}
+
+		private function hanldeMutationOver( event : ListEvent ):void
+		{
+			trace( "MutationsPanel::hanldeMutationOver" );
+
 			var targetRenderer:MutationItemRenderer = event.itemRenderer as MutationItemRenderer;
-			
-			trace("GFX MutationPanel::hanldeMutationOver ");
 			
 			mcMutationList.selectedIndex = targetRenderer.index;
 			mcMutationList.validateNow();
 			
 			if ( targetRenderer && !targetRenderer.blocked )
 			{
-				if ( tooltipTimer )
-				{
-					tooltipTimer.stop()
-					tooltipTimer.removeEventListener( TimerEvent.TIMER, handleTooltipTimer, false );
-					tooltipTimer = null;
-				}
+				cleanupTooltipTimer();
 				
 				GTweener.removeTweens( mcMutagenTooltip );
 				
@@ -179,15 +227,10 @@ package red.game.witcher3.menus.character_menu
 		
 		private function hanldeMutationOut(event:ListEvent):void
 		{
-			trace("GFX hanldeMutationOut ");
+			trace( "MutationsPanel::hanldeMutationOut" );
 			
-			if (tooltipTimer)
-			{
-				tooltipTimer.stop()
-				tooltipTimer.removeEventListener(TimerEvent.TIMER, handleTooltipTimer, false);
-				tooltipTimer = null;
-			}
-			
+			cleanupTooltipTimer();
+
 			mcMutagenTooltip.visible = false;
 			mcMutagenTooltip.alpha = 0;
 			GTweener.removeTweens(mcMutagenTooltip);
@@ -197,29 +240,29 @@ package red.game.witcher3.menus.character_menu
 		private function handleMutationSelected(e:ListEvent):void
 		{
 			var selectedItem:MutationItemRenderer = mcMutationList.getSelectedRenderer() as MutationItemRenderer;
-			
+			trace("MutationsPanel::handleMutationSelected : ", selectedItem);
+
 			selectMutation(selectedItem);
 		}
 		
 		private function selectMutation(selectedItem : MutationItemRenderer, forced:Boolean = false):void
 		{
-			var isGamepad:Boolean = InputManager.getInstance().isGamepad();
-			
-			trace("GFX [MutationsPanel] ----------------------- handleMutationSelected ", selectedItem);
+			//true means no tooltips
+			//false means tooltips
+			var isMouse:Boolean = InputManager.getInstance().isMouse();
+			if ( _tapHappened )
+			{
+				isMouse = false;
+			}
 			
 			if (_selectedMutationRenderer == selectedItem && !forced)
 			{
 				return;
 			}
 			
-			if (isGamepad)
+			if (!isMouse)
 			{
-				if (tooltipTimer)
-				{
-					tooltipTimer.stop()
-					tooltipTimer.removeEventListener(TimerEvent.TIMER, handleTooltipTimer, false);
-					tooltipTimer = null;
-				}
+				cleanupTooltipTimer();
 				
 				mcMutagenTooltip.alpha = 0;
 				GTweener.removeTweens(mcMutagenTooltip);
@@ -230,14 +273,12 @@ package red.game.witcher3.menus.character_menu
 				_selectedMutationRenderer = selectedItem;
 				_selectedMutationData = selectedItem.data;
 				
-				if (isGamepad)
+				if (!isMouse)
 				{
 					mcMutagenTooltip.data = _selectedMutationData;
 					mcMutagenTooltip.validateNow();
 					
-					tooltipTimer = new Timer(500);
-					tooltipTimer.addEventListener(TimerEvent.TIMER, handleTooltipTimer, false, 0, true);
-					tooltipTimer.start();
+					initTooltipTimer();
 				}
 				else
 				{
@@ -249,7 +290,7 @@ package red.game.witcher3.menus.character_menu
 			}
 			else
 			{
-				if (isGamepad)
+				if (!isMouse)
 				{
 					mcMutagenTooltip.visible = false;
 				}
@@ -260,7 +301,7 @@ package red.game.witcher3.menus.character_menu
 				dispatchEvent( new GameEvent( GameEvent.CALL, "OnMutationSelected", [ int( _selectedMutationData.mutationId ) ] ) );
 			}
 			
-			if (isGamepad)
+			if (!isMouse)
 			{
 				alignControls();
 			}
@@ -343,9 +384,7 @@ package red.game.witcher3.menus.character_menu
 		
 		private function handleTooltipTimer(event:TimerEvent):void
 		{
-			tooltipTimer.stop()
-			tooltipTimer.removeEventListener(TimerEvent.TIMER, handleTooltipTimer, false);
-			tooltipTimer = null;
+			cleanupTooltipTimer();
 			
 			trace("GFX MutationPanel::handleTooltipTimer ");
 			
@@ -367,7 +406,7 @@ package red.game.witcher3.menus.character_menu
 		public function get active():Boolean { return _active; }
 		public function set active(value:Boolean):void
 		{
-			trace("GFX MutationPanel::active ", _active, value);
+			trace("MutationsPanel::active ", _active, value);
 			
 			if (_active != value)
 			{
@@ -375,10 +414,18 @@ package red.game.witcher3.menus.character_menu
 				
 				enabled = _active;
 				stage.removeEventListener(InputEvent.INPUT, handleInput, false);
-				
+				stage.removeEventListener( GestureEvent.GESTURE_TWO_FINGER_TAP, handleGestureTwoFingerTap, false );
+				removeEventListener(GestureEventEx.GESTURE_TAP, handleTapCapture, true );
+				removeEventListener(GestureEventEx.GESTURE_TAP, handleTapBubble, false );
+				mcMutationList.enableTouch( false );
+
 				if (_active)
 				{
 					stage.addEventListener(InputEvent.INPUT, handleInput, false, 1000, true);
+					stage.addEventListener( GestureEvent.GESTURE_TWO_FINGER_TAP, handleGestureTwoFingerTap, false, 1000, true );
+					addEventListener(GestureEventEx.GESTURE_TAP, handleTapCapture, true, 1000, true);
+					addEventListener(GestureEventEx.GESTURE_TAP, handleTapBubble, false, 1000, true);
+					mcMutationList.enableTouch( true );
 					dispatchEvent(new Event(Event.ACTIVATE));
 					mcMutationList.enabled = true;
 					initPopulateData(true);
@@ -416,6 +463,7 @@ package red.game.witcher3.menus.character_menu
 		
 		public function setSingleMutationData(value:Object):void
 		{
+			trace( "MutationsPanel::setSingleMutationData" );
 			//trace("GFX MutationPanel :: setSingleMutationData ", value, value.mutationId, value.description );
 			
 			if (_data)
@@ -517,6 +565,14 @@ package red.game.witcher3.menus.character_menu
 				event.handled = true;
 				event.stopImmediatePropagation();
 			}
+		}
+
+		private function handleGestureTwoFingerTap( event : GestureEvent ) : void
+		{
+			event.stopImmediatePropagation();
+			event.preventDefault();
+			
+			active = false;
 		}
 		
 		private function mutationAction():void

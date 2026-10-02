@@ -185,7 +185,7 @@ package red.game.witcher3.tooltips
 			var rightEdge:Number = actualVisibleRect.x + actualVisibleRect.width;
 			
 			// apply safe area if not PC
-			if (InputManager.getInstance().getPlatform() != PlatformType.PLATFORM_PC)
+			if (InputManager.getInstance().getPlatform() != PlatformType.PLATFORM_PC && InputManager.getInstance().getPlatform() != PlatformType.PLATFORM_PC_GDK)
 			{
 				screenHeight *= 0.95;
 				screenWidth *= 0.95;

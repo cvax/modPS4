@@ -30,6 +30,7 @@ package red.game.witcher3.hud.modules.radialmenu
 		protected static const OVER_GLOW_BLUR:Number = 20;
 		protected static const OVER_GLOW_STRENGHT:Number = .75;
 		protected static const OVER_GLOW_ALPHA:Number = .6;
+		const text_padding = 5;
 		
 		public function RadialMenuSubItemView()
 		{
@@ -39,6 +40,11 @@ package red.game.witcher3.hud.modules.radialmenu
 		public function setData( itemName:String, iconPath:String, idx:int = -1, count:int = -1 ):void
 		{
 			visible = false; // show only after image loaded
+
+			if(iconPath.indexOf("img://") != 0)
+			{
+				iconPath = "img://" + iconPath;
+			}
 			
 			trace("GFX setData ", itemName, iconPath, idx, count);
 			
@@ -74,7 +80,6 @@ package red.game.witcher3.hud.modules.radialmenu
 			
 			if (idx >= 0 && count > 1 )
 			{
-				const text_padding = 5;
 				
 				tfItemCounter.text =   " < " + idx + "/" + _count + " > ";
 				tfItemCounter.visible = true;
@@ -111,6 +116,11 @@ package red.game.witcher3.hud.modules.radialmenu
 			
 			tfItemName.y = _imageLoader.y + _imageLoader.height - 5;
 			tfItemName.x = - tfItemName.width / 2;
+
+			if(tfItemCounter.visible)
+			{
+				tfItemCounter.y = tfItemName.y + tfItemName.height - text_padding;
+			}
 		}
 		
 		private function handleLoadIOError(event:Event = null):void
@@ -127,6 +137,11 @@ package red.game.witcher3.hud.modules.radialmenu
 			
 			tfItemName.y = 0;
 			tfItemName.x = - tfItemName.width / 2;
+
+			if(tfItemCounter.visible)
+			{
+				tfItemCounter.y = tfItemName.y + tfItemName.height - text_padding;
+			}
 		}
 		
 	}

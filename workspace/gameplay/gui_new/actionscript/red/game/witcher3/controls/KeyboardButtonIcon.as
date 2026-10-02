@@ -19,6 +19,8 @@ package red.game.witcher3.controls
 		
 		public var mcBackground:Sprite;
 		public var textField:TextField;
+		public var mcMask:MovieClip;
+		public var mcFill:MovieClip;
 		
 		protected var _label:String;
 		public function get label():String { return _label }
@@ -38,6 +40,13 @@ package red.game.witcher3.controls
 				mcBackground.width = MIN_SIZE;
 				textField.x = (mcBackground.width - curWidth) / 2;
 			}
+
+			if(mcMask && mcFill)
+			{
+				mcMask.width = mcBackground.width;
+				mcFill.width = mcBackground.width;
+				setFill(1); // if 0, it does not work for some reason, 1 is still pretty much invisible
+			}
 		}
 		
 		protected var _backgroundVisibility:Boolean;
@@ -46,6 +55,32 @@ package red.game.witcher3.controls
 		{
 			_backgroundVisibility = value;
 			mcBackground.visible = _backgroundVisibility;
+		}
+
+		public function setFill(fillPct : int):void
+		{
+			var frame : int = fillPct + 1;
+
+			if(frame < 1)
+				frame = 1;
+
+			if(frame > 101)
+				frame = 101;
+
+			if(frame > 0 && frame < 102)
+			{
+				if(mcFill)
+				{
+					mcFill.visible = true;
+				}
+				if(mcMask)
+				{
+					mcMask.visible = true;
+				}
+			}
+			if(mcMask) {
+				mcMask.gotoAndStop(frame);
+			}
 		}
 	}
 

@@ -11,7 +11,10 @@ package red.game.witcher3.slots
 	import red.game.witcher3.interfaces.IDropTarget;
 	import red.game.witcher3.managers.InputManager;
 	import red.game.witcher3.menus.character_menu.SkillSocketsGroup;
+	import red.game.witcher3.menus.character_menu.MenuCharacterDupe;
 	import scaleform.clik.events.InputEvent;
+
+	import red.game.witcher3.utils.CommonUtils;
 	
 	/**
 	 * ...
@@ -111,14 +114,29 @@ package red.game.witcher3.slots
 			
 			if (equipedIcon)
 			{
+				equipedIcon.visible = true;
+				if(equipedIcon.getChildByName("mcFullColor"))
+				{
+					equipedIcon.mcFullColor.gotoAndStop(_data.color);
+
+					equipedIcon.mcFullColor.alpha = (_data.isEquipped || _data.level > 0)? 1 : (_data.isUsingSkillDependency && _data.hasRequiredSkillDependency) ? 0.5 : 0;
+				}
+
+				if(_data.isEquipped) 
+					equipedIcon.gotoAndStop("equipped");
+				else if (_data.level > 0)
+					equipedIcon.gotoAndStop("purchased");
+				else if (_data.isUsingSkillDependency && _data.hasRequiredSkillDependency)
+					equipedIcon.gotoAndStop("available");
+				else 
+					equipedIcon.gotoAndStop("none");
+
 				if (_data && !_data.isCoreSkill)
 				{
-					equipedIcon.visible = _data.isEquipped;
 					if (mcRuneGlow) mcRuneGlow.visible = _data.isEquipped && GLOW_EQUIPPED && _data.highlight;
 				}
 				else
 				{
-					equipedIcon.visible = false;
 					if (mcRuneGlow) mcRuneGlow.visible = false;
 				}
 			}
@@ -140,7 +158,7 @@ package red.game.witcher3.slots
 		{
 			//trace("TP *** [SlotSkillSocket][", this, "] fireTooltipShowEvent ", activeSelectionEnabled, _data);
 			
-			if (!(activeSelectionEnabled || !InputManager.getInstance().isGamepad()) && isParentEnabled())
+			if (!(activeSelectionEnabled || InputManager.getInstance().isMouse()) && isParentEnabled())
 			{
 				return;
 			}
@@ -201,6 +219,12 @@ package red.game.witcher3.slots
 			if (_data && _data.skillPath && _data.skillPath != NULL_SKILL && !_selectionMode)
 			{
 				selectEvent.data = _data;
+
+				if(parent && parent.parent && parent.parent.parent is MenuCharacterDupe)
+				{
+					(parent.parent.parent as MenuCharacterDupe).moveHighlightOverSocket(this);
+					(parent.parent.parent as MenuCharacterDupe).changeHighlightSize(0.5);
+				}
 				dispatchEvent( new GameEvent( GameEvent.CALL, 'OnUnequipSkill', [_data.slotId] ));
 				cleanup();
 			}
@@ -291,6 +315,12 @@ package red.game.witcher3.slots
 				{
 					return;
 				}
+
+				if(parent && parent.parent && parent.parent.parent is MenuCharacterDupe)
+				{
+					(parent.parent.parent as MenuCharacterDupe).moveHighlightOverSocket(this);
+					(parent.parent.parent as MenuCharacterDupe).changeHighlightSize(0.5);
+				}
 				
 				if (isSkillEquipped() && itemData.slotId)
 				{
@@ -298,6 +328,7 @@ package red.game.witcher3.slots
 				}
 				else
 				{
+					dispatchEvent( new GameEvent( GameEvent.CALL, 'OnSwapTab', [uint(skillId)] ));
 					dispatchEvent( new GameEvent( GameEvent.CALL, 'OnEquipSkill', [uint(skillId), slotId] ));
 				}
 				

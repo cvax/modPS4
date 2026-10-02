@@ -72,6 +72,8 @@ package red.game.witcher3.hud.modules.dialog
 			visible = true;
 			alpha = 0;
 			//mcOptionList.labelField = "name";
+			mcOptionList.enableTouch( true );
+			
 			mcOptionList.addEventListener( ListEvent.INDEX_CHANGE, onOptionChange, false, 0, true );
 			mcOptionList.addEventListener( ListEvent.ITEM_CLICK,   onOptionClick );
 			stage.addEventListener(W3ScrollingList.REPOSITION, SetOptionItemsY, false, 0, true);

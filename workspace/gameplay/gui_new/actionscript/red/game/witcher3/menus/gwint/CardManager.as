@@ -1,4 +1,4 @@
-package red.game.witcher3.menus.gwint
+﻿package red.game.witcher3.menus.gwint
 {
 	import flash.events.Event;
 	import flash.external.ExternalInterface;
@@ -7,6 +7,7 @@ package red.game.witcher3.menus.gwint
 	import scaleform.clik.core.UIComponent;
 	import red.game.witcher3.menus.gwint.CardAndComboPoints;
 	import red.game.witcher3.utils.CommonUtils;
+	import red.core.utils.Debug;
 	
 	/**
 	 * ...
@@ -73,10 +74,18 @@ package red.game.witcher3.menus.gwint
 		private var pendingSpawnedCardsPlayerTargets:Vector.<int> = new Vector.<int>();
 		
 		protected static var _instance:CardManager;
+		public static var debugVerbose:int = 0;
+		
 		public static function getInstance():CardManager
 		{
 			if (_instance == null) { _instance = new CardManager(); }
 			return _instance;
+		}
+		
+		public static function log(...args)
+		{
+			if(debugVerbose > 2)
+				trace.apply(null, args);
 		}
 		
 		function CardManager()
@@ -203,7 +212,41 @@ package red.game.witcher3.menus.gwint
 			
 			recalculateScores();
 		}
-		
+
+		public function toCreatureList(modlist:int) : int
+		{
+			if (modlist == CARD_LIST_LOC_MELEEMODIFIERS || modlist == CARD_LIST_LOC_MELEE)
+			{
+				return CARD_LIST_LOC_MELEE;
+			}
+			else if (modlist == CARD_LIST_LOC_RANGEDMODIFIERS || modlist == CARD_LIST_LOC_RANGED)
+			{
+				return CARD_LIST_LOC_RANGED;
+			}
+			else if (modlist == CARD_LIST_LOC_SEIGEMODIFIERS || modlist == CARD_LIST_LOC_SEIGE)
+			{
+				return CARD_LIST_LOC_SEIGE;
+			}
+			return CARD_LIST_LOC_INVALID;
+		}
+
+		public function toModifierList(creaList:int) : int
+		{
+			if (creaList == CARD_LIST_LOC_MELEEMODIFIERS || creaList == CARD_LIST_LOC_MELEE)
+			{
+				return CARD_LIST_LOC_MELEEMODIFIERS;
+			}
+			else if (creaList == CARD_LIST_LOC_RANGEDMODIFIERS || creaList == CARD_LIST_LOC_RANGED)
+			{
+				return CARD_LIST_LOC_RANGEDMODIFIERS;
+			}
+			else if (creaList == CARD_LIST_LOC_SEIGEMODIFIERS || creaList == CARD_LIST_LOC_SEIGE)
+			{
+				return CARD_LIST_LOC_SEIGEMODIFIERS;
+			}
+			return CARD_LIST_LOC_INVALID;
+		}
+
 		public function getCardTemplate( index:int ) : CardTemplate
 		{
 			return _cardTemplates[index];
@@ -223,7 +266,7 @@ package red.game.witcher3.menus.gwint
 				throw new Error("GFX - Information sent from WS regarding card templates was wrong!");
 			}
 			
-			//trace("GFX - got a data array!");
+			//log("got a data array!");
 			
 			for each (var cardTemplate:CardTemplate in dataArray)
 			{
@@ -233,7 +276,7 @@ package red.game.witcher3.menus.gwint
 				}
 				
 				_cardTemplates[cardTemplate.index] = cardTemplate;
-				//trace("GFX - received the following card template information: " + cardTemplate);
+				//log("received the following card template information: " + cardTemplate);
 			}
 			
 			dispatchEvent(new Event(cardTemplatesLoaded, false, false));
@@ -367,6 +410,15 @@ package red.game.witcher3.menus.gwint
 			return matchingList;
 		}
 		
+		public function getCardInstanceListCopy(listID:int, playerID:int) : Vector.<CardInstance>
+		{
+			var copy = new  Vector.<CardInstance>;
+			var original = getCardInstanceList(listID, playerID);
+			for(var i = 0; i<original.length; ++i)
+				copy.push(original[i]);
+			return copy;
+		}
+		
 		public function getCardInstanceList(listID:int, playerID:int) : Vector.<CardInstance>
 		{
 			switch (listID)
@@ -430,24 +482,27 @@ package red.game.witcher3.menus.gwint
 					}
 			}
 			
-			trace("GFX [WARNING] - CardManager: failed to get card list with player: " + playerID + ", and listID: " + listID);
+			log("[WARNING] - CardManager: failed to get card list with player: " + playerID + ", and listID: " + listID);
 			
 			return null;
 		}
 		
 		private function flushPendingSpawnedCards():void
 		{
+			log("flushPendingSpawnedCards");
 			var newInstances:Vector.<CardInstance> = new Vector.<CardInstance>();
+
 			var currentInstance:CardInstance;
 			
 			for (var i:int = 0; i < pendingSpawnedCards.length; ++i)
 			{
+				trace("spawn card:", pendingSpawnedCards[i]);
 				// #JS hardcoded to melee as only one exists right now and im being lazy.
 				// Fix if you need this for anything else
 				var newInstance:CardInstance = spawnCardInstance(pendingSpawnedCards[i], pendingSpawnedCardsPlayerTargets[i], CARD_LIST_LOC_MELEE);
 				newInstance.InstancePositioning = true;
 				newInstance.BanishInsteadOfGraveyard = true;
-				addCardInstanceToList(newInstance, CARD_LIST_LOC_MELEE, pendingSpawnedCardsPlayerTargets[i]);
+				addCardInstanceToList(newInstance, newInstance.getDefaultSpawnList(), pendingSpawnedCardsPlayerTargets[i]);
 				newInstances.push(newInstance);
 			}
 			
@@ -465,6 +520,7 @@ package red.game.witcher3.menus.gwint
 		
 		public function clearBoard(allowMonsterFactionAbility:Boolean):void
 		{
+			trace("clear board");
 			var list_it:int;
 			var player_it:int;
 			var cardToIgnore:CardInstance;
@@ -493,6 +549,7 @@ package red.game.witcher3.menus.gwint
 				sendListToGraveyard(CARD_LIST_LOC_SEIGEMODIFIERS, player_it, cardToIgnore, false);
 			}
 			
+			trace("flushPendingSpawnedCards");
 			flushPendingSpawnedCards();
 		}
 		
@@ -513,9 +570,7 @@ package red.game.witcher3.menus.gwint
 				{
 					if (currentCard.BanishInsteadOfGraveyard)
 					{
-						CardFXManager.getInstance().spawnFX(currentCard, null, CardFXManager.getInstance()._placeFiendFXClassRef);
-						removeCardInstanceFromItsList(currentCard);
-						boardRenderer.removeCardInstance(currentCard);
+						banish(currentCard);
 					}
 					else if (playerID == -1) // Weather slot does not have playerID - Fix for weathers
 					{
@@ -618,6 +673,123 @@ package red.game.witcher3.menus.gwint
 			}
 		}
 		
+		public function getAllCardsWithType(listID:int, playerIndex:int, typeFlag:int, listToAdd:Vector.<CardInstance>):void
+		{
+			var list_it:int;
+			var currentCard:CardInstance;
+			var currentList:Vector.<CardInstance> = getCardInstanceList(listID, playerIndex);
+			
+			if (currentList == null)
+			{
+				throw new Error("GFX [ERROR] - Failed to get card instance list for listID: " + listID + ", and playerIndex: " + playerIndex);
+			}
+			
+			for (list_it = 0; list_it < currentList.length; ++list_it)
+			{
+				currentCard = currentList[list_it];
+				
+				if (currentCard.templateRef.isType(typeFlag))
+				{
+					listToAdd.push(currentCard);
+				}
+			}
+		}
+		
+		public function getAllCreaturesExcept(listID:int, playerIndex:int, exceptTypes:Vector.<int>, exceptTemplateIds:Vector.<int>, listToAdd:Vector.<CardInstance>):void
+		{
+			var list_it:int;
+			var except_it:int;
+			var currentCard:CardInstance;
+			var currentList:Vector.<CardInstance> = getCardInstanceList(listID, playerIndex);
+			
+			if (currentList == null)
+			{
+				throw new Error("GFX [ERROR] - Failed to get card instance list for listID: " + listID + ", and playerIndex: " + playerIndex);
+			}
+			
+			for (list_it = 0; list_it < currentList.length; ++list_it)
+			{
+				currentCard = currentList[list_it];
+
+				var isAccepted = currentCard.templateRef.isType(CardTemplate.CardType_Creature);
+
+				if(!isAccepted)
+					continue;
+
+				if(exceptTypes != null)
+					for (except_it = 0; except_it < exceptTypes.length; ++except_it)
+					{
+						if(currentCard.templateRef.isType(exceptTypes[except_it]))
+						{
+							isAccepted = false;
+							break;
+						}
+					}
+
+				if(!isAccepted)
+					continue;
+
+				if(exceptTemplateIds != null)
+					for (except_it = 0; except_it < exceptTemplateIds.length; ++except_it)
+					{
+						if(currentCard.templateId == exceptTemplateIds[except_it])
+						{
+							isAccepted = false;
+							break;
+						}
+					}
+				
+				if (isAccepted)
+				{
+					listToAdd.push(currentCard);
+				}
+			}
+		}
+		
+		public function getAllCreaturesWithEffect(listID:int, playerIndex:int, effect:int, listToAdd:Vector.<CardInstance>):void
+		{
+			var list_it:int;
+			var currentCard:CardInstance;
+			var currentList:Vector.<CardInstance> = getCardInstanceList(listID, playerIndex);
+			
+			if (currentList == null)
+			{
+				throw new Error("GFX [ERROR] - Failed to get card instance list for listID: " + listID + ", and playerIndex: " + playerIndex);
+			}
+			
+			for (list_it = 0; list_it < currentList.length; ++list_it)
+			{
+				currentCard = currentList[list_it];
+				
+				if (currentCard.templateRef.hasEffect(effect))
+				{
+					listToAdd.push(currentCard);
+				}
+			}
+		}
+
+		public function getAllCreaturesWithTemplateId(listID:int, playerIndex:int, templateId:int, listToAdd:Vector.<CardInstance>):void
+		{
+			var list_it:int;
+			var currentCard:CardInstance;
+			var currentList:Vector.<CardInstance> = getCardInstanceList(listID, playerIndex);
+			
+			if (currentList == null)
+			{
+				throw new Error("GFX [ERROR] - Failed to get card instance list for listID: " + listID + ", and playerIndex: " + playerIndex);
+			}
+			
+			for (list_it = 0; list_it < currentList.length; ++list_it)
+			{
+				currentCard = currentList[list_it];
+				
+				if (currentCard.templateId == templateId)
+				{
+					listToAdd.push(currentCard);
+				}
+			}
+		}
+		
 		public function replaceCardInstanceIDs(replacerInstanceID:int, replaceeInstanceID:int):void
 		{
 			replaceCardInstance(getCardInstance(replacerInstanceID), getCardInstance(replaceeInstanceID));
@@ -649,39 +821,27 @@ package red.game.witcher3.menus.gwint
 			}
 		}
 		
-		public function addCardInstanceToList(cardInstance:CardInstance, listID:int, playerID:int):void
+		public function addCardInstanceToList(cardInstance:CardInstance, newListID:int, playerID:int):void
 		{
+			var oldListID = cardInstance.inList;
+
 			removeCardInstanceFromItsList(cardInstance);
-			
-			cardInstance.inList = listID;
+
+			cardInstance.inList = newListID;
 			cardInstance.listsPlayer = playerID;
-			var newList:Vector.<CardInstance> = getCardInstanceList(listID, playerID);
+			var newList:Vector.<CardInstance> = getCardInstanceList(newListID, playerID);
 			
-			if (listID == CARD_LIST_LOC_GRAVEYARD && cardInstance.templateRef.hasEffect(CardTemplate.CardEffect_SuicideSummon) &&
-				!GwintGameFlowController.getInstance().isGameOver())
-			{
-				if (cardInstance.templateRef.summonFlags.length > 0)
-				{
-					GwintGameMenu.mSingleton.playSound(
-						cardInstance.templateRef.factionIdx == CardTemplate.FactionId_Skellige ?
-							"gui_gwint_hero" :
-							"gui_gwint_cow_death");
-				}
-				
-				for (var i:int = 0; i < cardInstance.templateRef.summonFlags.length; ++i)
-				{
-					pendingSpawnedCards.push(cardInstance.templateRef.summonFlags[i]);
-					pendingSpawnedCardsPlayerTargets.push(cardInstance.listsPlayer);
-				}
-			}
-			
-			trace("GFX ====== Adding card with instance ID: " + cardInstance.instanceId + ", to List ID: " + listIDToString(listID) + ", for player: " + playerID);
+			log(" ====== Adding card with instance ID: " + cardInstance.instanceId + ", to List ID: " + listIDToString(newListID) + ", for player: " + playerID);
 			
 			newList.push(cardInstance);
-			if (boardRenderer) { boardRenderer.wasAddedToList(cardInstance, listID, playerID); }
+
+			if (boardRenderer) { boardRenderer.wasAddedToList(cardInstance, newListID, playerID); }
+
+			cardInstance.onAddedToList(newListID, oldListID, playerID);
+
 			recalculateScores();
 			
-			if (listID == CARD_LIST_LOC_HAND)
+			if (newListID == CARD_LIST_LOC_HAND)
 			{
 				playerRenderers[playerID].numCardsInHand = newList.length;
 			}
@@ -692,12 +852,11 @@ package red.game.witcher3.menus.gwint
 			removeCardInstanceFromList(cardInstance, cardInstance.inList, cardInstance.listsPlayer);
 		}
 		
-		public function removeCardInstanceFromList(cardInstance:CardInstance, listID:int, playerID:int):void
+		private function removeCardInstanceFromList(cardInstance:CardInstance, listID:int, playerID:int):void
 		{
 			if (cardInstance.inList != CARD_LIST_LOC_INVALID)
 			{
-				cardInstance.inList = CARD_LIST_LOC_INVALID;
-				cardInstance.listsPlayer = PLAYER_INVALID;
+				cardInstance.onRemovingFromList(listID, playerID);
 				
 				var containingList:Vector.<CardInstance> = getCardInstanceList(listID, playerID);
 				if (!containingList)
@@ -724,7 +883,24 @@ package red.game.witcher3.menus.gwint
 				{
 					playerRenderers[playerID].numCardsInHand = containingList.length;
 				}
+
+				cardInstance.listsPlayer = PLAYER_INVALID;
+				cardInstance.inList = CARD_LIST_LOC_INVALID;
+
+				cardInstance.onRemovedFromList(listID, playerID);
 			}
+		}
+
+		public function addPendingCardToSpawn(templateId:int, playerId:int)
+		{
+			pendingSpawnedCards.push(templateId);
+			pendingSpawnedCardsPlayerTargets.push(playerId);
+			trace("addPendingCardToSpawn:", templateId);
+		}
+
+		public function addCardToDeck(templateId:int, playerId:int)
+		{
+			playerDeckDefinitions[playerId].addCard(templateId);
 		}
 		
 		public function spawnLeaders():void
@@ -743,6 +919,7 @@ package red.game.witcher3.menus.gwint
 		
 		public function halfWeatherEnabled(playerID:int):Boolean
 		{
+			Debug.Assert(playerID == 0 || playerID == 1);
 			var playerToCheckInstance:CardLeaderInstance = getCardLeader(playerID);
 			var otherPlayerLeader:CardLeaderInstance;
 			
@@ -771,6 +948,25 @@ package red.game.witcher3.menus.gwint
 				return leaderCardList[0] as CardLeaderInstance;
 			}
 		}
+
+		public function stealCards(stolenPlayerId:int, num:int)
+		{
+			Debug.Assert(stolenPlayerId != PLAYER_INVALID);
+			var stealerPlayerId = stolenPlayerId == PLAYER_1 ? PLAYER_2 : PLAYER_1;
+			var enemyHandCardList:Vector.<CardInstance> = CardManager.getInstance().getCardInstanceList(CardManager.CARD_LIST_LOC_HAND, stolenPlayerId);
+			var count = Math.min(num, enemyHandCardList.length);
+			for(var i = 0; i<count; ++i)
+			{
+				var stolenCardIndex:int = Math.min(Math.floor(Math.random() *  enemyHandCardList.length), enemyHandCardList.length - 1);
+				var stolenCardInstance = enemyHandCardList[stolenCardIndex];
+				removeCardInstanceFromItsList(stolenCardInstance);
+				addCardInstanceToList(stolenCardInstance, CARD_LIST_LOC_HAND, stealerPlayerId);
+
+				// we change the owner ID
+				stolenCardInstance.owningPlayer = stealerPlayerId;
+				playDrawSound(stolenCardInstance);
+			}
+		}
 		
 		public function shuffleAndDrawCards():void
 		{
@@ -785,12 +981,12 @@ package red.game.witcher3.menus.gwint
 				throw new Error("GFX - Trying to shuffle and draw cards when one of the following decks is null:" + player1Deck.getDeckKingTemplate() + ", " + player2Deck.getDeckKingTemplate());
 			}
 
-			trace("GFX -#AI#------------------- DECK STRENGTH --------------------");
-			trace("GFX -#AI#--- PLAYER 1:");
+			log("#AI#------------------- DECK STRENGTH --------------------");
+			log("#AI#--- PLAYER 1:");
 			player1Deck.shuffleDeck(player2Deck.originalStength());
-			trace("GFX -#AI#--- PLAYER 2:");
+			log("#AI#--- PLAYER 2:");
 			player2Deck.shuffleDeck(player1Deck.originalStength());
-			trace("GFX -#AI#------------------------------------------------------");
+			log("#AI#------------------------------------------------------");
 			
 			var numToDraw:int;
 			
@@ -901,6 +1097,36 @@ package red.game.witcher3.menus.gwint
 		
 		private var _heroDrawSoundsAllowed:int = -1;
 		private var _normalDrawSoundsAllowed:int = -1;
+
+		private function playDrawSound(cardInstance:CardInstance)
+		{
+			if (cardInstance.templateRef.isType(CardTemplate.CardType_Hero))
+			{
+				if (_heroDrawSoundsAllowed > 0)
+				{
+					_heroDrawSoundsAllowed -= 1;
+					GwintGameMenu.mSingleton.playSound("gui_gwint_hero_card_drawn");
+				}
+				else if (_heroDrawSoundsAllowed == -1)
+				{
+					GwintGameMenu.mSingleton.playSound("gui_gwint_hero_card_drawn");
+				}
+			}
+			else
+			{
+				if (_normalDrawSoundsAllowed > 0)
+				{
+					_normalDrawSoundsAllowed -= 1;
+					GwintGameMenu.mSingleton.playSound("gui_gwint_draw_card");
+				}
+				else if (_normalDrawSoundsAllowed == -1)
+				{
+					GwintGameMenu.mSingleton.playSound("gui_gwint_draw_card");
+				}
+			}
+		}
+
+
 		public function drawCard(playerID:int):Boolean
 		{
 			var templateId:int;
@@ -912,38 +1138,14 @@ package red.game.witcher3.menus.gwint
 				templateId = playerDeckDefinitions[playerID].drawCard();
 				newCardInstance = spawnCardInstance(templateId, playerID);
 				addCardInstanceToList(newCardInstance, CARD_LIST_LOC_HAND, playerID);
+				playDrawSound(newCardInstance);
 				
-				if (newCardInstance.templateRef.isType(CardTemplate.CardType_Hero))
-				{
-					if (_heroDrawSoundsAllowed > 0)
-					{
-						_heroDrawSoundsAllowed -= 1;
-						GwintGameMenu.mSingleton.playSound("gui_gwint_hero_card_drawn");
-					}
-					else if (_heroDrawSoundsAllowed == -1)
-					{
-						GwintGameMenu.mSingleton.playSound("gui_gwint_hero_card_drawn");
-					}
-				}
-				else
-				{
-					if (_normalDrawSoundsAllowed > 0)
-					{
-						_normalDrawSoundsAllowed -= 1;
-						GwintGameMenu.mSingleton.playSound("gui_gwint_draw_card");
-					}
-					else if (_normalDrawSoundsAllowed == -1)
-					{
-						GwintGameMenu.mSingleton.playSound("gui_gwint_draw_card");
-					}
-				}
-				
-				trace("GFX - Player ", playerID, " drew the following Card:", newCardInstance);
+				log("Player ", playerID, " drew the following Card:", newCardInstance);
 				return true;
 			}
 			else
 			{
-				trace("GFX - Player ", playerID, " has no more cards to draw!");
+				log("Player ", playerID, " has no more cards to draw!");
 				return false;
 			}
 		}
@@ -959,7 +1161,7 @@ package red.game.witcher3.menus.gwint
 				newCardInstance = spawnCardInstance(cardID, playerID);
 				addCardInstanceToList(newCardInstance, CARD_LIST_LOC_WEATHERSLOT, CardManager.PLAYER_INVALID);
 				
-				trace("GFX - Player ", playerID, " drew the following Card:", newCardInstance);
+				log("Player ", playerID, " drew the following Card:", newCardInstance);
 				
 				return true;
 			}
@@ -977,7 +1179,7 @@ package red.game.witcher3.menus.gwint
 				newCardInstance = spawnCardInstance(cardID, playerID);
 				addCardInstanceToList(newCardInstance, CARD_LIST_LOC_HAND, playerID);
 				
-				trace("GFX - Player ", playerID, " drew the following Card:", newCardInstance);
+				log("Player ", playerID, " drew the following Card:", newCardInstance);
 				
 				return true;
 			}
@@ -1006,7 +1208,7 @@ package red.game.witcher3.menus.gwint
 					if (newCardInstance)
 					{
 						addCardInstanceToList(newCardInstance, CARD_LIST_LOC_HAND, cardInstance.owningPlayer);
-						unspawnCardInstance(cardInstance);
+						returnCardToDeck(cardInstance);
 						
 						if (newCardInstance.templateRef.isType(CardTemplate.CardType_Hero))
 						{
@@ -1024,7 +1226,7 @@ package red.game.witcher3.menus.gwint
 		}
 		
 		private static var lastInstanceID : int = 0;
-		public function spawnCardInstance( templateId : int, forPlayer : int, startingLocation : int = CARD_LIST_LOC_INVALID ) : CardInstance
+		public function spawnCardInstance( templateId:int, forPlayer:int, startingLocation:int = CARD_LIST_LOC_INVALID ) : CardInstance
 		{
 			lastInstanceID += 1;
 			
@@ -1050,10 +1252,13 @@ package red.game.witcher3.menus.gwint
 			newInstance.templateRef = getCardTemplate(templateId);
 			newInstance.owningPlayer = forPlayer;
 			newInstance.instanceId = lastInstanceID;
-			_cardInstances[newInstance.instanceId] = newInstance;
+			_cardInstances[newInstance.instanceId] = newInstance; 
 			newInstance.finializeSetup();
 			
-			if (boardRenderer) { boardRenderer.spawnCardInstance(newInstance, spawnLocation, forPlayer); }
+			if (boardRenderer) 
+			{ 
+				boardRenderer.spawnCardInstance(newInstance, spawnLocation, forPlayer); 
+			}
 			
 			if (startingLocation == CARD_LIST_LOC_INVALID)
 			{
@@ -1063,11 +1268,11 @@ package red.game.witcher3.menus.gwint
 			return newInstance;
 		}
 		
-		public function unspawnCardInstance(cardInstance:CardInstance) : void
+		public function returnCardToDeck(cardInstance:CardInstance) : void
 		{
-			removeCardInstanceFromItsList(cardInstance);
-			if (boardRenderer) { boardRenderer.returnToDeck(cardInstance); }
-			delete _cardInstances[cardInstance.instanceId];
+			trace("unspawn card instance: ", cardInstance);
+			boardRenderer.returnToDeck(cardInstance);
+			deleteCardInstance(cardInstance);
 		}
 		
 		public function applyCardEffectsID(instanceID:int):void
@@ -1087,29 +1292,46 @@ package red.game.witcher3.menus.gwint
 		{
 			sendToGraveyard(getCardInstance(instanceID));
 		}
+
+		public function banish(cardInstance:CardInstance)
+		{
+			trace("banish", cardInstance);
+			CardFXManager.getInstance().spawnFX(cardInstance, null, CardFXManager.getInstance()._placeFiendFXClassRef);
+			removeCardInstance(cardInstance);
+		}
+
+		public function removeCardInstance(cardInstance:CardInstance) : void
+		{
+			trace("removeCardInstance", cardInstance);
+			boardRenderer.removeCardInstance(cardInstance);
+			deleteCardInstance(cardInstance);
+		}
+
+		private function deleteCardInstance(cardInstance:CardInstance) : void
+		{
+			trace("deleteCardInstance", cardInstance);
+			cardInstance.clearEffects();
+			cardInstance.clearEffectedCards();
+			removeCardInstanceFromItsList(cardInstance);
+			delete _cardInstances[cardInstance.instanceId];
+		}
 		
 		public function sendToGraveyard(targetInstance:CardInstance):void
 		{
-			if (targetInstance)
+			trace("sendToGraveyard", targetInstance);
+			Debug.Assert (targetInstance != null);
+			if (targetInstance.BanishInsteadOfGraveyard)
 			{
-				if (targetInstance.BanishInsteadOfGraveyard)
-				{
-					CardFXManager.getInstance().spawnFX(targetInstance, null, CardFXManager.getInstance()._placeFiendFXClassRef);
-					removeCardInstanceFromItsList(targetInstance);
-					boardRenderer.removeCardInstance(targetInstance);
-					unspawnCardInstance(targetInstance);
-				}
-				else if (targetInstance.templateRef.isType(CardTemplate.CardType_Weather)) // Weather slot does not have playerID - Fix for weathers
-				{
-					addCardInstanceToList(targetInstance, CARD_LIST_LOC_GRAVEYARD, targetInstance.owningPlayer);
-				}
-				else
-				{
-					addCardInstanceToList(targetInstance, CARD_LIST_LOC_GRAVEYARD, targetInstance.listsPlayer);
-				}
+				banish(targetInstance);
 			}
-			
-			flushPendingSpawnedCards();
+			else if (targetInstance.templateRef.isType(CardTemplate.CardType_Weather)) // Weather slot does not have playerID - Fix for weathers
+			{
+				addCardInstanceToList(targetInstance, CARD_LIST_LOC_GRAVEYARD, targetInstance.owningPlayer);
+			}
+			else
+			{
+				addCardInstanceToList(targetInstance, CARD_LIST_LOC_GRAVEYARD, targetInstance.listsPlayer);
+			}
 		}
 		
 		public function getSpawnedFaction(instance:CardInstance):int
@@ -1218,11 +1440,11 @@ package red.game.witcher3.menus.gwint
 					}
 				}
 			}
-			
+
 			return outputList;
 		}
-		
-		public function summonFromDeck(playerID:int, templateID:int) : Boolean
+
+		public function summonFromDeck(playerID:int, templateID:int, preferredList:int = -1) : Boolean
 		{
 			var hadCard:Boolean = false;
 			var newCardInstance:CardInstance;
@@ -1233,25 +1455,14 @@ package red.game.witcher3.menus.gwint
 				hadCard = true;
 				newCardInstance = spawnCardInstance(templateID, playerID);
 				newCardInstance.playSummonedFX = true;
-				
-				if (newCardInstance.templateRef.isType(CardTemplate.CardType_Melee))
-				{
-					addCardInstanceToList(newCardInstance, CARD_LIST_LOC_MELEE, playerID);
-				}
-				else if (newCardInstance.templateRef.isType(CardTemplate.CardType_Ranged))
-				{
-					addCardInstanceToList(newCardInstance, CARD_LIST_LOC_RANGED, playerID);
-				}
-				else if (newCardInstance.templateRef.isType(CardTemplate.CardType_Siege))
-				{
-					addCardInstanceToList(newCardInstance, CARD_LIST_LOC_SEIGE, playerID);
-				}
+
+				addCardInstanceToList(newCardInstance, newCardInstance.getDefaultSpawnList(preferredList), playerID);
 			}
 			
 			return hadCard;
 		}
 		
-		public function summonFromHand(playerID:int, templateID:int):void
+		public function summonFromHand(playerID:int, templateID:int, preferredList:int = -1):void
 		{
 			var cardsInHand:Vector.<CardInstance>;
 			var currentCard:CardInstance;
@@ -1267,19 +1478,7 @@ package red.game.witcher3.menus.gwint
 				if (currentCard.templateId == templateID)
 				{
 					currentCard.playSummonedFX = true;
-					
-					if (currentCard.templateRef.isType(CardTemplate.CardType_Melee))
-					{
-						addCardInstanceToList(currentCard, CARD_LIST_LOC_MELEE, playerID);
-					}
-					else if (currentCard.templateRef.isType(CardTemplate.CardType_Ranged))
-					{
-						addCardInstanceToList(currentCard, CARD_LIST_LOC_RANGED, playerID);
-					}
-					else if (currentCard.templateRef.isType(CardTemplate.CardType_Siege))
-					{
-						addCardInstanceToList(currentCard, CARD_LIST_LOC_SEIGE, playerID);
-					}
+					addCardInstanceToList(currentCard, currentCard.getDefaultSpawnList(preferredList), playerID);
 				}
 				else
 				{
@@ -1287,7 +1486,48 @@ package red.game.witcher3.menus.gwint
 				}
 			}
 		}
+
+		public function addPendingCardToDrawFromDeck(playerID:int, templateID:int, preferredList:int = -1) : Boolean
+		{
+			var hadCard:Boolean = false;
+			var newCardInstance:CardInstance;
+			var playerDeck:GwintDeck = playerDeckDefinitions[playerID];
+			
+			while (playerDeck.tryDrawSpecificCard(templateID))
+			{
+				addPendingCardToSpawn(templateID, playerID);
+				hadCard = true;
+			}
+			
+			return hadCard;
+		}
 		
+		public function addPendingCardToPlayFromHand(playerID:int, templateID:int, preferredList:int = -1):void
+		{
+			var cardsInHand:Vector.<CardInstance>;
+			var currentCard:CardInstance;
+			var it:int;
+			
+			cardsInHand = getCardInstanceList(CARD_LIST_LOC_HAND, playerID);
+			
+			it = 0;
+			while (it < cardsInHand.length)
+			{
+				currentCard = cardsInHand[it];
+				
+				if (currentCard.templateId == templateID)
+				{
+					currentCard.playSummonedFX = true;
+					banish(currentCard);
+					addPendingCardToSpawn(templateID, playerID);
+				}
+				else
+				{
+					++it;
+				}
+			}
+		}
+
 		public function ressurectFromGraveyard(playerID:int, count:int):void
 		{
 			var elligibleCardListFromOpponentsGrave:Vector.<CardInstance> = new Vector.<CardInstance>();
@@ -1364,7 +1604,7 @@ package red.game.witcher3.menus.gwint
 					player2Affected = true;
 				}
 				
-				unspawnCardInstance(cardInstance);
+				returnCardToDeck(cardInstance);
 				playerDeckDefinitions[listPlayer].readdCard(cardInstance.templateId, true);
 			}
 			
@@ -1490,12 +1730,12 @@ package red.game.witcher3.menus.gwint
 				}
 			}
 
-			//trace("GFX -/////////////////////////////////////////////////////////////////////////////////////////////////////");
-			//trace("GFX -/////// considerOwnGraveyard - ",considerOwnGraveyard);
-			//trace("GFX -/////// listOfNursesFromTargetGrave.length - ",listOfNursesFromTargetGrave.length);
-			//trace("GFX -/////// cachedBestNurseFromTargetGrave - ",cachedBestNurseFromTargetGrave);
-			//trace("GFX -/////// overrideSpy - ",overrideSpy);
-			//trace("GFX -/////// overrideNurse - ",overrideNurse);
+			//log("/////////////////////////////////////////////////////////////////////////////////////////////////////");
+			//log("/////// considerOwnGraveyard - ",considerOwnGraveyard);
+			//log("/////// listOfNursesFromTargetGrave.length - ",listOfNursesFromTargetGrave.length);
+			//log("/////// cachedBestNurseFromTargetGrave - ",cachedBestNurseFromTargetGrave);
+			//log("/////// overrideSpy - ",overrideSpy);
+			//log("/////// overrideNurse - ",overrideNurse);
 
 			// IMPORTANT:
 			// Consider ressurecting nurse from Target's grave in order to ressurect better cards from Opposite(own) grave
@@ -1554,25 +1794,25 @@ package red.game.witcher3.menus.gwint
 						}				
 					}
 				}
-				//trace("GFX -/////////////////////////////////////////////////////////////////////////////////////////////////////");
-				//trace("GFX -////////////////////////////////////     OPPOSITE GRAVE     /////////////////////////////////////////");
-				//trace("GFX -/////////////////////////////////////////////////////////////////////////////////////////////////////");
+				//log("/////////////////////////////////////////////////////////////////////////////////////////////////////");
+				//log("////////////////////////////////////     OPPOSITE GRAVE     /////////////////////////////////////////");
+				//log("/////////////////////////////////////////////////////////////////////////////////////////////////////");
 				// Calculating [comboPointsFromOppositeGrave]
 				if (cachedBestSpyFromOppositeGrave)
 				{
 					comboPointsFromOppositeGrave = Math.max(0, (10-cachedBestSpyFromOppositeGrave.getTotalPower())); // 10 because the highest spy has 9 points
 					spyPointsFromOppositeGrave = comboPointsFromOppositeGrave;
-					//trace("GFX - Cached Spy [ ", comboPointsFromOppositeGrave, " ][ ", cachedBestSpyFromOppositeGrave," ]");
+					//log("Cached Spy [ ", comboPointsFromOppositeGrave, " ][ ", cachedBestSpyFromOppositeGrave," ]");
 				}
 				else if (cachedBestMeleeScorchFromOppositeGrave)
 				{
 					comboPointsFromOppositeGrave = cachedBestMeleeScorchFromOppositeGrave.getTotalPower();
-					//trace("GFX - Cached MeleeScorch [ ", comboPointsFromOppositeGrave, " ][ ", cachedBestMeleeScorchFromOppositeGrave," ]");
+					//log("Cached MeleeScorch [ ", comboPointsFromOppositeGrave, " ][ ", cachedBestMeleeScorchFromOppositeGrave," ]");
 				}
 				else if (cachedBestUnitFromOppositeGrave)
 				{
 					comboPointsFromOppositeGrave = cachedBestUnitFromOppositeGrave.getTotalPower();
-					//trace("GFX - Cached BestUnit [ ", comboPointsFromOppositeGrave, " ][ ", cachedBestUnitFromOppositeGrave," ]");
+					//log("Cached BestUnit [ ", comboPointsFromOppositeGrave, " ][ ", cachedBestUnitFromOppositeGrave," ]");
 				}
 
 				if (listOfNursesFromOppositeGrave)
@@ -1580,21 +1820,21 @@ package red.game.witcher3.menus.gwint
 					for (var i = 0; i < listOfNursesFromOppositeGrave.length; ++i)
 					{
 						comboPointsFromOppositeGrave += listOfNursesFromOppositeGrave[i].getTotalPower();
-						//trace("GFX - Cached Nurses [ ", listOfNursesFromOppositeGrave[i].getTotalPower(), " ][ ", listOfNursesFromOppositeGrave[i]," ]");
+						//log("Cached Nurses [ ", listOfNursesFromOppositeGrave[i].getTotalPower(), " ][ ", listOfNursesFromOppositeGrave[i]," ]");
 					}
 				}
 				if (cachedBestNurseFromTargetGrave)
 				{
 					comboPointsFromOppositeGrave += cachedBestNurseFromTargetGrave.getTotalPower();
-					//trace("GFX - Adding Nurse from own grave [ ", cachedBestNurseFromTargetGrave.getTotalPower(), " ][ ", cachedBestNurseFromTargetGrave," ]");					
+					//log("Adding Nurse from own grave [ ", cachedBestNurseFromTargetGrave.getTotalPower(), " ][ ", cachedBestNurseFromTargetGrave," ]");					
 				}
 
-				//trace("GFX - Total combo points after considering own grave [ ", comboPointsFromOppositeGrave, " ]");
+				//log("Total combo points after considering own grave [ ", comboPointsFromOppositeGrave, " ]");
 			}
 
-			//trace("GFX -/////////////////////////////////////////////////////////////////////////////////////////////////////");
-			//trace("GFX -//////////////////////////////////////     TARGET GRAVE     /////////////////////////////////////////");
-			//trace("GFX -/////////////////////////////////////////////////////////////////////////////////////////////////////");
+			//log("/////////////////////////////////////////////////////////////////////////////////////////////////////");
+			//log("//////////////////////////////////////     TARGET GRAVE     /////////////////////////////////////////");
+			//log("/////////////////////////////////////////////////////////////////////////////////////////////////////");
 			// Calculating [comboPoints] for Target's grave
 			if (cachedBestSpy)
 			{
@@ -1603,19 +1843,19 @@ package red.game.witcher3.menus.gwint
 				comboPoints = Math.max(0, (10-cachedBestSpy.getTotalPower()));
 				spyPointsFromTargetGrave = comboPoints;
 				choosenCard = cachedBestSpy;
-				//trace("GFX - Cached Spy [ ", comboPoints, " ][ ", choosenCard," ]");
+				//log("Cached Spy [ ", comboPoints, " ][ ", choosenCard," ]");
 			}
 			else if (cachedBestMeleeScorch)
 			{
 				comboPoints = cachedBestMeleeScorch.getTotalPower();
 				choosenCard = cachedBestMeleeScorch;
-				//trace("GFX - Cached MeleeScorch [ ", comboPoints, " ][ ", choosenCard," ]");
+				//log("Cached MeleeScorch [ ", comboPoints, " ][ ", choosenCard," ]");
 			}
 			else if (cachedBestUnit)
 			{
 				comboPoints = cachedBestUnit.getTotalPower();
 				choosenCard = cachedBestUnit;
-				//trace("GFX - Cached BestUnit [ ", comboPoints, " ][ ", choosenCard," ]");
+				//log("Cached BestUnit [ ", comboPoints, " ][ ", choosenCard," ]");
 			}
 
 			if (!considerOwnGraveyard && listOfNursesFromTargetGrave)
@@ -1623,19 +1863,19 @@ package red.game.witcher3.menus.gwint
 				for (i = 0; i < listOfNursesFromTargetGrave.length; ++i)
 				{
 					comboPoints += listOfNursesFromTargetGrave[i].getTotalPower();
-					//trace("GFX - Cached Nurses [ ", listOfNursesFromTargetGrave[i].getTotalPower(), " ][ ", listOfNursesFromTargetGrave[i]," ]");
+					//log("Cached Nurses [ ", listOfNursesFromTargetGrave[i].getTotalPower(), " ][ ", listOfNursesFromTargetGrave[i]," ]");
 				}
 			}
 			else if (!cachedBestSpy && !cachedBestMeleeScorch && !cachedBestUnit && cachedBestNurseFromTargetGrave)
 			{
 				comboPoints = cachedBestNurseFromTargetGrave.getTotalPower();
 				choosenCard = cachedBestNurseFromTargetGrave;
-				//trace("GFX - Cached Best Nurse [ ", cachedBestNurseFromTargetGrave.getTotalPower(), " ][ ", cachedBestNurseFromTargetGrave," ]");
+				//log("Cached Best Nurse [ ", cachedBestNurseFromTargetGrave.getTotalPower(), " ][ ", cachedBestNurseFromTargetGrave," ]");
 			}
-			//trace("GFX - Total combo points [ ", comboPoints, " ] and instance ", choosenCard);
-			//trace("GFX -/////////////////////////////////////////////////////////////////////////////////////////////////////");
-			//trace("GFX - spyPointsFromTargetGrave [ ", spyPointsFromTargetGrave, " ]");
-			//trace("GFX - spyPointsFromOppositeGrave [ ", spyPointsFromOppositeGrave, " ]");
+			//log("Total combo points [ ", comboPoints, " ] and instance ", choosenCard);
+			//log("/////////////////////////////////////////////////////////////////////////////////////////////////////");
+			//log("spyPointsFromTargetGrave [ ", spyPointsFromTargetGrave, " ]");
+			//log("spyPointsFromOppositeGrave [ ", spyPointsFromOppositeGrave, " ]");
 
 			// Choose from which grave its better to ressurect
 			
@@ -1650,32 +1890,32 @@ package red.game.witcher3.menus.gwint
 				{
 					cardAndPoints.cardInstance = cachedBestNurseFromTargetGrave;
 					cardAndPoints.comboPoints = comboPointsFromOppositeGrave;
-					//trace("GFX - Choosing 1[comboPointsFromOppositeGrave]");
+					//log("Choosing 1[comboPointsFromOppositeGrave]");
 				}
 				else if ((!spyPointsFromTargetGrave && spyPointsFromOppositeGrave) || (spyPointsFromOppositeGrave > spyPointsFromTargetGrave))
 				{
 					cardAndPoints.cardInstance = cachedBestNurseFromTargetGrave;
 					cardAndPoints.comboPoints = comboPointsFromOppositeGrave;
-					//trace("GFX - Choosing 2[comboPointsFromOppositeGrave]");
+					//log("Choosing 2[comboPointsFromOppositeGrave]");
 				}
 				else
 				{
 					cardAndPoints.cardInstance = choosenCard;
 					cardAndPoints.comboPoints = comboPoints;
-					//trace("GFX - Choosing 3[comboPoints]");
+					//log("Choosing 3[comboPoints]");
 				}
 			}
 			else
 			{
 				cardAndPoints.cardInstance = choosenCard;
 				cardAndPoints.comboPoints = comboPoints;
-				//trace("GFX - Choosing 4[comboPoints]");
+				//log("Choosing 4[comboPoints]");
 			}
 			
-			//trace("GFX -/////////////////////////////////////////////////////////////////////////////////////////////////////");
-			//trace("GFX - Choosen combo points [ ", cardAndPoints.comboPoints, " ] and instance ", cardAndPoints.cardInstance);
-			//trace("GFX -/////////////////////////////////////////////////////////////////////////////////////////////////////");
-			//trace("GFX -/////////////////////////////////////////////////////////////////////////////////////////////////////");
+			//log("/////////////////////////////////////////////////////////////////////////////////////////////////////");
+			//log("Choosen combo points [ ", cardAndPoints.comboPoints, " ] and instance ", cardAndPoints.cardInstance);
+			//log("/////////////////////////////////////////////////////////////////////////////////////////////////////");
+			//log("/////////////////////////////////////////////////////////////////////////////////////////////////////");
 			return cardAndPoints;
 		}
 
@@ -1705,14 +1945,14 @@ package red.game.witcher3.menus.gwint
 				}
 				if (overrideSpy && currentIsSpy && checkIfHigherOrLower(currentCard, choosenCard, oppositeBehavior)) // Override -> if higher then lower
 				{
-					//trace("GFX - 1 oppositeBehavior [ ", oppositeBehavior, " checkIfHigherOrLower(currentCard, choosenCard, oppositeBehavior) ",checkIfHigherOrLower(currentCard, choosenCard, oppositeBehavior));
-					//trace("GFX - %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
+					//log("1 oppositeBehavior [ ", oppositeBehavior, " checkIfHigherOrLower(currentCard, choosenCard, oppositeBehavior) ",checkIfHigherOrLower(currentCard, choosenCard, oppositeBehavior));
+					//log("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
 					return true;
 				}
 				if (currentIsSpy && checkIfHigherOrLower(currentCard, choosenCard, higherOrLower))
 				{
-					//trace("GFX - 2 oppositeBehavior [ ", higherOrLower, " checkIfHigherOrLower(currentCard, choosenCard, oppositeBehavior) ",checkIfHigherOrLower(currentCard, choosenCard, higherOrLower));
-					//trace("GFX - %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
+					//log("2 oppositeBehavior [ ", higherOrLower, " checkIfHigherOrLower(currentCard, choosenCard, oppositeBehavior) ",checkIfHigherOrLower(currentCard, choosenCard, higherOrLower));
+					//log("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
 					return true;
 				}
 				return false;
@@ -1858,7 +2098,7 @@ package red.game.witcher3.menus.gwint
 			{
 				if (firstCard.getTotalPower() > secondCard.getTotalPower())
 				{
-					//trace("GFX - [higherOrLower] firstCard.getTotalPower() [ ", firstCard.getTotalPower(), "] , secondCard.getTotalPower() [ ", secondCard.getTotalPower(), " ]");
+					//log("[higherOrLower] firstCard.getTotalPower() [ ", firstCard.getTotalPower(), "] , secondCard.getTotalPower() [ ", secondCard.getTotalPower(), " ]");
 					return true;
 				}
 				return false;
@@ -1867,7 +2107,7 @@ package red.game.witcher3.menus.gwint
 			{
 				if (firstCard.getTotalPower() < secondCard.getTotalPower())
 				{
-					//trace("GFX - [oppositeBehavior] firstCard.getTotalPower() [ ", firstCard.getTotalPower(), "] , secondCard.getTotalPower() [ ", secondCard.getTotalPower(), " ]");
+					//log("[oppositeBehavior] firstCard.getTotalPower() [ ", firstCard.getTotalPower(), "] , secondCard.getTotalPower() [ ", secondCard.getTotalPower(), " ]");
 					return true;
 				}
 				return false;
@@ -2023,11 +2263,11 @@ package red.game.witcher3.menus.gwint
 		
 		public function traceRoundResults():void
 		{
-			trace("GFX -------------------------------- START TRACE ROUND RESULTS ----------------------------------");
-			trace("GFX =============================================================================================");
+			trace("------------------------------- START TRACE ROUND RESULTS ----------------------------------");
+			trace("=============================================================================================");
 			if (roundResults == null)
 			{
-				trace("GFX -------------- Round Results is empty!!! -------------");
+				trace("------------- Round Results is empty!!! -------------");
 			}
 			else
 			{
@@ -2035,12 +2275,18 @@ package red.game.witcher3.menus.gwint
 				
 				for (i = 0; i < roundResults.length; ++i)
 				{
-					trace("GFX - " + roundResults[i]);
+					trace("" + roundResults[i]);
 				}
 			}
 			
-			trace("GFX =============================================================================================");
-			trace("GFX ---------------------------------- END TRACE ROUND RESULTS ----------------------------------");
+			trace("=============================================================================================");
+			trace("--------------------------------- END TRACE ROUND RESULTS ----------------------------------");
+		}
+		
+		public function logRoundResults():void
+		{
+			if(debugVerbose > 3)
+				traceRoundResults();
 		}
 		
 		public function listIDToString(listID:int):String

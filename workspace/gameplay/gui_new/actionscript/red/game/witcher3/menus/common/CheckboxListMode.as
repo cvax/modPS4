@@ -23,6 +23,9 @@ package red.game.witcher3.menus.common
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.managers.InputDelegate;
 	import scaleform.clik.ui.InputDetails;
+	import flash.events.Event;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
 	
 	public class CheckboxListMode extends UIComponent
 	{
@@ -53,7 +56,7 @@ package red.game.witcher3.menus.common
 		
 		private var valuesOnShow : Array = new Array();
 		public var extraCloseMode : Boolean = false;
-		
+
 		override protected function configUI():void
 		{
 			super.configUI();
@@ -62,7 +65,8 @@ package red.game.witcher3.menus.common
 			
 			mcCloseButton.clickable = true;
 			mcCloseButton.label = "[[panel_button_common_close]]";
-			mcCloseButton.addEventListener(ButtonEvent.PRESS, handleClosePressed, false, 0, true);
+			mcCloseButton.addEventListener(ButtonEvent.PRESS, handleClosePressOrTap, false, 0, true);
+			mcCloseButton.addEventListener( GestureEventEx.GESTURE_TAP, handleClosePressOrTap, false, 0, true );
 			mcCloseButton.setDataFromStage(NavigationCode.GAMEPAD_B, KeyCode.ESCAPE);
 			mcCloseButton.validateNow();
 			
@@ -75,7 +79,8 @@ package red.game.witcher3.menus.common
 			*/
 			if (mcBackground)
 			{
-				mcBackground.addEventListener(MouseEvent.CLICK, handleBackgroundClick, false, 0, true);
+				mcBackground.addEventListener( MouseEvent.CLICK, handleBackgroundClickOrTap, false, 0, true );
+				mcBackground.addEventListener( GestureEventEx.GESTURE_TAP, handleBackgroundClickOrTap, false, 0, true );
 			}
 			
 			//mcList.bSkipFocusCheck = true;
@@ -112,6 +117,7 @@ package red.game.witcher3.menus.common
 			registerMouseEventsForItem(mcItemRenderer8);
 			registerMouseEventsForItem(mcItemRenderer9);
 			registerMouseEventsForItem(mcItemRenderer10);
+			mcList.enableTouch( true );
 			
 			visible = true;
 			if (mcList.selectedIndex == -1)
@@ -139,7 +145,8 @@ package red.game.witcher3.menus.common
 		{
 			if (item)
 			{
-				item.addEventListener(MouseEvent.CLICK, onItemClicked, false, 1, true);
+				item.addEventListener(MouseEvent.CLICK, onItemClick, false, 1, true);
+				item.addEventListener(GestureEventEx.GESTURE_TAP, onItemTap, false, 1, true);
 				item.addEventListener(MouseEvent.MOUSE_OVER, onItemMouseOver, false, 1, true);
 				item.addEventListener(MouseEvent.MOUSE_OUT, onItemMouseOut, false, 1, true);
 			}
@@ -149,14 +156,15 @@ package red.game.witcher3.menus.common
 		{
 			if (item)
 			{
-				item.removeEventListener(MouseEvent.CLICK, onItemClicked);
+				item.removeEventListener(MouseEvent.CLICK, onItemClick);
+				item.removeEventListener(GestureEventEx.GESTURE_TAP, onItemTap);
 				item.removeEventListener(MouseEvent.MOUSE_OVER, onItemMouseOver);
 				item.removeEventListener(MouseEvent.MOUSE_OUT, onItemMouseOut);
 			}
 		}
 		
 		protected var _lastMouseOveredItem:int = -1;
-		protected function onItemClicked(event:MouseEvent):void
+		protected function onItemClick(event:MouseEvent):void
 		{
 			if (mcList.selectedIndex != -1)
 			{
@@ -166,6 +174,15 @@ package red.game.witcher3.menus.common
 				{
 					toggleValue(selectedItem);
 				}
+			}
+		}
+
+		protected function onItemTap(event:GestureEvent) : void
+		{
+			var selectedItem : CheckboxListItem = event.currentTarget as CheckboxListItem;
+			if (selectedItem)
+			{
+				toggleValue(selectedItem);
 			}
 		}
 		
@@ -247,7 +264,7 @@ package red.game.witcher3.menus.common
 			super.handleInput(event);
 		}
 		
-		private function handleBackgroundClick(event:MouseEvent):void
+		private function handleBackgroundClickOrTap(event:Event):void
 		{
 			close();
 		}
@@ -299,7 +316,7 @@ package red.game.witcher3.menus.common
 			}
 		}
 		
-		protected function handleClosePressed( event : ButtonEvent ) : void
+		protected function handleClosePressOrTap( event : Event ) : void
 		{
 			close();
 		}
@@ -411,6 +428,7 @@ package red.game.witcher3.menus.common
 		
 		private function hide():void
 		{
+			mcList.enableTouch( false );
 			unregisterMouseEventsForItem(mcItemRenderer1);
 			unregisterMouseEventsForItem(mcItemRenderer2);
 			unregisterMouseEventsForItem(mcItemRenderer3);

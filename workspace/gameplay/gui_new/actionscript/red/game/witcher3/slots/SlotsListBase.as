@@ -2,11 +2,15 @@ package red.game.witcher3.slots
 {
 	import flash.display.MovieClip;
 	import flash.display.Sprite;
+	import flash.events.Event;
+	import flash.events.GestureEvent;
 	import flash.events.MouseEvent;
 	import flash.geom.Point;
 	import flash.utils.Dictionary;
 	import flash.utils.getDefinitionByName;
+
 	import red.core.constants.KeyCode;
+	import red.core.events.GestureEventEx;
 	import red.game.witcher3.interfaces.IBaseSlot;
 	import red.game.witcher3.interfaces.IDragTarget;
 	import red.game.witcher3.interfaces.IInventorySlot;
@@ -15,6 +19,7 @@ package red.game.witcher3.slots
 	import red.game.witcher3.menus.common.ItemDataStub;
 	import red.game.witcher3.utils.CommonUtils;
 	import red.game.witcher3.utils.Math2;
+
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.InvalidationType;
 	import scaleform.clik.constants.NavigationCode;
@@ -34,6 +39,9 @@ package red.game.witcher3.slots
 	 */
 	public class SlotsListBase extends UIComponent implements IScrollingList
 	{
+		public static const EVENT_SELECTED_TAPPED : String = "EVENT_SELECTED_TAPPED";
+		public static const EVENT_SELECTED_TAPPED2 : String = "EVENT_SELECTED_TAPPED2";
+		public static const EVENT_SELECTED_DOUBLE_TAPPED : String = "EVENT_SELECTED_DOUBLE_TAPPED";
 		protected var _canvas:Sprite;
 		protected var _selectedIndex:int = -1;
 		protected var _data:Array;
@@ -53,6 +61,10 @@ package red.game.witcher3.slots
 		
 		public var filterKeyCodeFunction:Function;
 		public var filterNavCodeFunction:Function;
+
+		private var _touchEnabled:Boolean;
+
+		public var _allowKeyDowns:Boolean = false;
 		
 		public function SlotsListBase()
 		{
@@ -67,6 +79,12 @@ package red.game.witcher3.slots
 
 			tabEnabled = false;
 			tabChildren = false;
+			_touchEnabled = false;
+		}
+
+		public function enableTouch(enable:Boolean):void
+		{
+			_touchEnabled = enable;
 		}
 
 		public function getRenderersCount():int
@@ -397,16 +415,13 @@ package red.game.witcher3.slots
 		
 		public function handleInputNavSimple(event:InputEvent):void
 		{
-			//trace("GFX -[", this, "]- handleInputNavSimple  ", event.details.code, event.details.navEquivalent);
-			
 			if (event.handled)
 			{
 				return;
 			}
 			
 			var details:InputDetails = event.details;
-			
-			//trace("GFX *** ", details.code, "; allowSimpleNavDPad ", allowSimpleNavDPad);
+			CommonUtils.fixupKeyCode( details );
 			
 			// #J don't use this information but keep it in mind for the next time we get a static navigation code to skew the haduken in its favor
 			if (details.code == KeyCode.PAD_LEFT_STICK_AXIS)
@@ -581,7 +596,7 @@ package red.game.witcher3.slots
 									event.handled = true;
 								}
 							}
-							
+
 							//trace("GFX ================================== Search Ended in failure =======================================");
 						}
 					}
@@ -634,6 +649,11 @@ package red.game.witcher3.slots
 			
 			if (!event.handled && details.value == InputValue.KEY_UP)
 			{
+				if (_selectedIndex == -1)
+				{
+					return;
+				}
+
 				if (filterKeyCodeFunction != null && filterNavCodeFunction != null)
 				{
 					if ( !filterKeyCodeFunction(event.details.code) || !filterNavCodeFunction(event.details.navEquivalent) )
@@ -881,7 +901,7 @@ package red.game.witcher3.slots
 		{
 			super.handleInput(event);
 			var details:InputDetails = event.details;
-			var keyPress:Boolean = (details.value == InputValue.KEY_UP);
+			var keyPress:Boolean = (details.value == InputValue.KEY_UP) || (_allowKeyDowns && details.value == InputValue.KEY_DOWN);
 
 			//trace("GFX [SlotsListBase] handleInput ", event.handled, keyPress, "; details.value ", details.value, ";_selectedIndex ", _selectedIndex);
 			// TODO: Use context manager for this!
@@ -964,7 +984,6 @@ package red.game.witcher3.slots
 
 		public function tryExecuteAction(event:InputEvent):void
 		{
-			
 			if (filterKeyCodeFunction != null && filterNavCodeFunction != null)
 			{
 				if ( !filterKeyCodeFunction(event.details.code) || !filterNavCodeFunction(event.details.navEquivalent) )
@@ -972,8 +991,13 @@ package red.game.witcher3.slots
 					return;
 				}
 			}
+
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 			
-			if (event.details.code == KeyCode.PAD_A_CROSS || event.details.code == KeyCode.PAD_X_SQUARE) // TODO: Pass all inputs
+			// TODO: Pass all inputs
+			if (event.details.code == KeyCode.PAD_A_CROSS ||
+				(isSwitchPlatform && event.details.code == KeyCode.PAD_Y_TRIANGLE) ||		// Y on switch
+				(!isSwitchPlatform && event.details.code == KeyCode.PAD_X_SQUARE) )			// X on other platforms
 			{
 				if (_selectedIndex >= 0 && _selectedIndex < _renderers.length)
 				{
@@ -1014,7 +1038,7 @@ package red.game.witcher3.slots
 		{
 			var dragManager:SlotsTransferManager = SlotsTransferManager.getInstance();
 			
-			if (!InputManager.getInstance().isGamepad())
+			if (InputManager.getInstance().isMouse())
 			{
 				return;
 			}
@@ -1049,7 +1073,11 @@ package red.game.witcher3.slots
 		{
 			renderer.owner = this;
 			renderer.enabled = enabled;
+
 			renderer.addEventListener( MouseEvent.MOUSE_DOWN, handleItemClick, false, 0, true );
+			renderer.addEventListener( GestureEventEx.GESTURE_TAP, handleItemTap, false, 0, true );
+			renderer.addEventListener( GestureEventEx.GESTURE_DOUBLE_TAP, handleItemTap, false, 0, true );
+
 			renderer.addEventListener( MouseEvent.MOUSE_UP, handleItemMouseUp, false, 0, true );
 			renderer.addEventListener( MouseEvent.MOUSE_OVER, handleItemMouseOver, false, 0, true );
 			renderer.addEventListener( MouseEvent.MOUSE_OUT, handleItemMouseOut, false, 0, true );
@@ -1058,7 +1086,11 @@ package red.game.witcher3.slots
         protected function cleanUpRenderer( renderer : IBaseSlot ) : void
 		{
 			renderer.owner = null;
+
 			renderer.removeEventListener( MouseEvent.MOUSE_DOWN, handleItemClick );
+			renderer.removeEventListener( GestureEventEx.GESTURE_TAP, handleItemTap );
+			renderer.removeEventListener( GestureEventEx.GESTURE_DOUBLE_TAP, handleItemTap );
+
 			renderer.removeEventListener( MouseEvent.MOUSE_UP, handleItemMouseUp );
 			renderer.removeEventListener( MouseEvent.MOUSE_OVER, handleItemMouseOver );
 			renderer.removeEventListener( MouseEvent.MOUSE_OUT, handleItemMouseOut );
@@ -1082,15 +1114,10 @@ package red.game.witcher3.slots
 			return true;
 		}
 		
-		protected function handleItemClick(event:MouseEvent) : void
+		private function handleItemClickOrTap(event:Event) : void
 		{
-			if (!itemClickEnabled)
-			{
-				return;
-			}
-			
 			var targetRenderer:IBaseSlot = event.currentTarget as IBaseSlot;
-			
+
 			if (!targetRenderer && event.currentTarget && event.currentTarget.parent)
 			{
 				// event from a child
@@ -1100,6 +1127,64 @@ package red.game.witcher3.slots
 			if (targetRenderer)
 			{
 				dispatchItemClickEvent(targetRenderer);
+			}
+		}
+		
+		protected function handleItemTap(event:GestureEvent) : void
+		{
+			if ( itemClickEnabled && _touchEnabled )
+			{
+				var currentTapped : IBaseSlot = event.currentTarget as IBaseSlot;
+				if (!currentTapped && event.currentTarget && event.currentTarget.parent)
+				{
+					// event from a child
+					currentTapped = event.currentTarget.parent as IBaseSlot;
+				}
+
+				var currentSelected : IBaseSlot = getSelectedRenderer() as IBaseSlot;
+				trace( "SlotsListBase::handleItemTap : ", event.currentTarget, event.target, currentTapped, currentSelected );
+
+				var tapTwiceEvent : Event = null;
+				switch (event.type)
+				{
+					case GestureEventEx.GESTURE_TAP : 
+
+						trace( "SlotsListBase::handleItemTap - SINGLE A : ", hasFocus, currentTapped, getSelectedRenderer());
+						if ( currentSelected != null && currentTapped == currentSelected )
+						{
+							tapTwiceEvent = new Event( EVENT_SELECTED_TAPPED );
+							dispatchEvent( tapTwiceEvent );
+						}
+						
+						trace( "SlotsListBase::handleItemTap - SINGLE B : ", hasFocus, currentTapped, getSelectedRenderer());
+						handleItemClickOrTap( event );
+
+						trace( "SlotsListBase::handleItemTap - SINGLE C : ", hasFocus, currentTapped, getSelectedRenderer());
+						if ( currentSelected != null && currentTapped == currentSelected )
+						{
+							tapTwiceEvent = new Event( EVENT_SELECTED_TAPPED2 );
+							dispatchEvent( tapTwiceEvent );
+						}
+										
+					break;
+					case GestureEventEx.GESTURE_DOUBLE_TAP : 
+						trace( "SlotsListBase::handleItemTap - DOUBLE : ", currentTapped, currentSelected );
+
+						if ( currentSelected != null && currentTapped == currentSelected )
+						{
+							tapTwiceEvent = new Event( EVENT_SELECTED_DOUBLE_TAPPED );
+							dispatchEvent( tapTwiceEvent );
+						}
+					break;
+				}
+			}
+		}
+
+		protected function handleItemClick(event:MouseEvent) : void
+		{
+			if ( itemClickEnabled )
+			{
+				handleItemClickOrTap( event );
 			}
 		}
 		
@@ -1182,8 +1267,6 @@ package red.game.witcher3.slots
 
 		override public function set focused(value:Number):void
 		{
-			//trace("GFX [SlotListBase] focused = ", value, "; ", _focused, _focusable);
-			
 			if (value == _focused || !_focusable) { return; }
             _focused = value;
 
@@ -1345,7 +1428,7 @@ package red.game.witcher3.slots
 		public function set selectedIndex(value:int):void
 		{
 			//trace("GFX [****", this , "***] selectedIndex ", value, "; ", _renderers.length, _data.length, "; cur ", _selectedIndex);
-			
+
 			if (_renderers.length <= 0/* || _renderersCount <= 0*/) //#J _renderersCount is stupid variable I hope it dies painfully
 			{
 				if (_selectedIndex != -1)

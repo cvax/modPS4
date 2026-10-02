@@ -256,17 +256,28 @@
 			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnToggleMinimap', [ _previewMode ] ) );
 		}
 		
-		private var _lmbDown : Boolean = false;
-		public function SetLMBDown( lmbDown : Boolean )
+		private var _mouseDragInProgress : Boolean = false;
+		public function set mouseDragInProgress( value : Boolean ) : void
 		{
-			_lmbDown = lmbDown;
+			_mouseDragInProgress = value;
 		}
 
-		public function IsLMBDown()
+		public function get mouseDragInProgress( ) : Boolean
 		{
-			return _lmbDown;
+			return _mouseDragInProgress;
 		}
-		
+
+		private var _touchDragInProgress : Boolean = false;
+		public function set touchDragInProgress( value : Boolean ) : void
+		{
+			_touchDragInProgress = value;
+		}
+
+		public function get touchDragInProgress( ) : Boolean
+		{
+			return _touchDragInProgress;
+		}
+
 		public function GetWorldMapHitPoint( globalMousePos : Point ) : Point
 		{
 			var localPos : Point = mcHubMapPreviewGeneralContainer.globalToLocal( globalMousePos );

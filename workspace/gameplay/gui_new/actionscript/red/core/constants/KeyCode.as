@@ -163,6 +163,21 @@
 		
 		public static const MOUSE_WHEEL_UP:uint    = 236;   //#Y
 		public static const MOUSE_WHEEL_DOWN:uint  = 237; 	//#Y
+
+		public static const GESTURE_TAP:uint = 276;
+		public static const GESTURE_DOUBLE_TAP:uint = 277;
+		public static const GESTURE_PRESS:uint = 278;
+		public static const GESTURE_PAN:uint = 279;
+		public static const GESTURE_SWIPE:uint = 280;
+		public static const GESTURE_TWO_FINGER_TAP:uint = 281;
+		public static const GESTURE_TWO_FINGER_DOUBLE_TAP:uint = 282;
+		public static const GESTURE_TWO_FINGER_PAN:uint = 283;
+		public static const GESTURE_TWO_FINGER_SWIPE:uint = 284;
+		public static const GESTURE_PINCH:uint = 285;
+		public static const GESTURE_ROTATE:uint = 286;
+
+		public static const GESTURE_FIRST:uint = GESTURE_TAP;
+		public static const GESTURE_LAST:uint = GESTURE_ROTATE;
 		
 		// only for input feedback icons
 		public static const MOUSE_PAN:uint		   = 1001; // #Y

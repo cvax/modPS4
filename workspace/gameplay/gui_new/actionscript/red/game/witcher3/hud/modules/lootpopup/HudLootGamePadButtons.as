@@ -2,6 +2,7 @@ package red.game.witcher3.hud.modules.lootpopup
 {
 	import flash.display.MovieClip;
 	import red.game.witcher3.controls.W3GamepadButton;
+	import red.game.witcher3.managers.InputManager;
 	
 	public class HudLootGamePadButtons extends MovieClip 
 	{
@@ -16,11 +17,21 @@ package red.game.witcher3.hud.modules.lootpopup
 		//-------------------------------------------------------------------------------------------------------------------
 		public function HudLootGamePadButtons() 
 		{
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
 			mouseEnabled = false;
 			
 			btnTake.mcIcon.gotoAndStop("enter-gamepad_A");
-			btnTakeAll.mcIcon.gotoAndStop("gamepad_Y");
-			btnOptions.mcIcon.gotoAndStop("gamepad_X");
+			if (isSwitchPlatform)
+			{
+				btnTakeAll.mcIcon.gotoAndStop("gamepad_X");
+				btnOptions.mcIcon.gotoAndStop("gamepad_Y");
+			}
+			else
+			{
+				btnTakeAll.mcIcon.gotoAndStop("gamepad_Y");
+				btnOptions.mcIcon.gotoAndStop("gamepad_X");
+			}
 			btnClose.mcIcon.gotoAndStop("escape-gamepad_B");
 			
 			btnTake.textField.htmlText = "[[panel_button_common_take]]";

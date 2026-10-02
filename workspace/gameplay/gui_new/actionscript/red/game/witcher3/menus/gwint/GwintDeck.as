@@ -150,7 +150,7 @@ package red.game.witcher3.menus.gwint
 				}
 			}
 			
-			trace("GFX -#AI#----- > ", strength);
+			CardManager.log("#AI#----- > ", strength);
 			return strength;
 		}
 		
@@ -197,16 +197,16 @@ package red.game.witcher3.menus.gwint
 			
 			if (dynamicCardRequirements.length > 0 && dynamicCardRequirements.length == dynamicCards.length)
 			{
-				trace("GFX -#AI#------------------- Deck balance --------------------");
+				CardManager.log("#AI#------------------- Deck balance --------------------");
 				for (i = 0; i < dynamicCardRequirements.length; ++i)
 				{
 					if (otherDeckStr >= dynamicCardRequirements[i])
 					{
-						trace("GFX -#AI# Requirement [ " + dynamicCardRequirements[i] + " ] - Adding card with id [ " + dynamicCards[i] + "]");
+						CardManager.log("#AI# Requirement [ " + dynamicCardRequirements[i] + " ] - Adding card with id [ " + dynamicCards[i] + "]");
 						listToAddTo.push(dynamicCards[i]);
 					}
 				}
-				trace("GFX -#AI#-----------------------------------------------------");
+				CardManager.log("#AI#-----------------------------------------------------");
 			}
 		}
 		
@@ -221,6 +221,13 @@ package red.game.witcher3.menus.gwint
 			{
 				cardIndicesInDeck.unshift(templateID);
 			}
+			
+			_deckRenderer.cardCount = cardIndicesInDeck.length;
+		}
+		
+		public function addCard(templateID:int):void
+		{
+			cardIndicesInDeck.push(templateID);
 			
 			_deckRenderer.cardCount = cardIndicesInDeck.length;
 		}

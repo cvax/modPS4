@@ -97,12 +97,14 @@ package red.game.witcher3.controls
 		{
 			if (!Extensions.isScaleform)
 				return;
-				
+
 			if (_cursorInstance)
 			{
 				if (_autoHide)
 				{
-					_cursorInstance.visible = !_inputMgr.isGamepad() && _visible;
+					var isGamepad:Boolean = _inputMgr.isGamepad();
+					var isMouse:Boolean = _inputMgr.isMouse();
+					_cursorInstance.visible = (!isGamepad || isMouse) && _visible;
 				}
 				else
 				{

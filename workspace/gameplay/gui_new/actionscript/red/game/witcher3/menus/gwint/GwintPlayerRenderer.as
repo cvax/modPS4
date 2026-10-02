@@ -139,7 +139,7 @@ package red.game.witcher3.menus.gwint
 		protected var _lastSetPlayerLives:int = -1;
 		public function setPlayerLives(value:int):void
 		{
-			trace("GFX - Updating life for Player: " + playerName + ", to: " + value + " and life indicator: " + mcLifeIndicator);
+			CardManager.log("Updating life for Player: " + playerName + ", to: " + value + " and life indicator: " + mcLifeIndicator);
 			
 			if (_lastSetPlayerLives != value)
 			{

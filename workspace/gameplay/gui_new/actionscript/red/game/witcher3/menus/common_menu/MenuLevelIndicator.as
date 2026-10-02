@@ -1,6 +1,7 @@
 package red.game.witcher3.menus.common_menu
 {
 	import flash.text.TextField;
+	import flash.display.MovieClip;
 	import scaleform.clik.controls.StatusIndicator;
 	import scaleform.clik.core.UIComponent;
 	import red.game.witcher3.utils.CommonUtils;
@@ -37,7 +38,7 @@ package red.game.witcher3.menus.common_menu
 		{
 			levelProgress.maximum = maxValue;
 			levelProgress.value = value;
-			
+
 			if (txtExp)
 			{
 				txtExp.text = value.toString() + "/" + maxValue.toString();

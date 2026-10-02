@@ -57,6 +57,7 @@ package red.game.witcher3.menus.worldmap
 		public function StaticMapPinDescribed()
 		{
 			_isInVisibleArea = false;
+			mcIcon.mcHighlightAlt.visible = false;
 		}
 		
 		protected override function configUI():void
@@ -82,7 +83,7 @@ package red.game.witcher3.menus.worldmap
 			{
 				_pinInitialized = true;
 				
-				if (!isAvatar && (data.isUserPin || data.isPlayer || data.isQuest))
+				if (!isAvatar && (data.isUserPin || data.isPlayer || (data.isQuest && data.type != "QuestObjective" && data.type != "QuestObjectiveOther")))
 				{
 					PinPointersManager.getInstance().addPinPointer(this);
 					_hasPointer = true;
@@ -134,6 +135,10 @@ package red.game.witcher3.menus.worldmap
 					else if ( pinData.type == 'QuestVermentino' )
 					{
 						mcIcon.mcPinRadius.mcRadialCircle.gotoAndStop( 5 );
+					}
+					else if ( pinData.type == 'QuestObjectiveOther' )
+					{
+						mcIcon.mcPinRadius.mcRadialCircle.gotoAndStop( 6 );
 					}
 					else
 					{
@@ -268,6 +273,12 @@ package red.game.witcher3.menus.worldmap
 					tfLabel.visible = false;
 				}
 			}
+		}
+
+		public function SetAltHighlight(vis : Boolean):void
+		{
+			mcIcon.mcHighlightAlt.visible = vis;
+			mcIcon.mcHighlightAlt.gotoAndStop(data.type)
 		}
 	}
 }

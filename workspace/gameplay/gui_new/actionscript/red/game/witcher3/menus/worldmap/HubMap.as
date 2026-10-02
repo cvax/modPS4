@@ -4,55 +4,66 @@
 	import com.gskinner.motion.easing.Sine;
 	import com.gskinner.motion.GTween;
 	import com.gskinner.motion.GTweener;
+
 	import flash.display.MovieClip;
 	import flash.display.Sprite;
 	import flash.events.Event;
+	import flash.events.GestureEvent;
+	import flash.events.MouseEvent;
 	import flash.events.TimerEvent;
+	import flash.events.TransformGestureEvent;
 	import flash.filters.BitmapFilterQuality;
 	import flash.filters.GlowFilter;
+	import flash.geom.Point;
 	import flash.text.StaticText;
 	import flash.text.TextField;
 	import flash.utils.Dictionary;
 	import flash.utils.getDefinitionByName;
-	import flash.events.MouseEvent;
-	import flash.geom.Point;
 	import flash.utils.getTimer;
 	import flash.utils.Timer;
-	import red.game.witcher3.controls.InputFeedbackButton;
-	import red.game.witcher3.events.MapContextEvent;
-	import red.game.witcher3.managers.InputManager;
-	import red.game.witcher3.utils.CommonUtils;
-	import red.game.witcher3.utils.Math2;
-
-	import scaleform.clik.core.UIComponent;
-	import scaleform.clik.events.InputEvent;
-	import scaleform.clik.ui.InputDetails;
-	import scaleform.clik.constants.InputValue;
-	import scaleform.clik.data.ListData;
-	import scaleform.clik.events.ButtonEvent;
-	import scaleform.clik.interfaces.IListItemRenderer;
-	import scaleform.clik.constants.NavigationCode;
-	import scaleform.gfx.MouseEventEx;
 
 	import red.core.constants.KeyCode;
 	import red.core.data.InputAxisData;
-	import red.core.utils.InputUtils;
 	import red.core.events.GameEvent;
+	import red.core.events.GestureEventEx;
+	import red.core.events.TransformGestureEventEx;
+	import red.core.utils.InputUtils;
+	import red.game.witcher3.constants.EInputDeviceType;
+	import red.game.witcher3.controls.InputFeedbackButton;
 	import red.game.witcher3.data.StaticMapPinData;
-	import red.game.witcher3.menus.worldmap.data.CategoryPinData;
+	import red.game.witcher3.events.MapContextEvent;
 	import red.game.witcher3.managers.InputFeedbackManager;
+	import red.game.witcher3.managers.InputManager;
+	import red.game.witcher3.menus.worldmap.data.CategoryPinData;
 	import red.game.witcher3.menus.worldmap.HubMapPinPanel;
+	import red.game.witcher3.utils.CommonUtils;
+	import red.game.witcher3.utils.Math2;
+
+	import scaleform.clik.constants.InputValue;
+	import scaleform.clik.constants.NavigationCode;
+	import scaleform.clik.core.UIComponent;
+	import scaleform.clik.data.ListData;
+	import scaleform.clik.events.ButtonEvent;
+	import scaleform.clik.events.InputEvent;
+	import scaleform.clik.ui.InputDetails;
+	import scaleform.clik.interfaces.IListItemRenderer;
+	import scaleform.gfx.MouseEventEx;
+
+	import flash.utils.getTimer;
 
 	public class HubMap extends BaseMap
 	{
+		private const USER_MAP_PIN_PANEL_DELAY : int = 300;
+
 		public var mcHubMapCrosshair		: MapCrosshair;
 		public var mcHubMapPinContainer		: HubMapPinContainer;
 		public var mcHubMapZoomContainer	: HubMapZoomContainer;
 		public var mcHubMapPreview			: HubMapPreview;
 		public var mcHubMapPreviewAnchor	: MovieClip;
-		
-		private const USER_MAP_PIN_PANEL_DELAY : int = 300;
-		
+		public var m_playerWorldPosX : Number = -1;
+		public var m_playerWorldPosY : Number = -1;
+		public var m_questTrackerInNormalState : Boolean = true;
+
 		override protected function showMap(animTween:Boolean = true):void
 		{
 			super.showMap(animTween);
@@ -75,10 +86,8 @@
 
 		override public function Enable( value : Boolean, force : Boolean = false )
 		{
-			//
 			//trace("Minimap ******************************************************** HubMap::Enable " + _enabled + " " + value );
-			//
-
+		
 			cleanup( value );
 
 			if (_enabled == value)
@@ -133,9 +142,7 @@
 		
 		override public function handleInput( event : InputEvent ) : void
 		{
-			//
 			//trace("Minimap handleInput " + event.details.code );
-			//
 			
             if ( event.handled || !IsEnabled())
 			{
@@ -151,14 +158,14 @@
             var keyDown : Boolean    = ( details.value == InputValue.KEY_DOWN );
             var keyUp : Boolean    = ( details.value == InputValue.KEY_UP );
             var keyPress : Boolean = ( details.value == InputValue.KEY_DOWN || details.value == InputValue.KEY_HOLD );
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+			var isSwitch2Mouser : Boolean = InputManager.getInstance().gamepadType == EInputDeviceType.IDT_Switch2_Mouser;
 			
 			var axisData			: InputAxisData;
 			var magnitude			: Number;
 			var magnitudeSquared	: Number;
 			
-			//
-			//tracetracetrace("Minimap @@@@@@@@@@@@@@@ " + details.code + " " + KeyCode.NUMPAD_ADD + " " + KeyCode.NUMPAD_SUBTRACT );
-			//
+			//trace("Minimap @@@@@@@@@@@@@@@ " + details.code + " " + KeyCode.NUMPAD_ADD + " " + KeyCode.NUMPAD_SUBTRACT );
 			
             switch( details.code )
 			{
@@ -275,7 +282,7 @@
 				case KeyCode.E:
 				case KeyCode.ENTER:
 				case KeyCode.PAD_A_CROSS:
-					if ( keyUp )
+					if ( keyUp && m_questTrackerInNormalState )
 					{
 						UseSelectedPin();
 						event.handled = true;
@@ -284,15 +291,22 @@
 				
 				case KeyCode.Q:
 				case KeyCode.PAD_X_SQUARE:
-					if ( keyDown )
+				case KeyCode.PAD_Y_TRIANGLE:
+					if ((details.code ==  KeyCode.Q ||
+						(isSwitchPlatform && !isSwitch2Mouser && details.code == KeyCode.PAD_Y_TRIANGLE) ||		// Y on switch (disabled when using switch2 mouser)
+						(!isSwitchPlatform && details.code == KeyCode.PAD_X_SQUARE))		// X on other platforms
+						&& m_questTrackerInNormalState)
 					{
-						startSettingUserPin( localToGlobal( new Point( mcHubMapCrosshair.x, mcHubMapCrosshair.y ) ) );
-						event.handled = true;
-					}
-					else if ( keyUp )
-					{
-						finishSettingUserPin();
-						event.handled = true;
+						if ( keyDown )
+						{
+							startSettingUserPin( localToGlobal( new Point( mcHubMapCrosshair.x, mcHubMapCrosshair.y ) ) );
+							event.handled = true;
+						}
+						else if ( keyUp )
+						{
+							finishSettingUserPin();
+							event.handled = true;
+						}
 					}
 					break;
 
@@ -301,33 +315,24 @@
 				// DEBUG INPUT START
 				//
 				case KeyCode.PAD_LEFT_TRIGGER:
-					if ( _manualLod )
-					{
-						if ( keyDown )
-						{
-							mcHubMapZoomContainer.mcHubMapContainer.DecreaseLod();
-						}
-						event.handled = true;
-					}
-					break;
 				case KeyCode.PAD_RIGHT_TRIGGER:
 					if ( _manualLod )
 					{
 						if ( keyDown )
 						{
-							mcHubMapZoomContainer.mcHubMapContainer.IncreaseLod();
+							if (details.code == KeyCode.PAD_RIGHT_TRIGGER)
+							{
+								mcHubMapZoomContainer.mcHubMapContainer.IncreaseLod();
+							}
+							else if (details.code == KeyCode.PAD_LEFT_TRIGGER)
+							{
+								mcHubMapZoomContainer.mcHubMapContainer.DecreaseLod();
+							}
 						}
 						event.handled = true;
 					}
 					else
 					{
-						if ( keyDown )
-						{
-							if ( mcHubMapPreview.CanBeToggled() )
-							{
-								mcHubMapPreview.Toggle();
-							}
-						}
 					}
 					break;
 				//
@@ -337,7 +342,7 @@
 
 				case KeyCode.PAD_LEFT_THUMB:
 				case KeyCode.TAB:
-					if ( keyUp && !isAnimationRunning() )
+					if ( keyUp && !isAnimationRunning() && m_questTrackerInNormalState )
 					{
 						CenterBetweenQuestAndPlayer();
 						event.handled = true;
@@ -351,11 +356,7 @@
 						
 						magnitude = InputUtils.getMagnitude( axisData.xvalue, axisData.yvalue ); //getMagnitudeSquared
 						magnitudeSquared = magnitude * magnitude;
-						
-						//magnitudeSquared = InputUtils.getMagnitudeSquared( axisData.xvalue, axisData.yvalue );
-						
-						//trace("TP PAD_LEFT_STICK_AXIS, xvalue: ", axisData.xvalue, " yvalue: ", axisData.yvalue, "; ", magnitudeCubed);
-						
+					
 						var scrollValue:Number;
 						if (magnitude > FORSAGE_TRIGGERING_LIMIT)
 						{
@@ -364,7 +365,7 @@
 							
 							//this.alpha = .7;
 							
-							const IGNORE_SNAPPING_DELAY = 150;							
+							const IGNORE_SNAPPING_DELAY = 150;
 							if (!_accelerationTimer && !_ignoreSnapping)
 							{
 								_accelerationTimer = new Timer(IGNORE_SNAPPING_DELAY);
@@ -430,7 +431,8 @@
 			if ( _prevTimeOfPressedX > 0 )
 			{
 				var currTimeOfPressedX : int = getTimer();
-				if ( currTimeOfPressedX - _prevTimeOfPressedX > USER_MAP_PIN_PANEL_DELAY )
+				var deltaT : int = currTimeOfPressedX - _prevTimeOfPressedX; 
+				if ( deltaT > USER_MAP_PIN_PANEL_DELAY )
 				{
 					enableUserPinPanel( true, _stagePositionForUserPin );
 					_prevTimeOfPressedX = 0;
@@ -440,12 +442,13 @@
 			return false;
 		}
 
-		private function finishSettingUserPin()
+		private function finishSettingUserPin( forceUserPinPanel : Boolean = false )
 		{
 			if ( _prevTimeOfPressedX > 0 )
 			{
 				var currTimeOfPressedX : int = getTimer();
-				if ( currTimeOfPressedX - _prevTimeOfPressedX > USER_MAP_PIN_PANEL_DELAY )
+				var deltaT : int = currTimeOfPressedX - _prevTimeOfPressedX; 
+				if ( deltaT > USER_MAP_PIN_PANEL_DELAY || forceUserPinPanel )
 				{
 					enableUserPinPanel( true, _stagePositionForUserPin );
 				}
@@ -496,11 +499,16 @@
 			_accelerationTimer.removeEventListener(TimerEvent.TIMER, handleAccelerationTimer);
 			_accelerationTimer = null;
 		}
-		
-		
-		
-		
-		
+
+		private var filterEndTimer:Timer;
+		private function handleFilterEndTimer(e:TimerEvent):void
+		{
+			_ignoreSnapping = false;
+			
+			filterEndTimer.stop();
+			filterEndTimer = null;
+		}
+
 		private static const FORSAGE_FACTOR:Number = 1;
 		private static const FORSAGE_TRIGGERING_LIMIT:Number = .90;
 		
@@ -525,7 +533,7 @@
 		
 		private static const POINT_0_0 : Point = new Point( 0, 0 );
 		
-		private static const KEYBOARD_SCROLL_SPEED : int = 20;
+		private static const KEYBOARD_SCROLL_SPEED : int = 15;
 		
 		private var _bufPosX      	: Number = 0;
 		private var _bufPosY      	: Number = 0;
@@ -595,6 +603,8 @@
 		private var _worldRightTop   : Point = new Point;
 		
 		private var _currentAreaId : int = -1;
+
+		private var _userPinTouchPoint : Point = null;
 		
 		public function HubMap()
 		{
@@ -604,7 +614,7 @@
 			_speedTimer.addEventListener(TimerEvent.TIMER, handleSpeedTimer, false, 0, true);
 			_speedTimer.start();
 			
-			_scrollAndZoomTimer = new Timer(33);
+			_scrollAndZoomTimer = new Timer(17);
 			_scrollAndZoomTimer.addEventListener(TimerEvent.TIMER, handleScrollAndZoomTimer, false, 0, true);
 			_scrollAndZoomTimer.start();
 		}
@@ -616,7 +626,7 @@
 			dispatchEvent(new GameEvent(GameEvent.REGISTER, 'worldmap.global.pins.static', 			[ setPins ] ) );
 			dispatchEvent(new GameEvent(GameEvent.REGISTER, 'worldmap.global.pins.static.update', 	[ updatePins ] ) );
 			dispatchEvent(new GameEvent(GameEvent.REGISTER, 'worldmap.global.pins.dynamic', 		[ setDynamicPins ] ) );
-			
+
 			_scrollCoef = SCROLL_COEF_MIN;
 			
 			//mcHubMapContainer.alpha = 0;
@@ -648,18 +658,117 @@
 			return true;
 		}
 		
-		override public function OnControllerChanged( isGamepad : Boolean )
+		override public function OnControllerChanged( isGamepad : Boolean, isMouse : Boolean )
 		{
-			super.OnControllerChanged( isGamepad );
+			super.OnControllerChanged( isGamepad, isMouse );
 			
-			mcHubMapCrosshair.visible = isGamepad;
-			if ( isGamepad )
+			mcHubMapCrosshair.visible = !isMouse;
+			if ( !isMouse )
 			{
 				mcHubMapCrosshair.x = 0;
 				mcHubMapCrosshair.y = 0;
 			}
 			updateMapSwitchHint();
 		}
+
+		protected var holdingMouseOnPin : Boolean;
+		protected var holdMousePos : Point;
+		protected static const HOLD_TIME : Number = 0.5;
+		protected static const HOLD_MOVE_MAX_DIST : Number = 15;
+		protected static const HOLD_ANIM_STEPS_COUNT:Number = 60;
+		protected var holdProgress : Number = 0;
+		protected var holdAnimation : Sprite;
+		protected var holdAnimationMask : Sprite;
+
+		private function StartAnimOnSelectedPin(globalMousePos : Point):void
+		{
+			holdingMouseOnPin = true;
+			holdMousePos = new Point(globalMousePos.x, globalMousePos.y);
+			GTweener.removeTweens(this);
+			holdProgress = 0;
+
+			if ( _selectedMapPinIndex > -1 && m_questTrackerInNormalState)
+			{
+				var pin : StaticMapPinDescribed = _staticMapPins[ _selectedMapPinIndex ];
+				if (pin)
+				{
+					var indicatorClass : Class = getDefinitionByName("MapPin_HoldIndicator") as Class;
+					holdAnimation = new indicatorClass() as Sprite;
+					holdAnimation.visible = false;
+					pin.addChild(holdAnimation);
+					SpawnHoldAnimationMask();
+					UpdateHoldAnimation();
+				}
+			}
+			GTweener.to(this, HOLD_TIME, {holdProgress : 1}, { onChange: OnHoldAnimUpdate, onComplete: OnHoldAnimEnded} );
+			holdAnimation.visible = true;
+		}
+
+		private function StopAnimOnSelectedPin():void
+		{
+			holdingMouseOnPin = false;
+			if (holdAnimation) 
+			{
+				holdAnimation.visible = false;
+				GTweener.removeTweens(this);
+				holdAnimation.parent.removeChild(holdAnimation);
+				holdAnimationMask.parent.removeChild(holdAnimation);
+				holdAnimation = null;
+				holdAnimationMask = null;
+			}
+		}
+
+		private function SpawnHoldAnimationMask():void
+		{
+			if (holdAnimationMask == null)
+			{
+				holdAnimationMask = new Sprite();
+				holdAnimationMask.x = holdAnimation.x + holdAnimation.width / 2;
+				holdAnimationMask.y = holdAnimation.y;
+				holdAnimation.parent.addChild(holdAnimationMask);
+				holdAnimation.mask = holdAnimationMask;
+			}
+		}
+
+		protected function UpdateHoldAnimation()
+		{
+			var delta:Number;
+			var percentage:Number;
+			
+			var maxValue:Number = 360; //as in 360 degrees
+
+			var modifiedStretchedProgress = holdProgress;
+
+			/*if(holdProgress > 0.1)
+				modifiedStretchedProgress = (holdProgress - 0.1) / 0.9; //delaying visibility a little to avoid it showing up on single clicks */
+			
+			percentage = Math.min(maxValue, modifiedStretchedProgress * maxValue);
+			
+			if (percentage >= 0)
+			{
+				holdAnimation.visible = true;
+				holdAnimationMask.visible = true;
+				holdAnimationMask.graphics.clear();
+				CommonUtils.drawPie(holdAnimationMask.graphics, holdAnimation.width, HOLD_ANIM_STEPS_COUNT, 0, percentage);
+			}
+			else
+			{
+				holdAnimation.visible = false;
+				holdAnimationMask.visible = false;
+			}
+		}
+
+		public function OnHoldAnimUpdate(instTween:GTween)
+		{
+			UpdateHoldAnimation();
+		}
+
+		public function OnHoldAnimEnded(instTween:GTween)
+		{
+			StopAnimOnSelectedPin();
+			UseSelectedPin();
+		}
+
 
 		public function OnMouseDoubleDown( buttonIdx : uint, globalMousePos : Point )
 		{
@@ -678,7 +787,7 @@
 			{
 				if ( buttonIdx == MouseEventEx.LEFT_BUTTON )
 				{
-					mcHubMapPreview.SetLMBDown( true );
+					mcHubMapPreview.mouseDragInProgress = true;
 					centerOnPreviewPosition( globalMousePos );
 				}
 			}
@@ -688,6 +797,17 @@
 				{
 					startSettingUserPin( globalMousePos );
 				}
+				else if ( buttonIdx == MouseEventEx.LEFT_BUTTON )
+				{
+					if ( !CanProcessInput() )
+					{
+						return;
+					}
+					if(CanSelectedPinBeUsed())
+					{
+						StartAnimOnSelectedPin(globalMousePos)
+					}
+				}
 			}
 		}
 		
@@ -695,7 +815,15 @@
 		{
 			if ( buttonIdx == MouseEventEx.LEFT_BUTTON )
 			{
-				mcHubMapPreview.SetLMBDown( false );
+				mcHubMapPreview.mouseDragInProgress = false;
+				if ( !CanProcessInput() )
+				{
+					return;
+				}
+				if(holdingMouseOnPin)
+				{
+					StopAnimOnSelectedPin();
+				}
 			}
 			else if ( buttonIdx == MouseEventEx.RIGHT_BUTTON )
 			{
@@ -705,7 +833,7 @@
 		
 		public function OnMouseMove( globalMousePos : Point )
 		{
-			if ( mcHubMapPreview.IsLMBDown() )
+			if ( mcHubMapPreview.mouseDragInProgress )
 			{
 				centerOnPreviewPosition( globalMousePos );
 			}
@@ -715,8 +843,198 @@
 				UpdateVisibilityAndPinPositions( false );
 				UpdateSelectedMapPin( false );
 			}
+
+			if(holdingMouseOnPin)
+			{
+				var deltaX : Number = globalMousePos.x - holdMousePos.x;
+				var deltaY : Number = globalMousePos.y - holdMousePos.y;
+				var distanceSqrd : Number = deltaX * deltaX + deltaY * deltaY;
+				if(distanceSqrd > HOLD_MOVE_MAX_DIST * HOLD_MOVE_MAX_DIST)
+				{
+					StopAnimOnSelectedPin();
+				}
+			}
 		}
-		
+
+		private static const DOUBLE_TAP_WAIT_TIME_MS : Number = 250;
+		private var _tapOrDoubleTapTimer : Timer = null;
+
+		private function handleTapOrDoubleTapTimer( event : TimerEvent ) : void
+		{
+			if (_tapOrDoubleTapTimer)
+			{
+				_tapOrDoubleTapTimer.stop();
+				_tapOrDoubleTapTimer = null;
+			}
+
+			if ( mcHubMapPreview.hitTestPoint( _userPinTouchPoint.x, _userPinTouchPoint.y ) )
+			{
+				return;
+			}
+
+			var touchPointInWorld : Point = screenPointToWorldPoint( _userPinTouchPoint );
+			var prevPinIndex : int = _closestPinIndex;
+			var pin : StaticMapPinDescribed = null;
+
+			_closestPinIndex = -1;
+			for ( var i : int = _staticMapPins.length - 1; i >= 0; --i )
+			{
+				pin = _staticMapPins[ i ] as StaticMapPinDescribed;
+				if ( !pin || pin.isHidden() )
+				{
+					continue;
+				}
+
+				var pinPosInWorld : Point = pin.GetWorldPosition();
+				var distSq : Number = Math2.getSquaredSegmentLength( touchPointInWorld, pinPosInWorld );
+				if ( distSq < SNAP_DISTANCE_SQUARED && !_ignoreSnapping)
+				{
+					_closestPinIndex = i;
+					SelectPin( _closestPinIndex );
+					break;
+				}
+			}
+
+			//Only set the user pin (green one) if we did not hit any other pin
+			if ( _closestPinIndex == -1 )
+			{
+				setUserMapPin( 0, false );
+			}
+			else
+			{
+				pin = _staticMapPins[ _closestPinIndex ] as StaticMapPinDescribed;
+				var pinData : StaticMapPinData = pin.data as StaticMapPinData;
+
+				if ( prevPinIndex == _closestPinIndex )
+				{
+					if ( pinData.isUserPin )
+					{
+						setUserMapPin( 0, false ); //Remove tapped user pin
+					}
+					else
+					{
+						UseSelectedPin();
+					}
+				}
+				else
+				{
+					CenterOnPin( _closestPinIndex, NaN, NaN, false, false );
+				}
+			}
+		}
+
+		public function onDoubleTapGesture( event : GestureEvent ) : void
+		{
+			if (_tapOrDoubleTapTimer)
+			{
+				_tapOrDoubleTapTimer.stop();
+				_tapOrDoubleTapTimer = null;
+			}
+
+			if ( !isAnimationRunning() )
+			{
+				CenterOnPlayer();
+			}
+		}
+
+		public function onGestureTap( event : GestureEvent ) : void
+		{
+			_userPinTouchPoint = new Point( event.stageX, event.stageY );
+
+			_tapOrDoubleTapTimer = new Timer( DOUBLE_TAP_WAIT_TIME_MS, 1 );
+			_tapOrDoubleTapTimer.addEventListener(TimerEvent.TIMER, handleTapOrDoubleTapTimer, false, 0, true);
+			_tapOrDoubleTapTimer.start();
+		}
+
+		public function onGesturePress( event : GestureEvent  ) : void 	
+		{
+			//If the UserPinPanel is not visible, set the touch (creation) point for the user pin
+			//and make UserPinPanel visible 
+			if ( CanProcessInput() && event.phase == "begin" && !mcHubMapPreview.hitTestPoint( event.stageX, event.stageY ) )
+			{
+				_userPinTouchPoint = new Point( event.stageX, event.stageY );
+				startSettingUserPin( _userPinTouchPoint );	
+				finishSettingUserPin( true );
+			}
+		}
+
+		private var _lastPanTs : int = -1;
+		public function onGesturePan( event : TransformGestureEvent ) : Boolean
+		{
+			var ts : int = getTimer();
+			var handled : Boolean = false; 
+			var touchPointStage : Point = new Point( event.stageX, event.stageY );
+
+			switch ( event.phase )
+			{
+				case "begin" : 
+					if ( mcHubMapPreview.hitTestPoint( event.stageX, event.stageY ) )
+					{
+						mcHubMapPreview.touchDragInProgress = true;
+						centerOnPreviewPosition( touchPointStage );
+						handled = true;
+					}
+				break;
+				case "update" : 
+					if ( mcHubMapPreview.touchDragInProgress )
+					{
+						centerOnPreviewPosition( touchPointStage );
+						handled = true;
+					}
+				break;
+				case "end" : 
+					if ( mcHubMapPreview.touchDragInProgress )
+					{
+						mcHubMapPreview.touchDragInProgress = false;
+						handled = true;
+					}
+				break;
+			}
+
+			if ( event.phase == "end" )
+			{
+				_ignoreSnapping = false;
+			}
+
+			if ( !handled && _lastPanTs != -1 )
+			{
+				var deltaT : int = ts - _lastPanTs; //!!!! Can be 0!!!!
+				if ( deltaT > 0 )
+				{
+					var magnitude : Number = InputUtils.getMagnitude( event.offsetX, event.offsetY );
+					var speed : Number = magnitude / deltaT;
+
+					//trace( "HubMap::onGesturePan : ", magnitude, deltaT, speed, filterEndTimer );
+
+					if (speed > 0.3 )
+					{
+						_ignoreSnapping = true;
+
+						if (!filterEndTimer)
+						{
+							filterEndTimer = new Timer( 100, 1 );
+							filterEndTimer.addEventListener( TimerEvent.TIMER, handleFilterEndTimer, false, 0, true );
+						}
+
+						//no restart method so have to do this
+						filterEndTimer.reset();
+						filterEndTimer.start();
+					}
+
+					if ( CanProcessInput() )
+					{
+						scrollMap( event.offsetX, event.offsetY );
+					}
+				}
+
+				handled = true;
+			}
+			_lastPanTs = ts;
+
+
+			return handled;
+		}
+
 		private function centerOnPreviewPosition( globalMousePos : Point )
 		{
 			var worldPos : Point = mcHubMapPreview.GetWorldMapHitPoint( globalMousePos );
@@ -801,7 +1119,7 @@
 				{
 					pin = _staticMapPins[ i ];
 					pinData = pin.data as StaticMapPinData;
-					
+
 					if (   pinData.isPlayer ||
 						 ( pinData.isUserPin    && showUserPins && !disabledPins.hasOwnProperty( HubMapPinPanel.USER_PIN_TYPE ) ) ||
 						 ( pinData.isFastTravel && showFastTravelPins ) ||
@@ -864,6 +1182,7 @@
 		public function updateCursorPosition( mousePos : Point )
 		{
 			var localMousePos : Point = globalToLocal( mousePos );
+			
 			mcHubMapCrosshair.x = localMousePos.x;
 			mcHubMapCrosshair.y = localMousePos.y;
 		}
@@ -1027,9 +1346,6 @@
 			{
 				return;
 			}
-			//
-			//trace("Minimap ######################################################### setPins");
-			//
 			
 			_mapPinDataArray = gameData as Array;
 			_mapPinDataIndex = -1;
@@ -1041,9 +1357,6 @@
 			{
 				return;
 			}
-			//
-			//trace("Minimap ######################################################### updatePins");
-			//
 			
 			_mapPinDataArray = gameData as Array;
 			_mapPinDataIndex = -1;
@@ -1078,12 +1391,14 @@
 				pinData = pinDataArray[ i ] as StaticMapPinData;
 				CreatePin( pinData, _staticMapPins.length, pinScale );
 				
-				if ( pinData.isQuest )
+				if ( pinData.isQuest && pinData.type != "QuestObjectiveOther" )
 				{
 					mcHubMapPreview.addPin( pinData );
 				}
 				else if ( pinData.isPlayer )
 				{
+					m_playerWorldPosX = pinData.posX;
+					m_playerWorldPosY = pinData.posY;
 					mcHubMapPreview.addPin( pinData );
 				}
 				else if ( pinData.isUserPin )
@@ -1123,10 +1438,6 @@
 		
 		private function initializeMapPinsProcessing()
 		{
-			//
-			//trace("Minimap initializeMapPinsProcessing" );
-			//
-			
 			UnselectPin();
 			
 			_fastTravelPinExist = false;
@@ -1213,7 +1524,7 @@
 						_lonelyFastTravelPinIdx = -1;
 					}
 				}
-				else if ( pinData.isQuest )
+				else if ( pinData.isQuest && pinData.type != "QuestObjectiveOther" )
 				{
 					if ( pinData.highlighted )
 					{
@@ -1227,6 +1538,8 @@
 				}
 				else if ( pinData.isPlayer )
 				{
+					m_playerWorldPosX = pinData.posX;
+					m_playerWorldPosY = pinData.posY;
 					if ( pinData.journalAreaId == _currentAreaId )
 					{
 						_initialPlayerPinIdx = currPinIndex;
@@ -1254,10 +1567,6 @@
 
 		private function finalizeMapPinsProcessing( immediately : Boolean = false )
 		{
-			//
-			//trace("Minimap finalizeMapPinsProcessing" );
-			//
-			
 			if ( funcInitializeCategoryPanel != null )
 			{
 				funcInitializeCategoryPanel();
@@ -1275,9 +1584,6 @@
 		
 		private function setInitMapPosition()
 		{
-			//
-			//trace("Minimap ======================== setInitMapPosition" );
-			//
 			if ( _initialLonelyFastTravelPinIdx > -1 )
 			{
 				CenterOnPin(_initialLonelyFastTravelPinIdx, NaN, NaN, false);
@@ -1381,7 +1687,7 @@
 
 			if ( _gamepadZoomValue != 0 )
 			{
-				_isZooming = zoomMap( _gamepadZoomValue > 0 );
+				_isZooming = Zoom( _gamepadZoomValue > 0 );
 				_gamepadZoomValue = 0;
 			}
 			else
@@ -1391,13 +1697,14 @@
 
 			if ( _isZooming )
 			{
+				// YES scrolling when zooming
 				// no scrolling when zooming
-				return;
+				// return;
 			}
 			
 			if ( Math.abs( _gamepadScrollX ) > 0 || Math.abs( _gamepadScrollY ) > 0 )
 			{
-				_isScrolling = scrollMap( _gamepadScrollX, _gamepadScrollY );
+				_isScrolling = scrollMap( _gamepadScrollX * 0.5, _gamepadScrollY * 0.5 );
 				_gamepadScrollX = 0;
 				_gamepadScrollY = 0;
 			}
@@ -1413,11 +1720,11 @@
 			
 			if ( _keyboardZoomIn )
 			{
-				_isZooming = zoomMap( true );
+				_isZooming = Zoom( true );
 			}
 			else if ( _keyboardZoomOut )
 			{
-				_isZooming = zoomMap( false );
+				_isZooming = Zoom( false );
 			}
 			else
 			{
@@ -1426,8 +1733,9 @@
 			
 			if ( _isZooming )
 			{
+				// YES scrolling when zooming
 				// no scrolling when zooming
-				return;
+				//return;
 			}
 			
 			if ( _keyboardScrollUp || _keyboardScrollDown || _keyboardScrollLeft || _keyboardScrollRight )
@@ -1461,18 +1769,17 @@
 			///////////////////////////////////////
 		}
 		
-		const ZOOM_SPEED:Number = 1.05;
-		public function zoomMap( zoomIn : Boolean ) : Boolean
+		override public function Zoom( zoomIn : Boolean ) : Boolean
 		{
-			//
-			//trace("Minimap @@@@@@@@@@@@@@@ " + _keyboardZoomIn + " " + _keyboardZoomOut );
-			//
-			
-			
+			var ZOOM_SPEED : Number = InputManager.getInstance().isMouse() ? 1.1 : 1.03;
+
+			var zoomFactor : Number = zoomIn ? ZOOM_SPEED : ( 1.0 / ZOOM_SPEED );
+			return ZoomByFactor (zoomFactor );
+		}
+
+		override public function ZoomByFactor( zoomFactor : Number ) : Boolean
+		{
 			PinPointersManager.getInstance().updatePointersPosition();
-			
-			var newScaleX : Number;
-			var newScaleY : Number;
 			
 			if (_transitionTween)
 			{
@@ -1482,34 +1789,15 @@
 			{
 				return false;
 			}
-			
-			if ( _unlimitedZoom )
+
+			var newScaleX : Number = mcHubMapZoomContainer.actualScaleX * zoomFactor;
+			var newScaleY : Number = mcHubMapZoomContainer.actualScaleY * zoomFactor;
+			if ( !_unlimitedZoom )
 			{
-				if ( zoomIn )
-				{
-					newScaleX = mcHubMapZoomContainer.actualScaleX * ZOOM_SPEED;
-					newScaleY = mcHubMapZoomContainer.actualScaleY * ZOOM_SPEED;
-				}
-				else
-				{
-					newScaleX = mcHubMapZoomContainer.actualScaleX / ZOOM_SPEED;
-					newScaleY = mcHubMapZoomContainer.actualScaleY / ZOOM_SPEED;
-				}
+				newScaleX = Math2.clamp( newScaleX, _minZoom, _maxZoom );
+				newScaleY = Math2.clamp( newScaleY, _minZoom, _maxZoom );
 			}
-			else
-			{
-				if ( zoomIn )
-				{
-					newScaleX = Math.min( mcHubMapZoomContainer.actualScaleX * ZOOM_SPEED, _maxZoom );
-					newScaleY = Math.min( mcHubMapZoomContainer.actualScaleY * ZOOM_SPEED, _maxZoom );;
-				}
-				else
-				{
-					newScaleX = Math.max( mcHubMapZoomContainer.actualScaleX / ZOOM_SPEED, _minZoom );
-					newScaleY = Math.max( mcHubMapZoomContainer.actualScaleY / ZOOM_SPEED, _minZoom );
-				}
-			}
-			
+
 			if ( Math.abs( mcHubMapZoomContainer.scaleX - newScaleX ) < 0.001 && Math.abs( mcHubMapZoomContainer.scaleY - newScaleY ) < 0.001 )
 			{
 				return false;
@@ -1535,7 +1823,7 @@
 			//
 			//MapMenu.m_debugInfo.__DebugInfo_SetZoom( scaleX );
 		}
-		
+
 		public function scrollMap( dx : Number, dy : Number ) : Boolean
 		{
 			// scroll map according to scale
@@ -1544,7 +1832,7 @@
 				return false;
 			}
 			
-			if ( mcHubMapPreview.IsLMBDown() )
+			if ( mcHubMapPreview.mouseDragInProgress || mcHubMapPreview.touchDragInProgress )
 			{
 				return false;
 			}
@@ -1607,10 +1895,6 @@
 			var requiredLod : int = -1;
 			var currentLod : int =  mcHubMapZoomContainer.mcHubMapContainer.GetCurrentLod();
 
-			//
-			//trace("Minimap ---- GetRequiredLod " + currentLod + " " + zoom );
-			//
-			
 			for ( var i : int = 0; i < _zoomBoundaries.length; ++i )
 			{
 				if ( _zoomBoundaries[ i ].IsValid() && _zoomBoundaries[ i ].IsInside( zoom ) )
@@ -1655,14 +1939,14 @@
 		
 		private function UpdateSizeForAreaMapPins( scale : Number )
 		{
+			var stdTextureSize : Number = 1024;
 			var pin : StaticMapPinDescribed;
 			for (var i:uint = 0; i < mcHubMapPinContainer._areaCanvas.numChildren; i++)
 			{
 				pin = mcHubMapPinContainer._areaCanvas.getChildAt( i ) as StaticMapPinDescribed;
 				if ( pin && pin.data && pin.data.radius > 0 )
 				{
-					var radiusScale : Number = ( pin.data.radius / scale ) * ( 270.0 / _mapSize );
-
+					var radiusScale : Number = ( pin.data.radius / scale ) * ( 270.0 / _mapSize * (_textureSize / stdTextureSize) );
 					pin.mcIcon.mcPinRadius.scaleX = radiusScale;
 					pin.mcIcon.mcPinRadius.scaleY = radiusScale;
 				}
@@ -1672,6 +1956,7 @@
 		private function UpdateSizeOfPinAvatar( scale : Number )
 		{
 			var avatarScale : Number = 1.4;
+			var stdTextureSize : Number = 1024;
 			
 			if ( _selectedPinAvatar )
 			{
@@ -1684,7 +1969,7 @@
 
 					if ( selectedPinData.radius > 0 )
 					{
-						var radiusScale : Number = ( selectedPinData.radius / scale ) * ( 270.0 / _mapSize ) / avatarScale;
+						var radiusScale : Number = ( selectedPinData.radius / scale ) * ( 270.0 / _mapSize * (_textureSize / stdTextureSize) ) / avatarScale;
 
 						_selectedPinAvatar.mcIcon.mcPinRadius.scaleX = radiusScale;
 						_selectedPinAvatar.mcIcon.mcPinRadius.scaleY = radiusScale;
@@ -1694,7 +1979,6 @@
 				_selectedPinAvatar.addChild( _selectedPinAvatar.mcDescription );
 			}
 		}
-
 
 		private function UpdateSelectedMapPin( softTransition:Boolean = true, allowCenteringOnPin : Boolean = true )
 		{
@@ -1728,7 +2012,7 @@
 					
 					if ( allowCenteringOnPin )
 					{
-						if ( MapMenu.IsUsingGamepad() )
+						if ( !MapMenu.IsUsingMouse() )
 						{
 							CenterOnPin( _closestPinIndex, prevX, prevY, softTransition);
 						}
@@ -1831,7 +2115,6 @@
 		private function UnselectPin( dispatchContextEvent : Boolean = true )
 		{
 			// remove pin avatar if exists
-			
 			if ( _selectedPinAvatar )
 			{
 				GTweener.removeTweens( _selectedPinAvatar );
@@ -1941,10 +2224,21 @@
 			return staticMapPin;
 		}
 		
+		private function CanSelectedPinBeUsed():Boolean
+		{
+			if ( _selectedMapPinIndex > -1 && m_questTrackerInNormalState)
+			{
+				var pin : StaticMapPinDescribed = _staticMapPins[ _selectedMapPinIndex ];
+				if (pin)
+					return pin.data.isFastTravel || pin.data.isQuest;
+			}
+			return false;
+		}
+
 		// #Y Move to the MapMenu.as
 		public function UseSelectedPin()
 		{
-			if ( _selectedMapPinIndex > -1 )
+			if ( _selectedMapPinIndex > -1 && m_questTrackerInNormalState)
 			{
 				var pin : StaticMapPinDescribed = _staticMapPins[ _selectedMapPinIndex ];
 				if ( pin )
@@ -1953,6 +2247,12 @@
 					{
 						var areaId:int = pin.data.areaId ? pin.data.areaId : -1;
 						dispatchEvent( new GameEvent(GameEvent.CALL, "OnStaticMapPinUsed", [ pin.data.id,  areaId] ) );
+					}
+					else if ( pin.data.isQuest )
+					{
+						var questName : uint = uint(pin.data.questScriptName);
+						var objName : uint = uint(pin.data.objScriptName);
+						dispatchEvent( new GameEvent(GameEvent.CALL, "OnTrackQuestFromMappin", [ questName, objName ] ) );
 					}
 				}
 			}
@@ -1978,7 +2278,7 @@
 			}
 		}
 		
-		public function RemoveUserMapPin( id : uint )
+		public function RemoveUserMapPin( id : uint ):void
 		{
 			for ( var i : int = _staticMapPins.length - 1; i >= 0; i-- )
 			{
@@ -1987,6 +2287,7 @@
 					if ( _staticMapPins[ i ].data.id == id )
 					{
 						mcHubMapPreview.removePin( id );
+						PinPointersManager.getInstance().removePinPointer( _staticMapPins[ i ] );
 
 						UnselectPin();
 
@@ -2003,10 +2304,11 @@
 		}
 
 		private var _animationTween : GTween;
-		private const ANIMATION_INTERVAL : Number = 0.25;
 		
 		private function CenterOnPosition( posX : Number, posY : Number, animate : Boolean = false )
 		{
+			const ANIMATION_INTERVAL : Number = 0.25;
+
 			if ( isAnimationRunning() )
 			{
 				return;
@@ -2129,7 +2431,6 @@
 			return Math.pow( p2x - p1x, 2 ) + Math.pow( p2y - p1y, 2 ) < 0.01;
 		}
 		
-		const ANIM_SPEED:Number = .01;
 		public function CenterOnPin( pinIndex : int, prevX:Number = NaN, prevY:Number = NaN, transitionAnim:Boolean = true, doNotSelect : Boolean = false)
 		{
 			if ( pinIndex < 0 || pinIndex >= _staticMapPins.length )
@@ -2234,9 +2535,6 @@
 		
 		private function StartInitialTimer()
 		{
-			//
-			//trace("Minimap HubMap::StartInitialTimer");
-			//
 			StopInitialTimer();
 
 			_initialTimer = new Timer( 20 );
@@ -2250,9 +2548,6 @@
 		{
 			if ( _initialTimer )
 			{
-				//
-				//trace("Minimap HubMap::StopInitialTimer");
-				//
 				_initialTimer.removeEventListener(TimerEvent.TIMER, handleInitialTimer);
 				_initialTimer.stop();
 				_initialTimer = null;
@@ -2261,16 +2556,8 @@
 		
 		protected function handleInitialTimer(event:TimerEvent):void
 		{
-			//
-			//trace("Minimap HubMap::handleInitialTimer " + _initialTimer.currentCount + " / " + _initialTimer.repeatCount );
-			//
-
 			if ( _menuAnimCompleted )
 			{
-				//
-				//trace("Minimap ------------------------ |||||||||||||||||||||||||||||||||||||||||||| _menuAnimCompleted" );
-				//
-
 				if ( _mapPinDataIndex == -1 )
 				{
 					initializeMapPinsProcessing();
@@ -2293,9 +2580,6 @@
 		
 		private function StartShowTimer()
 		{
-			//
-			//trace("Minimap HubMap::StartShowTimer");
-			//
 			StopShowTimer();
 			
 			_showMapTimer = new Timer( SHOW_INTERVAL );
@@ -2307,10 +2591,6 @@
 		{
 			if ( _showMapTimer )
 			{
-				//
-				//trace("Minimap HubMap::StopShowTimer");
-				//
-
 				_showMapTimer.removeEventListener(TimerEvent.TIMER, handleShowTimer);
 				_showMapTimer.stop();
 				_showMapTimer = null;
@@ -2319,9 +2599,6 @@
 
 		private function handleShowTimer(event:TimerEvent):void
 		{
-			//
-			//trace("Minimap HubMap::handleShowTimer");
-			//
 			StopShowTimer();
 			_fadingInCompleted = false;
 
@@ -2350,17 +2627,10 @@
 			{
 				funcEnableQuestTracker( true );
 			}
-
-			//
-			//trace("Minimap handleFadingInEnded " + _fadingInCompleted);
-			//
 		}
 
 		private function StartUpdateTexturesTimer()
 		{
-			//
-			//trace("Minimap HubMap::StartUpdateTexturesTimer");
-			//
 			StopUpdateTexturesTimer();
 
 			// entering the same map
@@ -2375,10 +2645,6 @@
 		{
 			if ( _updateTexturesTimer )
 			{
-				//
-				//trace("Minimap HubMap::StopUpdateTexturesTimer");
-				//
-
 				_updateTexturesTimer.removeEventListener(TimerEvent.TIMER, handleUpdateTexturesTimer);
 				_updateTexturesTimer.stop();
 				_updateTexturesTimer = null;
@@ -2387,24 +2653,13 @@
 		
 		protected function handleUpdateTexturesTimer( event:TimerEvent ):void
 		{
-			//
-			//trace("Minimap HubMap::handleUpdateTexturesTimer");
-			//
 			mcHubMapZoomContainer.mcHubMapContainer.ProcessHidingTiles( UPDATE_HUB_TEXTURES_INTERVAL );
 		}
 		
 		private function OnPositionChanged()
 		{
-			//
-			//trace("Minimap !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! OnPositionChanged !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-			//
-			
 			mcHubMapPinContainer.x = mcHubMapZoomContainer.mcHubMapContainer.x * GetScale();
 			mcHubMapPinContainer.y = mcHubMapZoomContainer.mcHubMapContainer.y * GetScale();
-			
-			//
-			//trace("Minimap ------------------------ OnPositionChanged" );
-			//
 			
 			UpdateVisibilityAndPinPositions( false );
 			UpdateSizeForAreaMapPins( GetComponentScale() );
@@ -2421,7 +2676,14 @@
 					return
 				}
 			}
-			
+
+			if(!m_questTrackerInNormalState)
+			{
+				showGotoPlayerPin( false );
+				showGotoQuestPin( false );
+				return;
+			}
+
 			var foundIndex : int = GetNextPinIndexToShow();
 			if ( foundIndex == -1 )
 			{
@@ -2460,20 +2722,14 @@
 			_worldRightTop.x   = MapXToWorldX( mcHubMapZoomContainer.mcHubMapContainer.GetVisibleAreaLocalRightTopPos().x );
 			_worldRightTop.y   = MapYToWorldY( mcHubMapZoomContainer.mcHubMapContainer.GetVisibleAreaLocalRightTopPos().y );
 
-			//
-			//trace("Minimap ------------------------ UpdateVisibilityAndPinPositions" );
-			//trace("Minimap LEFT TOP     [" + worldLeftBottom.x + " " + worldLeftBottom.y + "]" );
-			//trace("Minimap RIGHT BOTTOM [" + worldRightTop.x   + " " + worldRightTop.y   + "]" );
-			//
-		
 			var globalCrosshairPosition;
-			if ( MapMenu.IsUsingGamepad() )
+			if ( MapMenu.IsUsingMouse() )
 			{
-				globalCrosshairPosition = localToGlobal( POINT_0_0 );
+				globalCrosshairPosition = MapMenu.GetCurrGlobalMousePos();
 			}
 			else
 			{
-				globalCrosshairPosition = MapMenu.GetCurrGlobalMousePos();
+				globalCrosshairPosition = localToGlobal( POINT_0_0 );
 			}
 			
 			var globalPinPosition : Point;
@@ -2542,11 +2798,45 @@
 			}
 		}
 		
+		public function screenPointToWorldPoint( screenPoint : Point ) : Point
+		{
+			var localScreenPoint : Point = globalToLocal( screenPoint );
+			var mapPos : Point = new Point( -mcHubMapZoomContainer.mcHubMapContainer.x + localScreenPoint.x / GetScale(), -mcHubMapZoomContainer.mcHubMapContainer.y + localScreenPoint.y / GetScale() );
+			return new Point( MapXToWorldX( mapPos.x ), MapYToWorldY( mapPos.y ) );
+		}
+
 		public function setUserMapPin( index : int, fromSelectionPanel : Boolean )
 		{
-			var worldPositionForUserPin : Point = getWorldPositionFromCursor();
+			var worldPositionForUserPin : Point = null;
+			if ( _userPinTouchPoint != null )
+			{
+				var touchPointWorldPos : Point = screenPointToWorldPoint( _userPinTouchPoint )
+				worldPositionForUserPin = touchPointWorldPos;
+
+				//Override with selected pin if it is snapping distance
+				if ( _selectedMapPinIndex > 0 )
+				{
+					var selectedPinWorldPos : Point = _staticMapPins[ _selectedMapPinIndex ].GetWorldPosition();
+					var distSq : Number = Math2.getSquaredSegmentLength( selectedPinWorldPos, touchPointWorldPos );
+					if ( distSq < SNAP_DISTANCE_SQUARED )
+					{
+						worldPositionForUserPin = new Point( selectedPinWorldPos.x, selectedPinWorldPos.y );
+					}
+				}
+				
+				_userPinTouchPoint = null;
+			}
+			else
+			{
+				worldPositionForUserPin = getWorldPositionFromCursor();
+			}
 
 			dispatchEvent( new GameEvent(GameEvent.CALL, "OnUserMapPinSet", [ worldPositionForUserPin.x, worldPositionForUserPin.y, index, fromSelectionPanel ] ) );
+		}
+
+		public function OnUserPinPanelClose()
+		{
+			_userPinTouchPoint = null;
 		}
 		
 		public function getWorldPositionFromCursor() : Point
@@ -2556,6 +2846,7 @@
 				var worldPos : Point = _staticMapPins[ _selectedMapPinIndex ].GetWorldPosition();
 				return new Point( worldPos.x, worldPos.y );
 			}
+
 			var mapPos : Point = new Point( -mcHubMapZoomContainer.mcHubMapContainer.x + mcHubMapCrosshair.x / GetScale(), -mcHubMapZoomContainer.mcHubMapContainer.y + mcHubMapCrosshair.y / GetScale() );
 			return new Point( MapXToWorldX( mapPos.x ), MapYToWorldY( mapPos.y ) );
 		}
@@ -2568,7 +2859,7 @@
 			if ( foundIndex != -1 )
 			{
 				CenterOnPin( foundIndex, NaN, NaN, false, false );
-				if ( !MapMenu.IsUsingGamepad() )
+				if ( MapMenu.IsUsingMouse() )
 				{
 					// I don't remember why, but this needs to be here
 					UpdateSelectedMapPin( false );
@@ -2609,30 +2900,7 @@
 				indices.unshift( _playerPinIdx );
 			}
 
-			if ( MapMenu.IsUsingGamepad() )
-			{
-				for ( i = 0; i < indices.length; ++i )
-				{
-					if ( indices[ i ] == _selectedMapPinIndex )
-					{
-						foundIndex = i;
-						break;
-					}
-				}
-
-				if ( foundIndex == -1 )
-				{
-					if ( indices.length > 0 )
-					{
-						foundIndex = indices[ 0 ];
-					}
-				}
-				else
-				{
-					foundIndex = indices[ ( foundIndex + 1 ) % indices.length ];
-				}
-			}
-			else
+			if ( MapMenu.IsUsingMouse() )
 			{
 				for ( i = 0; i < indices.length; ++i )
 				{
@@ -2642,21 +2910,109 @@
 						break;
 					}
 				}
-
-				if ( foundIndex == -1 )
+			}
+			else
+			{
+				for ( i = 0; i < indices.length; ++i )
 				{
-					if ( indices.length > 0 )
+					if ( indices[ i ] == _selectedMapPinIndex )
 					{
-						foundIndex = indices[ 0 ];
+						foundIndex = i;
+						break;
 					}
 				}
-				else
+			}
+
+			if ( foundIndex == -1 )
+			{
+				if ( indices.length > 0 )
 				{
-					foundIndex = indices[ ( foundIndex + 1 ) % indices.length ];
+					foundIndex = indices[ 0 ];
 				}
+			}
+			else
+			{
+				foundIndex = indices[ ( foundIndex + 1 ) % indices.length ];
 			}
 			
 			return foundIndex;
+		}
+
+		public function getPinPositionByTag(tag : uint):Object
+		{
+			for(var i : int = 0; i < _mapPinDataArray.length; i++)
+			{
+				if (_mapPinDataArray[i].id == tag)
+					return {success: true, x: _mapPinDataArray[i].posX, y: _mapPinDataArray[i].posY};
+			}
+
+			return {success: false};
+		}
+
+		public function showOnlyTooltipByPosition(x:Number, y:Number):void
+		{
+			UnselectPin( false );
+			for(var i : int = 0; i < _staticMapPins.length; i++)
+			{
+				if (_staticMapPins[i].data.posX == x && _staticMapPins[i].data.posY == y)
+				{
+					var currentPin : StaticMapPinDescribed = _staticMapPins[ i ];
+					var currentPinData : StaticMapPinData = currentPin.data as StaticMapPinData;
+					
+					var contextEvent : MapContextEvent = new MapContextEvent( MapContextEvent.CONTEXT_CHANGE );
+					contextEvent.active = true;
+					contextEvent.mapppinData = currentPinData;
+					
+					var tooltipData:Object = { };
+					tooltipData.title        = currentPinData.label;
+					tooltipData.description  = currentPinData.description;
+					tooltipData.tracked      = currentPinData.tracked;
+					contextEvent.tooltipData = tooltipData;
+					dispatchEvent(contextEvent);
+					break;
+				}
+			}
+		}
+
+		public function showOnlyTooltipByData(data:Object):void
+		{
+			UnselectPin( false );
+			
+			var contextEvent : MapContextEvent = new MapContextEvent( MapContextEvent.CONTEXT_CHANGE );
+			contextEvent.active = true;
+			contextEvent.mapppinData = null;
+			
+			var tooltipData:Object = { };
+			tooltipData.title        = data.label;
+			tooltipData.description  = data.description;
+			tooltipData.tracked      = data.tracked;
+			contextEvent.tooltipData = tooltipData;
+			dispatchEvent(contextEvent);
+		}
+
+
+		public function hideOnlyTooltip():void
+		{
+			var contextEvent : MapContextEvent = new MapContextEvent( MapContextEvent.CONTEXT_CHANGE );
+			contextEvent.active = false;
+			dispatchEvent( contextEvent );
+		}
+
+		public function setAltHighlightsByTag(tag : uint):void
+		{
+			for(var i : int = 0; i < _staticMapPins.length; i++)
+			{
+				if(_staticMapPins[i].data.id == tag)
+					_staticMapPins[i].SetAltHighlight(true);
+			}
+		}
+
+		public function disableAltHighlights():void
+		{
+			for(var i : int = 0; i < _staticMapPins.length; i++)
+			{
+				_staticMapPins[i].SetAltHighlight(false);
+			}
 		}
 	}
 }

@@ -36,6 +36,7 @@ package red.game.witcher3.menus.common
 		public var isArmorRepairKit:Boolean;
 		public var isWeaponRepairKit:Boolean;
 		public var isItemDye:Boolean;
+		public var isSharpener:Boolean;
 		public var canDrop:Boolean;
 		public var enchanted:Boolean;
 		public var enchantmentId:uint;

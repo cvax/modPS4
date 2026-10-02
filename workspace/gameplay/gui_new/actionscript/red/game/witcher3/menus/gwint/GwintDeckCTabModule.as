@@ -27,9 +27,13 @@ package red.game.witcher3.menus.gwint
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.events.ListEvent;
 	import scaleform.clik.ui.InputDetails;
+	import red.game.witcher3.slots.SlotsListBase;
+	import red.core.events.GestureEventEx;
 	
 	public class GwintDeckCTabModule extends CollapsableTabbedListModule
 	{
+		public static const EVENT_MODULE_FOCUSED : String = "EVENT_MODULE_FOCUSED";
+
 		public static const TabIndex_All 		: int = 0;
 		public static const TabIndex_Melee 		: int = 1;
 		public static const TabIndex_Ranged 	: int = 2;
@@ -68,20 +72,35 @@ package red.game.witcher3.menus.gwint
 			
 			if (mcCardSlotList)
 			{
+				mcCardSlotList.enableTouch( true );
+				mcCardSlotList.enableScrollWithPan( true );
 				mcCardSlotList.focusable = false;
 				_inputHandlers.push(mcCardSlotList);
 				//addToListContainer(mcCardSlotList);
 				mcCardSlotList.addEventListener(CardSlot.CardMouseOver, OnCardMouseOver, false, 0, true);
 				mcCardSlotList.addEventListener(CardSlot.CardMouseOut, OnCardMouseOut, false, 0, true);
+				//we are not adding it to the container so have to call this manually
+				mcCardSlotList.addEventListener( GestureEventEx.GESTURE_TAP, handleContainerTap, false, 100, true );
 			}
+
+			enableSelectTabWithTap( true );
 		}
-		
+
+		//override CoreMenuModule hook
+		override protected function handleModuleSelected() : void
+		{
+			trace( "GwintDeckCTabModule::handleModuleSelected : " );
+
+			dispatchEvent(new Event(EVENT_MODULE_FOCUSED));
+		}
+
 		override public function open():void
 		{
 			// Can't open empty tabs ><
 			if (canOpen() || _lastMoveWasMouse)
 			{
-				stateMachine.ChangeState(CollapsableTabbedListModule.State_Open);
+				//Do not wait for the timer because there will be race conditions...
+				stateMachine.ChangeStateNow(CollapsableTabbedListModule.State_Open);
 			}
 		}
 		
@@ -465,7 +484,7 @@ package red.game.witcher3.menus.gwint
 		{
 			super.handleControllerChange(event);
 			
-			if (event.isGamepad)
+			if (!event.isMouse)
 			{
 				_lastMoveWasMouse = false;
 			}

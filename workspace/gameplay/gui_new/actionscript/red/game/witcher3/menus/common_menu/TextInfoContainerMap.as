@@ -28,7 +28,7 @@ package red.game.witcher3.menus.common_menu
 		public function handleDataSet( gameData:Object, index:int ):void
 		{
 			var dataArray : Array = gameData as Array;
-			var mcTextInfoItem : TextInfoItem;
+			var mcTextInfoItem : TextInfoItemMappin;
 
 			for ( var i : int = 0; i < dataArray.length; i++ )
 			{
@@ -46,7 +46,7 @@ package red.game.witcher3.menus.common_menu
 			}
 		}
 
-		public function GetTextInfoById( id : int ) : TextInfoItem
+		public function GetTextInfoById( id : int ) : TextInfoItemMappin
 		{
 			if ( id == 0 )
 			{

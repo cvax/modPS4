@@ -8,16 +8,21 @@
 	import scaleform.clik.controls.ListItemRenderer;
 	import flash.text.TextField;
 	import flash.events.MouseEvent;
+	import flash.events.GestureEvent;
+	import flash.events.Event;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.ui.InputDetails;
 	import scaleform.clik.constants.InputValue;
+	import scaleform.clik.constants.NavigationCode;
 	import red.core.constants.KeyCode;
+	import red.core.events.GestureEventEx;
 	import scaleform.gfx.MouseEventEx;
 	
+	import red.game.witcher3.utils.CommonUtils;
 	import red.game.witcher3.menus.worldmap.data.CategoryData;
 	import red.game.witcher3.menus.worldmap.data.CategoryPinData;
 	import red.game.witcher3.menus.worldmap.data.CategoryPinInstanceData;
-	
+
 	public class HubMapPinCategoryItemRenderer extends BaseListItem
 	{
 		public var tfPinType : TextField;
@@ -55,43 +60,42 @@
 			mouseEnabled = true;
 			mouseChildren  = true;
 		
-			mcArrowsContainer.mcHubMapPinCategoryArrowLeft.addEventListener(  MouseEvent.MOUSE_DOWN, handleArrowLeft,	false, 0, true );
-			mcArrowsContainer.mcHubMapPinCategoryArrowRight.addEventListener( MouseEvent.MOUSE_DOWN, handleArrowRight,	false, 0, true );
-			mcIconContainer.addEventListener( MouseEvent.MOUSE_DOWN, handleToggleVisibilityLMB, false, 0, true );
-			addEventListener( MouseEvent.MOUSE_DOWN, handleToggleVisibilityRMB, false, 0, true );
+			mcArrowsContainer.mcHubMapPinCategoryArrowLeft.addEventListener(  MouseEvent.MOUSE_DOWN, handleArrowLeftTouchOrClick,	false, 0, true );
+			mcArrowsContainer.mcHubMapPinCategoryArrowLeft.addEventListener( GestureEventEx.GESTURE_TAP, handleArrowLeftTouchOrClick, false, 0, true );
+			mcArrowsContainer.mcHubMapPinCategoryArrowRight.addEventListener( MouseEvent.MOUSE_DOWN, handleArrowRightTouchOrClick,	false, 0, true );
+			mcArrowsContainer.mcHubMapPinCategoryArrowRight.addEventListener( GestureEventEx.GESTURE_TAP, handleArrowRightTouchOrClick, false, 0, true );
+			mcIconContainer.addEventListener( MouseEvent.MOUSE_DOWN, handleToggleVisibilityClickOrTouchOnIcon, false, 0, true );
+			mcIconContainer.addEventListener( GestureEventEx.GESTURE_TAP, handleToggleVisibilityClickOrTouchOnIcon, false, 0, true );
+			addEventListener( MouseEvent.MOUSE_DOWN, handleToggleVisibilityRMBOnRow, false, 0, true );
 		}
 
-		public function handleArrowLeft( event : MouseEventEx )
+		private function changePinIndex( event : Event, dir : int ):void
 		{
-			if ( event.buttonIdx == MouseEventEx.LEFT_BUTTON )
+			if ( CommonUtils.isEventTapGestureOrMouseLeftClick( event ) && funcChangePinIndex != null )
 			{
-				if ( funcChangePinIndex != null )
-				{
-					funcChangePinIndex( this, -1 );
-				}
+				funcChangePinIndex( this, dir );
 			}
 		}
 
-		public function handleArrowRight( event : MouseEventEx )
+		public function handleArrowLeftTouchOrClick( event : Event )
 		{
-			if ( event.buttonIdx == MouseEventEx.LEFT_BUTTON )
-			{
-				if ( funcChangePinIndex != null )
-				{
-					funcChangePinIndex( this, 1 );
-				}
-			}
+			changePinIndex( event, -1 );
+		}
+
+		public function handleArrowRightTouchOrClick( event : Event )
+		{
+			changePinIndex( event, 1 );
 		}
 		
-		public function handleToggleVisibilityLMB( event : MouseEventEx )
+		public function handleToggleVisibilityClickOrTouchOnIcon( event : Event )
 		{
-			if ( event.buttonIdx == MouseEventEx.LEFT_BUTTON )
+			if ( CommonUtils.isEventTapGestureOrMouseLeftClick( event ) )
 			{
 				toggleVisibility();
 			}
 		}
 
-		public function handleToggleVisibilityRMB( event : MouseEventEx )
+		public function handleToggleVisibilityRMBOnRow( event : MouseEventEx )
 		{
 			if ( event.buttonIdx == MouseEventEx.RIGHT_BUTTON )
 			{
@@ -115,7 +119,7 @@
             var keyPress : Boolean = ( details.value == InputValue.KEY_DOWN || details.value == InputValue.KEY_HOLD );
             var keyUp : Boolean = ( details.value == InputValue.KEY_UP );
 			
-			if ( details.code == KeyCode.PAD_LEFT_TRIGGER )
+			if ( details.navEquivalent == NavigationCode.GAMEPAD_R3 )
 			{
 				if ( keyUp )
 				{

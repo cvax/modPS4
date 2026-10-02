@@ -20,6 +20,8 @@
 	import flash.external.ExternalInterface;
 
 	import flash.events.Event;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
 	import fl.transitions.easing.Strong;
 	import flash.utils.getDefinitionByName;
 	import scaleform.clik.constants.InvalidationType;
@@ -123,6 +125,8 @@
 
 			registerDataBinding( 'hud.minimap.paths.add',			handleAddPath );
 			registerDataBinding( 'hud.minimap.paths.delete',		handleDeletePaths );
+
+			stage.addEventListener(GestureEventEx.GESTURE_TAP, handleInputGestureTap);
 		}
 
 		/////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -176,9 +180,9 @@
 			}
 		}
 
-		private var _lastGeneralRotation : Number = NaN;
-		private var _lastPlayerMarkerRotation : Number = NaN;
-		private var _lastPlayerCameraRotation : Number = NaN;
+		private var _lastGeneralRotation : Number = 0;
+		private var _lastPlayerMarkerRotation : Number = 0;
+		private var _lastPlayerCameraRotation : Number = 0;
 
 		public function /* WitcherScript */ SetPlayerRotation( cameraAngle : Number, playerAngle : Number )
 		{
@@ -430,6 +434,18 @@
 		// other
 		//
 		
+		public function handleInputGestureTap( event : GestureEvent )
+		{
+			if (mcHubMapMask && mcHubMapMask.hitTestPoint(event.stageX, event.stageY))
+			{
+				dispatchEvent(new GameEvent(GameEvent.CALL, 'OnTapMinimap'));
+			}
+			else if (mcWorldCondition && mcWorldCondition.hitTestPoint(event.stageX, event.stageY))
+			{
+				dispatchEvent(new GameEvent(GameEvent.CALL, 'OnTapTime'));
+			}
+		}
+
 		public function UpdateVisibility()
 		{
 			if ( m_isDebug )

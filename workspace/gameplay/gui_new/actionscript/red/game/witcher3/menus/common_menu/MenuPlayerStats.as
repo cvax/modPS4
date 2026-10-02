@@ -3,6 +3,7 @@
 	import flash.filters.BitmapFilterQuality;
 	import flash.filters.GlowFilter;
 	import flash.text.TextField;
+	import flash.display.MovieClip;
 	import red.core.events.GameEvent;
 	import red.game.witcher3.data.PlayerStatsData;
 	import scaleform.clik.core.UIComponent;
@@ -16,6 +17,8 @@
 		public var mcLevelStat:MenuLevelIndicator;
 		public var tfMoney:TextField;
 		public var tfWeight:TextField;
+		public var mcWeightIcon:MovieClip;
+		public var mcTopBar : TopBarNew;
 		
 		protected var _data:PlayerStatsData;
 		protected var _weightTextGlowRed:GlowFilter;
@@ -29,6 +32,19 @@
 		
 		public function setWeight(value:Number, maxValue:Number):void
 		{
+			if(value == 0)
+			{
+				if(tfWeight)tfWeight.visible = false;
+				if(mcWeightIcon) mcWeightIcon.visible = false;
+
+				return;
+			}
+			else
+			{
+				if(tfWeight) tfWeight.visible = true;
+				if(mcWeightIcon)mcWeightIcon.visible = true;
+			}
+
 			tfWeight.htmlText = value + " / " + maxValue;
 			
 			if (value > maxValue)
@@ -40,18 +56,18 @@
 					_weightTextGlowRed = new GlowFilter(0xB70000, 1, 16, 16, 1.5, BitmapFilterQuality.HIGH);
 				}
 				
-				tfWeight.filters = [_weightTextGlowRed];
+				tfWeight.filters = [];
 			}
 			else
 			{
-				tfWeight.textColor = 0xFFFFFF;
+				tfWeight.textColor = 0x7E725D;
 				
 				if (!_weightTextGlowWhite)
 				{
-					_weightTextGlowWhite = new GlowFilter(0xFFFFFF, 1, 16, 16, 1.5, BitmapFilterQuality.HIGH);
+					_weightTextGlowWhite = new GlowFilter(0x7E725D, 1, 16, 16, 1.5, BitmapFilterQuality.HIGH);
 				}
 				
-				tfWeight.filters = [_weightTextGlowWhite];
+				tfWeight.filters = [];
 			}
 			
 			

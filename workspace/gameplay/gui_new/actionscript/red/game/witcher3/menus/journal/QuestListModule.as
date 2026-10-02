@@ -122,14 +122,43 @@ package  red.game.witcher3.menus.journal
 			}
 			return false;
 		}
+
+		protected function dataHasForceFirst(targetArray:Array):Boolean
+		{
+			var i : int = 0;
+			for(; i < targetArray.length; i++)
+			{
+				if(targetArray[i].hasOwnProperty("forceFirst"))
+					return true;
+			}
+			return false;
+		}
 		
 		override protected function sortData(targetArray:Array):void
 		{
-			//targetArray.sort(sortQuestData);
+			//#LT reiniting for MapMenu "Open In Journal" hack
+			if(dataHasForceFirst(targetArray))
+				targetArray.sort(sortQuestData);
 		}
 		
 		protected function sortQuestData( a, b ):int
 		{
+			//#LT reiniting for MapMenu "Open In Journal" hack
+			//forceFirst should be first in the category so it will be the default selected one
+			
+			if(a.originalCat != b.originalCat)
+			{
+				return a.originalCat < b.originalCat ? -1 : 1;
+			}
+			if(a.hasOwnProperty("forceFirst") && b.hasOwnProperty("forceFirst"))
+			{
+				if(a.forceFirst)
+					return -1;
+				else if (b.forceFirst)
+					return 1;
+				else return a.originalId < b.originalId ? -1 : 1;
+			}
+			else return a.originalId < b.originalId ? -1 : 1;
 			/*
 			if (a.status != b.status)
 			{

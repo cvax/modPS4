@@ -11,6 +11,8 @@ package red.game.witcher3.menus.mainmenu
 	import com.gskinner.motion.GTweener;
 	import flash.events.Event;
 	import flash.events.MouseEvent;
+	import flash.events.TouchEvent;
+	import flash.events.GestureEvent;
 	import red.core.CoreMenuModule;
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
@@ -73,6 +75,14 @@ package red.game.witcher3.menus.mainmenu
 		}
 		
 		public function onRightClick(event:MouseEvent):void
+		{
+			if (visible)
+			{
+				handleNavigateBack();
+			}
+		}
+
+		public function onTap(event:GestureEvent):void
 		{
 			if (visible)
 			{

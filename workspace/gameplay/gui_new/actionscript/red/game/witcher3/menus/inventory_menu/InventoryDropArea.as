@@ -23,7 +23,8 @@ package red.game.witcher3.menus.inventory_menu
 		public var mcIconGlow:MovieClip;
 		public var txtLabel:TextField;
 		
-		private var _isGamepad:Boolean;
+		private var _isMouse:Boolean;
+		private var _hasTouchscreen:Boolean;
 		private var _dropSelection:Boolean;
 		private var _inputManager:InputManager;
 		
@@ -49,20 +50,22 @@ package red.game.witcher3.menus.inventory_menu
 			
 			_inputManager = InputManager.getInstance();
 			_inputManager.addEventListener(ControllerChangeEvent.CONTROLLER_CHANGE, handleControllerChange, false, 0, true);
-			
-			_isGamepad = _inputManager.isGamepad();
+
+			_hasTouchscreen = InputManager.getInstance().isSwitchPlatform();
+			_isMouse = _inputManager.isMouse();
 			updateVisibility();
 		}
 		
 		private function handleControllerChange(event : ControllerChangeEvent):void
 		{
-			_isGamepad = event.isGamepad;
+			_hasTouchscreen = InputManager.getInstance().isSwitchPlatform();
+			_isMouse = event.isMouse;
 			updateVisibility();
 		}
 		
 		private function updateVisibility():void
 		{
-			visible = !_isGamepad && !_disabled;
+			visible = ( _hasTouchscreen || _isMouse ) && !_disabled;
 		}
 		
 		private var _dropEnabled:Boolean = true;
@@ -87,7 +90,7 @@ package red.game.witcher3.menus.inventory_menu
 		public function canDrop(sourceObject:IDragTarget):Boolean
 		{
 			var draggingData:ItemDataStub = sourceObject.getDragData() as ItemDataStub;
-			return draggingData && draggingData.canDrop && !_inputManager.isGamepad() && visible;
+			return draggingData && draggingData.canDrop && ( _hasTouchscreen || _inputManager.isMouse() ) && visible;
 		}
 		
 		public function applyDrop(sourceObject:IDragTarget):void

@@ -11,6 +11,8 @@ package red.game.witcher3.menus.mainmenu
 	import com.gskinner.motion.GTweener;
 	import flash.events.Event;
 	import flash.events.MouseEvent;
+	import flash.events.TouchEvent;
+	import flash.events.GestureEvent;
 	import flash.text.TextField;
 	import red.core.constants.KeyCode;
 	import red.core.CoreMenuModule;
@@ -24,9 +26,18 @@ package red.game.witcher3.menus.mainmenu
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.ui.InputDetails;
 	import red.game.witcher3.constants.PlatformType;
-	
+	import red.core.events.GestureEventEx;
+	import flash.events.TransformGestureEvent;
+	import flash.display.MovieClip;
+	import flash.text.TextFormat;
+	import red.game.witcher3.utils.CommonUtils;
+
 	public class GamepadMappingModule extends CoreMenuModule
 	{
+		public var txtLayoutName  : TextField;
+		public var mcLeftPCButton : ConditionalButton;
+		public var mcRightPCButton : ConditionalButton;
+
 		public var txtRightJoy : W3TextArea;
 		public var txtLeftJoyRightJoy : W3TextArea;
 		public var txtXButton : W3TextArea;
@@ -36,52 +47,110 @@ package red.game.witcher3.menus.mainmenu
 		public var txtYButtonPs : W3TextArea;
 		public var txtYButtonXbox : W3TextArea;
 		public var txtRightBumper : W3TextArea;
+		public var txtRightBumperWithLines : W3TextArea;
 		public var txtRightTrigger : W3TextArea;
 		public var txtStartButton : W3TextArea;
 		public var txtSelectButton : W3TextArea;
 		public var txtLeftTrigger : W3TextArea;
+		public var txtLeftTriggerWithLines : W3TextArea;
 		public var txtLeftBumper : W3TextArea;
 		public var txtLeftJoy : W3TextArea;
 		public var txtDPad : W3TextArea;
-		public var mcLeftPCButton : ConditionalButton;
-		public var mcRightPCButton : ConditionalButton;
+		public var txtDPadWithLines : W3TextArea;
 		
-		public var txtLayoutName : TextField;
-		
+		public var txtLayoutName2 : TextField;
+		public var txtLayoutName3 : TextField;
+		public var txtLayoutName4 : TextField;
+		public var txtLayoutName5 : TextField;
+		public var txtLayoutName6 : TextField;
+		protected var tabList:Vector.<TextField> = null;
+
 		protected var dataArray : Array;
 		protected var selectedIndex : int = 0;
 		protected var platformType : int = PlatformType.PLATFORM_UNKNOWN;
-		
+
 		override protected function configUI():void
 		{
 			super.configUI();
 			
 			if (mcLeftPCButton)
 			{
-				mcLeftPCButton.addEventListener(ButtonEvent.PRESS, handlePrevButtonPress, false, 0, true);
+				mcLeftPCButton.addEventListener(ButtonEvent.PRESS, handlePrevButtonTapOrClick, false, 0, true);
 			}
 			
 			if (mcRightPCButton)
 			{
-				mcRightPCButton.addEventListener(ButtonEvent.PRESS, handleNextButtonPress, false, 0, true);
+				mcRightPCButton.addEventListener(ButtonEvent.PRESS, handleNextButtonTapOrClick, false, 0, true);
 			}
-			
+
 			enabled = false;
 			visible = false;
 			alpha = 0;
 		}
+
+		private function enableTouch() : void
+		{
+			if ( mcLeftPCButton )
+			{
+				mcLeftPCButton.addEventListener( GestureEventEx.GESTURE_TAP, handlePrevButtonTapOrClick, false, 0, true );
+			}
+
+			if ( mcRightPCButton )
+			{
+				mcRightPCButton.addEventListener( GestureEventEx.GESTURE_TAP, handleNextButtonTapOrClick, false, 0, true );
+			}
+
+			stage.addEventListener( TransformGestureEvent.GESTURE_SWIPE, handleGestureSwipe, false, 0, true );
+		}
+
+		private function disableTouch() : void
+		{
+			if ( mcLeftPCButton )
+			{
+				mcLeftPCButton.removeEventListener( GestureEventEx.GESTURE_TAP, handlePrevButtonTapOrClick, false );
+			}
+
+			if ( mcRightPCButton )
+			{
+				mcRightPCButton.removeEventListener( GestureEventEx.GESTURE_TAP, handleNextButtonTapOrClick, false );
+			}
+
+			stage.removeEventListener( TransformGestureEvent.GESTURE_SWIPE, handleGestureSwipe, false );
+		}
+
+		private function handleGestureSwipe( event : TransformGestureEvent ) : void
+		{	
+			switch( event.rotation )
+			{
+				case 0.0 : 
+					navigateRight();
+				break;
+				case 180.0 : 
+					navigateLeft();
+				break;
+			}
+		}
 		
-		public function showWithData(data:Array, platform:int):void
+		private function selectTab( event : Event ) : void
+		{
+			if ( CommonUtils.isEventTapGestureOrMouseLeftClick( event ) )
+			{
+				navigateToIndex(event.currentTarget.tabIndex);
+			}
+		}
+
+		public function showWithData( data:Array, platform:int ):void
 		{
 			visible = true;
 			GTweener.removeTweens(this);
 			GTweener.to(this, 0.2, { alpha:1.0 }, { } );
 	
-			platformType = platform ;
+			platformType = platform;
 			
 			switch (platform)
 			{
 			case PlatformType.PLATFORM_PC:
+			case PlatformType.PLATFORM_PC_GDK:
 				showControllerPC();
 				break;
 			case PlatformType.PLATFORM_XBOX1:
@@ -98,11 +167,16 @@ package red.game.witcher3.menus.mainmenu
 				gotoAndStop("ps5");
 				addEventListener( Event.ENTER_FRAME, handleEnterFrame, false, 0, true );
 				break;
+			case PlatformType.PLATFORM_SWITCH2:
+				gotoAndStop("switch");
+				break;
 			}
 			
 			dataArray = data;
 			selectedIndex = 0;
 			updateButtonMapping();
+			//Add listeners
+			enableTouch();
 		}
 
 		private function showControllerPC(): void
@@ -119,6 +193,10 @@ package red.game.witcher3.menus.mainmenu
 				return;
 			case EInputDeviceType.IDT_Xbox1: // There isn't one for XSS
 				gotoAndStop("xboxseries"); // Should it be XB1
+				return;
+			case EInputDeviceType.IDT_Switch2:
+			case EInputDeviceType.IDT_Switch2_Mouser:
+				gotoAndStop("switch");
 				return;
 			default:
 				// modPS4++
@@ -156,6 +234,7 @@ package red.game.witcher3.menus.mainmenu
 		{
 			if (visible)
 			{
+				disableTouch();
 				GTweener.removeTweens(this);
 				
 				enabled = false;
@@ -168,12 +247,12 @@ package red.game.witcher3.menus.mainmenu
 			visible = false;
 		}
 		
-		protected function handlePrevButtonPress( event : ButtonEvent ) : void
+		protected function handlePrevButtonTapOrClick( event : Event ) : void
 		{
 			navigateLeft();
 		}
 		
-		protected function handleNextButtonPress( event : ButtonEvent ) : void
+		protected function handleNextButtonTapOrClick( event : Event ) : void
 		{
 			navigateRight();
 		}
@@ -187,23 +266,48 @@ package red.game.witcher3.menus.mainmenu
 				
 				if ( keyUp && !event.handled )
 				{
-					switch(details.navEquivalent)
+					switch( details.navEquivalent )
 					{
 					case NavigationCode.GAMEPAD_B:
 						{
 							handleNavigateBack();
+							event.handled = true;
 						}
 						break;
 					case NavigationCode.LEFT:
 						{
 							navigateLeft();
+							event.handled = true;
 						}
 						break;
 					case NavigationCode.RIGHT:
 						{
 							navigateRight();
-						}
+							event.handled = true;
+						}						
 						break;
+				 	}
+				}
+
+				if( keyUp && !event.handled )
+				{
+					if( (details.code == KeyCode.LEFT || details.code == KeyCode.PAD_LEFT_SHOULDER))
+					{
+						navigateLeft();
+						event.handled = true;
+						return;
+					}
+					else if((details.code == KeyCode.RIGHT || details.code == KeyCode.PAD_RIGHT_SHOULDER))
+					{
+						navigateRight();
+						event.handled = true;
+						return;
+					}
+					else if((details.code == KeyCode.ESCAPE || details.code == KeyCode.PAD_B_CIRCLE))
+					{
+						handleNavigateBack();
+						event.handled = true;
+						return;
 					}
 				}
 			}
@@ -211,258 +315,141 @@ package red.game.witcher3.menus.mainmenu
 		
 		protected function navigateLeft():void
 		{
-			if (selectedIndex > 0)
-			{
-				selectedIndex -= 1;
-			}
-			else
-			{
-				selectedIndex = dataArray.length - 1;
-			}
-			
+			selectedIndex = selectedIndex > 0 ? selectedIndex - 1 : dataArray.length - 1;
 			updateButtonMapping();
 		}
 		
 		protected function navigateRight():void
 		{
-			if (selectedIndex < (dataArray.length - 1))
-			{
-				selectedIndex += 1;
-			}
-			else
-			{
-				selectedIndex = 0;
-			}
-			
+			selectedIndex = selectedIndex < ( dataArray.length - 1 ) ? selectedIndex + 1 : 0;
+			updateButtonMapping();
+		}
+
+		protected function navigateToIndex(index : int):void
+		{
+			trace( "GamepadMappingModule::navigateToIndex : ", index, selectedIndex );
+			selectedIndex = index;
 			updateButtonMapping();
 		}
 		
-		protected function updateButtonMapping():void
+		private function createTabList() : void
 		{
-			var currentData:Object = dataArray[selectedIndex];
-			
-			if (txtLayoutName)
+			trace( "GamepadMappingModule::createTabList" );
+
+			tabList = new Vector.<TextField>();
+			tabList.push( txtLayoutName, txtLayoutName2, txtLayoutName3, txtLayoutName4, txtLayoutName5, txtLayoutName6 );
+
+			var len : int = tabList.length;
+			for ( var i : int = 0; i < len; i++ )
 			{
-				txtLayoutName.htmlText = currentData.layoutName;
+				var tab : TextField = tabList[i];
+				tab.tabIndex = i;
+				tab.addEventListener( GestureEventEx.GESTURE_TAP, selectTab, false, 0, true );
+				tab.addEventListener( MouseEvent.CLICK, selectTab, false, 0, true );
 			}
-			
-			if (txtLeftJoyRightJoy)
+		}
+
+		private function updateButtonCaption( textArea : W3TextArea, text : String ) : void
+		{
+			const HTML_SIZE_OPEN : String = "<font size='24'>";
+			const HTML_SIZE_CLOSE : String = "</font>";
+
+			if (textArea)
 			{
-				if (currentData.txtLeftJoyRightJoy== ""  || platformType== PlatformType.PLATFORM_PS4 || platformType==PlatformType.PLATFORM_XBOX1)
-				{
-					txtLeftJoyRightJoy.visible = false;
-				}
-				else
-				{
-					txtLeftJoyRightJoy.visible = true;
-					txtLeftJoyRightJoy.htmlText = currentData.txtLeftJoyRightJoy;
-				}
-			}
-			
-			if (txtRightJoy)
-			{
-				if (currentData.txtRightJoy == "")
-				{
-					txtRightJoy.visible = false;
-				}
-				else
-				{
-					txtRightJoy.visible = true;
-					txtRightJoy.htmlText = currentData.txtRightJoy;
-				}
-			}
-			
-			if (txtXButton)
-			{
-				if (currentData.txtXButton == "")
-				{
-					txtXButton.visible = false;
-				}
-				else
-				{
-					txtXButton.visible = true;
-					txtXButton.htmlText = currentData.txtXButton;
-				}
-			}
-			
-			if (txtAButton)
-			{
-				if (currentData.txtAButton == "")
-				{
-					txtAButton.visible = false;
-				}
-				else
-				{
-					txtAButton.visible = true;
-					txtAButton.htmlText = currentData.txtAButton;
-				}
-			}
-			
-			if (txtBButton)
-			{
-				if (currentData.txtBButton == "")
-				{
-					txtBButton.visible = false;
-				}
-				else
-				{
-					txtBButton.visible = true;
-					txtBButton.htmlText = currentData.txtBButton;
-				}
-			}
-			
-			if (txtYButton)
-			{
-				if (currentData.txtYButton == "")
-				{
-					txtYButton.visible = false;
-				}
-				else
-				{
-					txtYButton.visible = true;
-					txtYButton.htmlText = currentData.txtYButton;;
-				}
-			}
-			
-			if (txtYButtonXbox)
-			{
-				if (currentData.txtYButton == "")
-				{
-					txtYButtonXbox.visible = false;
-				}
-				else
-				{
-					txtYButtonXbox.visible = true;
-					txtYButtonXbox.htmlText = currentData.txtYButton;
-				}
-			}
-			
-			if (txtYButtonPs)
-			{
-				if (currentData.txtYButton == "")
-				{
-					txtYButtonPs.visible = false;
-				}
-				else
-				{
-					txtYButtonPs.visible = true;
-					txtYButtonPs.htmlText = currentData.txtYButton;
-				}
-			}
-			
-			if (txtRightBumper)
-			{
-				if (currentData.txtRightBumper == "")
-				{
-					txtRightBumper.visible = false;
-				}
-				else
-				{
-					txtRightBumper.visible = true;
-					txtRightBumper.htmlText = currentData.txtRightBumper;
-				}
-			}
-			
-			if (txtRightTrigger)
-			{
-				if (currentData.txtRightTrigger == "")
-				{
-					txtRightTrigger.visible = false;
-				}
-				else
-				{
-					txtRightTrigger.visible = true;
-					txtRightTrigger.htmlText = currentData.txtRightTrigger;
-				}
-			}
-			
-			if (txtStartButton)
-			{
-				if (currentData.txtStartButton == "")
-				{
-					txtStartButton.visible = false;
-				}
-				else
-				{
-					txtStartButton.visible = true;
-					txtStartButton.htmlText = currentData.txtStartButton;
-				}
-			}
-			
-			if (txtSelectButton)
-			{
-				if (currentData.txtSelectButton == "")
-				{
-					txtSelectButton.visible = false;
-				}
-				else
-				{
-					txtSelectButton.visible = true;
-					txtSelectButton.htmlText = currentData.txtSelectButton;
-				}
-			}
-			
-			if (txtLeftTrigger)
-			{
-				if (currentData.txtLeftTrigger == "")
-				{
-					txtLeftTrigger.visible = false;
-				}
-				else
-				{
-					txtLeftTrigger.visible = true;
-					txtLeftTrigger.htmlText = currentData.txtLeftTrigger;
-				}
-			}
-			
-			if (txtLeftBumper)
-			{
-				if (currentData.txtLeftBumper == "")
-				{
-					txtLeftBumper.visible = false;
-				}
-				else
-				{
-					txtLeftBumper.visible = true;
-					txtLeftBumper.htmlText = currentData.txtLeftBumper;
-				}
-			}
-			
-			if (txtLeftJoy)
-			{
-				if (currentData.txtLeftJoy == "")
-				{
-					txtLeftJoy.visible = false;
-				}
-				else
-				{
-					txtLeftJoy.visible = true;
-					txtLeftJoy.htmlText = currentData.txtLeftJoy;
-				}
-			}
-			
-			if (txtDPad)
-			{
-				if (currentData.txtDPad == "")
-				{
-					txtDPad.visible = false;
-				}
-				else
-				{
-					txtDPad.visible = true;
-					txtDPad.htmlText = currentData.txtDPad;
+				var visible : Boolean = text != "" && text != "null";
+				textArea.visible = visible;
+				if ( visible )
+				{	
+					textArea.htmlText = platformType != PlatformType.PLATFORM_SWITCH2 ? text : HTML_SIZE_OPEN + text + HTML_SIZE_CLOSE;
+					//trace("DEBUGMAP: " + textArea + " " + textArea.htmlText);
 				}
 			}
 		}
-		
-		public function onRightClick(event:MouseEvent):void
+
+		private function updateSwitch2TabList() : void
 		{
-			if (visible)
+			tabList = null;
+
+			if( platformType == PlatformType.PLATFORM_SWITCH2)
+			{
+				const BASE_COLOR : uint = 0x888478;
+				const HIGHLIGHT_COLOR : uint = 0xE9E9E9;
+				
+				var animFrame : String = ( selectedIndex == 5 ) ? "switchMouser" : "switch";
+				gotoAndStop( animFrame );
+
+				createTabList();
+
+				for each ( var tf : TextField in tabList )
+				{
+					tf.textColor = BASE_COLOR;
+					tf.htmlText = dataArray[tf.tabIndex].layoutName;
+				}
+
+				if ( selectedIndex < tabList.length )
+				{
+					tabList[selectedIndex].textColor = HIGHLIGHT_COLOR;
+				}
+			}
+		}
+
+		protected function updateButtonMapping():void
+		{
+			var currentData : Object = dataArray[ selectedIndex ];
+
+			if ( platformType != PlatformType.PLATFORM_SWITCH2 )
+			{
+				if ( txtLayoutName )
+				{
+					txtLayoutName.htmlText = currentData.layoutName;
+				}
+			}
+			else
+			{
+				updateSwitch2TabList();
+			}
+		
+			if (txtLeftJoyRightJoy)
+			{
+				var visible : Boolean = currentData.txtLeftJoyRightJoy != "" && platformType != PlatformType.PLATFORM_PS4 && platformType != PlatformType.PLATFORM_XBOX1;
+				txtLeftJoyRightJoy.visible = visible;
+				if ( visible )
+				{	
+					if( platformType == PlatformType.PLATFORM_SWITCH2)
+						txtLeftJoyRightJoy.htmlText = "<p align='center'><font size='34'>" + currentData.txtLeftJoyRightJoy + "</font></p>";
+					else
+						txtLeftJoyRightJoy.htmlText = "<p align='center'>" + currentData.txtLeftJoyRightJoy + "</p>";
+				}
+			}
+			
+			updateButtonCaption( txtRightJoy, currentData.txtRightJoy );
+			updateButtonCaption( txtXButton, currentData.txtXButton );
+			updateButtonCaption( txtAButton, currentData.txtAButton );
+			updateButtonCaption( txtBButton, currentData.txtBButton );
+			updateButtonCaption( txtYButton, currentData.txtYButton );
+			updateButtonCaption( txtYButtonXbox, currentData.txtYButton );
+			updateButtonCaption( txtYButtonPs, currentData.txtYButton );
+			updateButtonCaption( txtRightBumper, currentData.txtRightBumper );
+			updateButtonCaption( txtRightBumperWithLines, currentData.txtRightBumper );
+			updateButtonCaption( txtRightTrigger, currentData.txtRightTrigger );
+			updateButtonCaption( txtStartButton, currentData.txtStartButton );
+			updateButtonCaption( txtSelectButton, currentData.txtSelectButton );
+			updateButtonCaption( txtLeftTrigger, currentData.txtLeftTrigger );
+			updateButtonCaption( txtLeftTriggerWithLines, currentData.txtLeftTrigger );
+			updateButtonCaption( txtLeftBumper, currentData.txtLeftBumper );
+			updateButtonCaption( txtLeftJoy, currentData.txtLeftJoy );
+			updateButtonCaption( txtDPad, currentData.txtDPad );
+			updateButtonCaption( txtDPadWithLines, currentData.txtDPad );
+		}
+
+		public function onRightClick( event:MouseEvent ):void
+		{
+			if ( visible )
 			{
 				handleNavigateBack();
 			}
 		}
-		
+
 		protected function handleNavigateBack():void
 		{
 			dispatchEvent( new Event(IngameMenu.OnOptionPanelClosed, false, false) );

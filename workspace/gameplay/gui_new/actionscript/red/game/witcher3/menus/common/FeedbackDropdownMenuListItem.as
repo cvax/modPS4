@@ -38,23 +38,41 @@ package red.game.witcher3.menus.common
 				var inputMgr:InputManager = InputManager.getInstance();
 				
 				mcCollapseBtnIcon.visible = false;
-				
-				if (inputMgr.gamepadType == EInputDeviceType.IDT_Steam)
-				{
-					mcCollapseBtnIcon.gotoAndStop( 3 );
-				}
-				else
-				{
-					mcCollapseBtnIcon.gotoAndStop( (inputMgr.isPsGamepad()) ? 2 : 1 );
-				}
+				updateCollapseBtnIcon();
 				
 				inputMgr.addEventListener(ControllerChangeEvent.CONTROLLER_CHANGE, handleControllerChanged, false, 0, true);
+			}
+		}
+
+		private function updateCollapseBtnIcon()
+		{
+			switch (InputManager.getInstance().gamepadType)
+			{
+				case EInputDeviceType.IDT_PS4:
+				case EInputDeviceType.IDT_PS5:
+					mcCollapseBtnIcon.gotoAndStop( 3 );
+					break;
+				case EInputDeviceType.IDT_Steam:
+					mcCollapseBtnIcon.gotoAndStop( 4 );
+					break;
+				case EInputDeviceType.IDT_Switch2:
+				case EInputDeviceType.IDT_Switch2_Mouser:
+					mcCollapseBtnIcon.gotoAndStop( 1 );
+					break;
+				case EInputDeviceType.IDT_Xbox1:
+				default:
+					mcCollapseBtnIcon.gotoAndStop( 2 );
+					break;
 			}
 		}
 		
 		private function handleControllerChanged( event : ControllerChangeEvent ):void
 		{
-			mcCollapseBtnIcon.visible = event.isGamepad && isOpen() && selected;
+			if(mcCollapseBtnIcon)
+			{
+				mcCollapseBtnIcon.visible = !event.isMouse && isOpen() && selected;
+				updateCollapseBtnIcon();
+			}
 		}
 		
 		override public function open(allowSound : Boolean = true):void
@@ -63,7 +81,7 @@ package red.game.witcher3.menus.common
 			
 			if ( mcCollapseBtnIcon )
 			{
-				mcCollapseBtnIcon.visible = InputManager.getInstance().isGamepad() && selected;
+				mcCollapseBtnIcon.visible = !InputManager.getInstance().isMouse() && selected;
 			}
 		}
 		
@@ -81,7 +99,8 @@ package red.game.witcher3.menus.common
 		{
 			super.selected = value;
 			
-			mcCollapseBtnIcon.visible = InputManager.getInstance().isGamepad() && isOpen() && selected;
+			if(mcCollapseBtnIcon)
+				mcCollapseBtnIcon.visible = !InputManager.getInstance().isMouse() && isOpen() && selected;
 		}
 
 		override protected function configUI():void

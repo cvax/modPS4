@@ -5,6 +5,7 @@ package red.game.witcher3.menus.character_menu
 	import flash.filters.ConvolutionFilter;
 	import flash.geom.Point;
 	import flash.text.TextField;
+	
 	import red.core.constants.KeyCode;
 	import red.core.events.GameEvent;
 	import red.game.witcher3.constants.CommonConstants;
@@ -12,6 +13,7 @@ package red.game.witcher3.menus.character_menu
 	import red.game.witcher3.events.ControllerChangeEvent;
 	import red.game.witcher3.managers.InputManager;
 	import red.game.witcher3.utils.CommonUtils;
+
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.controls.Button;
@@ -138,7 +140,7 @@ package red.game.witcher3.menus.character_menu
 		
 		private function handleControllerChanged( event : ControllerChangeEvent  ) :void
 		{
-			btnResearchPC.alpha = InputManager.getInstance().isGamepad() ? 0 : 1;
+			btnResearchPC.alpha = InputManager.getInstance().isMouse() ? 1 : 0;
 		}
 		
 		private function handleItemIndexChanged(event:ListEvent):void
@@ -169,6 +171,8 @@ package red.game.witcher3.menus.character_menu
 			{
 				return; // ignore
 			}
+
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 			
 			if ( details.value == InputValue.KEY_UP )
 			{
@@ -176,8 +180,6 @@ package red.game.witcher3.menus.character_menu
 				{
 					case KeyCode.ENTER:
 					case KeyCode.PAD_A_CROSS:
-						
-						// accept
 						if (_researchProgress)
 						{
 							confirmResearch();
@@ -186,16 +188,20 @@ package red.game.witcher3.menus.character_menu
 						
 					case KeyCode.ESCAPE:
 					case KeyCode.PAD_B_CIRCLE:
-					
-						// cancel
 						cancelResearch();
 						break;
 					
 					case KeyCode.E:
 					case KeyCode.PAD_X_SQUARE:
+					case KeyCode.PAD_Y_TRIANGLE:
 					case KeyCode.SPACE:
-						// research
-						researchCurrent();
+						if (details.code == KeyCode.E ||
+							details.code == KeyCode.SPACE ||
+							(isSwitchPlatform && details.code == KeyCode.PAD_Y_TRIANGLE) ||		// Y on switch
+							(!isSwitchPlatform && details.code == KeyCode.PAD_X_SQUARE))		// X on other platforms
+						{
+							researchCurrent();
+						}
 						break;
 					default:
 						//...

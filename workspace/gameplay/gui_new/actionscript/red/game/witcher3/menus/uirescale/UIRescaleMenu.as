@@ -44,7 +44,7 @@
 		{
 			return "RescaleMenu";
 		}
-		
+
 		public function setCurrentUsername(name:String):void
 		{
 			if (txtUserName)

@@ -11,11 +11,12 @@
 	import red.core.events.GameEvent;
 	import red.game.witcher3.interfaces.IInventorySlot;
 	import red.game.witcher3.menus.common.ItemDataStub;
-	import red.game.witcher3.menus.inventory_menu.ModuleContainer;
 	import scaleform.clik.core.UIComponent;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.gfx.Extensions;
 	import scaleform.gfx.MouseEventEx;
+	import flash.events.GestureEvent;
+	import red.game.witcher3.managers.ContextInfoManager;
 	
 	/**
 	 * Slot in the inventory grid
@@ -74,6 +75,37 @@
 				else
 				{
 					mcStateDropTarget.visible = false;
+				}
+			}
+		}
+
+		override protected function handleGesturePress( event : GestureEvent ) : void
+		{
+			if ( selected )
+			{
+				switch ( event.phase )
+				{
+					case "begin" : 
+					{
+						if ( useContextMgr )
+						{
+							ContextInfoManager.getInstanse().comparisonMode = true;
+						}
+					}
+					break;
+					case "update" : 
+					{
+						
+					}
+					break;
+					case "end" : 
+					{
+						if ( useContextMgr )
+						{
+							ContextInfoManager.getInstanse().comparisonMode = false;
+						}
+					}
+					break;
 				}
 			}
 		}
@@ -218,8 +250,6 @@
 			targetObject.x = targetRect.x + targetObject.width / 2;
 			targetObject.y = targetRect.y + targetObject.height / 2;
 		}
-		
-
 		
 		public function tryExecuteAssignedAction():void
 		{

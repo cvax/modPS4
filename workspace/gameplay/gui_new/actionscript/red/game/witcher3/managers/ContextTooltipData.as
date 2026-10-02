@@ -76,7 +76,7 @@ package red.game.witcher3.managers
 		protected function handleSetData(data:Object):void
 		{
 			//trace("GFX ContextTooltipData [", _contentReference, "][", _tooltipInstance, "], handleSetData ");
-			if (!InputManager.getInstance().isGamepad() && gamepadOnly)
+			if (InputManager.getInstance().isMouse() && gamepadOnly)
 			{
 				return;
 			}
@@ -97,7 +97,7 @@ package red.game.witcher3.managers
 
 		protected function handleHideRequest(value:Boolean):void
 		{
-			if (!InputManager.getInstance().isGamepad() && gamepadOnly)
+			if (InputManager.getInstance().isMouse() && gamepadOnly)
 			{
 				return;
 			}
@@ -133,7 +133,7 @@ package red.game.witcher3.managers
 		{
 			if (_tooltipInstance && gamepadOnly)
 			{
-				_tooltipInstance.visible = event.isGamepad;
+				_tooltipInstance.visible = !event.isMouse;
 			}
 		}
 		

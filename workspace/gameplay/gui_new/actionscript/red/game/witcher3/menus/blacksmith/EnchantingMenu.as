@@ -2,16 +2,19 @@
 {
 	import com.gskinner.motion.easing.Sine;
 	import com.gskinner.motion.GTweener;
+
 	import flash.display.MovieClip;
 	import flash.events.Event;
 	import flash.events.FocusEvent;
 	import flash.text.TextField;
+
 	import red.core.constants.KeyCode;
 	import red.core.CoreMenu;
 	import red.core.events.GameEvent;
 	import red.game.witcher3.constants.CommonConstants;
 	import red.game.witcher3.events.GridEvent;
 	import red.game.witcher3.managers.InputFeedbackManager;
+	import red.game.witcher3.managers.InputManager;
 	import red.game.witcher3.menus.common.DropdownEnchantmentsFilterMode;
 	import red.game.witcher3.menus.common.EnchantmentListItemRenderer;
 	import red.game.witcher3.menus.common.InventoryListItemRenderer;
@@ -22,6 +25,7 @@
 	import red.game.witcher3.menus.common.RecipeIconItemRenderer;
 	import red.game.witcher3.tooltips.TooltipInventory;
 	import red.game.witcher3.utils.CommonUtils;
+	
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.core.UIComponent;
@@ -30,7 +34,10 @@
 	import scaleform.clik.events.ListEvent;
 	import scaleform.clik.managers.InputDelegate;
 	import scaleform.clik.ui.InputDetails;
-	
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
+	import flash.utils.setTimeout;
+
 	/**
 	 * EnchantingMenu - EP1 -
 	 * red.game.witcher3.menus.blacksmith.EnchantingMenu
@@ -113,12 +120,14 @@
 			mcActionEnchant.visible = false;
 			mcActionEnchant.btnAction.label = "[[input_enchant_item]]";
 			mcActionEnchant.btnAction.setDataFromStage(NavigationCode.GAMEPAD_A, KeyCode.E);
-			mcActionEnchant.btnAction.addEventListener(ButtonEvent.CLICK, handleEnchantClick, false, 0, true);
+			mcActionEnchant.btnAction.addEventListener(ButtonEvent.CLICK, handleEnchantClickOrTap, false, 0, true);
+			mcActionEnchant.btnAction.addEventListener(GestureEventEx.GESTURE_TAP, handleEnchantClickOrTap, false, 0, true);
 			
 			mcActionRemoveEnchantment.visible = false;
 			mcActionRemoveEnchantment.btnAction.label = "[[input_remove_enchant]]";
-			mcActionRemoveEnchantment.btnAction.setDataFromStage(NavigationCode.GAMEPAD_Y, KeyCode.DELETE);
-			mcActionRemoveEnchantment.btnAction.addEventListener(ButtonEvent.CLICK, handleRemoveEnchantmentClick, false, 0, true);
+			
+			mcActionRemoveEnchantment.btnAction.addEventListener(ButtonEvent.CLICK, handleRemoveEnchantmentClickOrTap, false, 0, true);
+			mcActionRemoveEnchantment.btnAction.addEventListener(GestureEventEx.GESTURE_TAP, handleRemoveEnchantmentClickOrTap, false, 0, true);
 			
 			InputDelegate.getInstance().addEventListener(InputEvent.INPUT, handleInput, false, 0, true);
 			
@@ -126,8 +135,18 @@
 			//InputFeedbackManager.useOverlayPopup = false;
 			
 			//mcActionDelimiter.visible = false;
+			
+			setTimeout( configButtonDelayed_HACK, 500 ); 
 		}
-		
+
+		private function configButtonDelayed_HACK() : void
+		{
+			//We have to do this because InputManager platform gets set AFTER this::configUI.
+
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+			mcActionRemoveEnchantment.btnAction.setDataFromStage(isSwitchPlatform ? NavigationCode.GAMEPAD_X : NavigationCode.GAMEPAD_Y, KeyCode.DELETE);
+		}
+
 		public function setPinnedRecipe(tag:uint):void
 		{
 			_pinnedTag  = tag;
@@ -544,12 +563,12 @@
 			}
 		}
 		
-		private function handleEnchantClick(event:ButtonEvent):void
+		private function handleEnchantClickOrTap(event:Event):void
 		{
 			enchantItem();
 		}
 		
-		private function handleRemoveEnchantmentClick(event:ButtonEvent):void
+		private function handleRemoveEnchantmentClickOrTap(event:Event):void
 		{
 			removeEnchantmentItem();
 		}
@@ -618,23 +637,31 @@
 			{
 				return;
 			}
+
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 			
 			switch (details.navEquivalent)
 			{
 				case NavigationCode.GAMEPAD_Y:
-					removeEnchantmentItem();
-					return;
+				case NavigationCode.GAMEPAD_X:
+					if ((isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X) ||	// X on switch
+						(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y))	// Y on all other platforms
+					{
+						removeEnchantmentItem();
+						return;
+					}
+					if ((isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y) ||	// Y on switch
+						(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X))	// X on all other platforms
+					{
+						togglePinOnSelectedRecipe();
+						return;
+					}
 					break;
-					
 				case NavigationCode.GAMEPAD_A:
 				case NavigationCode.ENTER:
 					enchantItem();
 					return;
 					break;
-				case NavigationCode.GAMEPAD_X:
-					togglePinOnSelectedRecipe();
-					return;
-					break;					
 			}
 			
 			switch (details.code)

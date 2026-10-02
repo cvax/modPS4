@@ -1,17 +1,23 @@
 ﻿package red.game.witcher3.menus.worldmap
 {
 	import flash.display.MovieClip;
+	import flash.events.GestureEvent;
+	import flash.events.MouseEvent;
+
 	import scaleform.clik.constants.InputValue;
-	import scaleform.clik.core.UIComponent;
-	import red.game.witcher3.controls.W3ScrollingList;
-	import scaleform.clik.events.ListEvent;
-	import scaleform.clik.data.DataProvider;
-	import red.game.witcher3.controls.InputFeedbackButton;
-	import scaleform.clik.events.InputEvent;
-	import red.core.constants.KeyCode;
 	import scaleform.clik.constants.NavigationCode;
+	import scaleform.clik.core.UIComponent;
+	import scaleform.clik.data.DataProvider;
 	import scaleform.clik.events.ButtonEvent;
+	import scaleform.clik.events.InputEvent;
+	import scaleform.clik.events.ListEvent;
 	import scaleform.clik.ui.InputDetails;
+	
+	import red.core.constants.KeyCode;
+	import red.core.events.GestureEventEx;
+	import red.game.witcher3.controls.InputFeedbackButton;
+	import red.game.witcher3.controls.W3ScrollingList;
+	import red.game.witcher3.managers.InputManager;
 		
 	public class UserPinPanel extends UIComponent
 	{
@@ -19,14 +25,19 @@
 		public var mcUserPin2:UserPinItemRenderer;
 		public var mcUserPin3:UserPinItemRenderer;
 		public var mcUserPin4:UserPinItemRenderer;
+		public var mcUserPin5:UserPinItemRenderer;
+		public var mcUserPin6:UserPinItemRenderer;
 		public var mcUserPinsList:W3ScrollingList;
 		public var btnClose:InputFeedbackButton;
 		
 		public var enableUserPinPanel:Function;
 		public var setUserMapPin:Function;
 
+		private var selectedIndex : int;
+
 		public function UserPinPanel()
 		{
+			selectedIndex = -1;
 		}
 		
 		override protected function configUI():void
@@ -34,11 +45,10 @@
 			super.configUI();
 
 			mcUserPinsList.focusable = true;
-			mcUserPinsList.dataProvider = new DataProvider([ { pinId:"User2" }, { pinId:"User3" }, { pinId:"User4" } ]);	
+			mcUserPinsList.dataProvider = new DataProvider([ { pinId:"User2" }, { pinId:"User3" }, { pinId:"User4" }, { pinId:"User5" }, { pinId:"User6" }, { pinId:"User7" } ]);	
 			mcUserPinsList.validateNow();
 			mcUserPinsList.addEventListener(ListEvent.ITEM_PRESS, handleUserPinsPress, false, 0, true);
-			//mcUserPinsList.addEventListener(ListEvent.ITEM_DOUBLE_CLICK, handleUserPinDoubleClick, false, 0, true);
-			//mcUserPinsList.addEventListener( ListEvent.INDEX_CHANGE, handleUserPinsSelected, false, 0, true );
+			mcUserPinsList.addEventListener(ListEvent.INDEX_CHANGE, handleSelectionChange, false, 0 , true);
 			
 			btnClose.clickable = true;
 			btnClose.label = "[[panel_common_cancel]]";
@@ -47,10 +57,17 @@
 			btnClose.addEventListener( ButtonEvent.CLICK, handleCloseButtonClicked, false, 0, true );
 			btnClose.validateNow();
 			
-			mcUserPinsList.focusable = false;
 			mcUserPinsList.bSkipFocusCheck = true;
-			
+			mcUserPinsList.enableTouch( true, true, false );
+			mcUserPinsList.focusable = false;
 			mcUserPinsList.selectOnOver = true;
+
+			selectedIndex = -1
+		}
+
+		protected function handleSelectionChange( event:ListEvent ):void
+		{
+			selectedIndex = event.index;
 		}
 		
 		override public function handleInput( event:InputEvent ):void
@@ -64,8 +81,10 @@
 
 			var details:InputDetails = event.details;
 			var keyUp : Boolean = ( details.value == InputValue.KEY_UP );
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 			
-			if (details.navEquivalent == NavigationCode.GAMEPAD_X )
+			if ((isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y) ||		// Y on switch
+				(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X))		// X on other platforms
 			{
 				if ( keyUp )
 				{
@@ -73,16 +92,6 @@
 					event.handled = true;
 				}
 			}
-			/*
-			else if (details.navEquivalent == NavigationCode.GAMEPAD_A )
-			{
-				if ( keyUp )
-				{
-					closePanelAndSetUserPin();
-					event.handled = true;
-				}
-			}
-			*/
 			else if (details.navEquivalent == NavigationCode.GAMEPAD_B ) 
 			{
 				if ( keyUp )
@@ -99,6 +108,8 @@
 		
 		private function handleUserPinsPress(event:ListEvent):void
 		{
+			selectedIndex = event.index;
+
 			closePanelAndSetUserPin();
 		}
 		
@@ -106,47 +117,30 @@
 		{
 			enableUserPinPanel( false );
 		}
-
-		/*
-		private function handleUserPinsSelected(event:ListEvent):void
-		{
-			trace("Minimap handleUserPinsSelected ");
-			
-			if (event.itemData)
-			{
-				trace("Minimap - ", event.itemData.pinId );
-			}
-		}
-		*/
-
-		/*
-		private function handleUserPinDoubleClick(event:ListEvent):void
-		{
-			trace("Minimap handleUserPinDoubleClick ");
-			
-			if (event.itemData)
-			{
-				trace("Minimap - ", event.itemData.pinId );
-			}
-		}
-		*/
 		
 		private function closePanelAndSetUserPin()
 		{
-			var index : int = mcUserPinsList.selectedIndex;
+			if ( selectedIndex == -1 )
+			{
+				selectedIndex = mcUserPinsList.selectedIndex;
+			}
+
+			if ( selectedIndex != -1 )
+			{
+				setUserMapPin( selectedIndex, true );
+			}
+
 			enableUserPinPanel( false );
-			setUserMapPin( index, true );
 		}
-		
+
 		override public function set visible(value:Boolean):void
 		{
 			super.visible = value;
 			if ( value )
 			{
+				selectedIndex = -1;
 				mcUserPinsList.selectedIndex = 0;
 			}
 		}
-		
 	}
-	
 }

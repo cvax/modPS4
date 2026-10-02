@@ -3,7 +3,7 @@ package red.game.witcher3.menus.gwint
 	class GwintRoundResult
 	{
 		private var roundScores:Vector.<int>;
-		private var roundWinner:int;
+		private var roundWinner:int = -1;
 		
 		public function get played():Boolean
 		{
@@ -23,6 +23,11 @@ package red.game.witcher3.menus.gwint
 		public function reset():void
 		{
 			roundScores = null;
+			roundWinner = -1;
+		}
+
+		public function getRoundWinner():int {
+			return roundWinner;
 		}
 		
 		public function get winningPlayer():int

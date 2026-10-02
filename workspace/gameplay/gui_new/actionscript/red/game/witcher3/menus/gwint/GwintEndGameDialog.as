@@ -1,12 +1,16 @@
 package red.game.witcher3.menus.gwint
 {
 	import com.gskinner.motion.GTweener;
+
 	import flash.text.TextField;
+
 	import red.core.constants.KeyCode;
 	import red.game.witcher3.constants.GwintInputFeedback;
 	import red.game.witcher3.controls.InputFeedbackButton;
 	import red.game.witcher3.controls.W3UILoader;
 	import red.game.witcher3.managers.InputFeedbackManager;
+	import red.game.witcher3.managers.InputManager;
+
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.core.UIComponent;
@@ -14,8 +18,11 @@ package red.game.witcher3.menus.gwint
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.managers.InputDelegate;
 	import scaleform.clik.ui.InputDetails;
-	import red.game.witcher3.controls.W3UILoader;
-	
+
+	import red.core.events.GestureEventEx;
+	import flash.events.Event;
+	import flash.events.GestureEvent;
+
 	public class GwintEndGameDialog extends UIComponent
 	{
 		public static const EndGameDialogResult_EndVictory : int = 0;
@@ -58,10 +65,13 @@ package red.game.witcher3.menus.gwint
 			
 			if (mcReplayButton != null)
 			{
+				var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
 				mcReplayButton.clickable = true;
 				mcReplayButton.label = "[[gwint_play_again]]";
-				mcReplayButton.setDataFromStage(NavigationCode.GAMEPAD_Y, KeyCode.SPACE);
-				mcReplayButton.addEventListener(ButtonEvent.PRESS, onReplayPressed, false, 0, true);
+				mcReplayButton.setDataFromStage(isSwitchPlatform ? NavigationCode.GAMEPAD_X : NavigationCode.GAMEPAD_Y, KeyCode.SPACE);
+				mcReplayButton.addEventListener(ButtonEvent.PRESS, onReplayPressedOrTapped, false, 0, true);
+				mcReplayButton.addEventListener(GestureEventEx.GESTURE_TAP, onReplayPressedOrTapped, false, 0, true);
 				mcReplayButton.validateNow();
 			}
 			
@@ -70,10 +80,12 @@ package red.game.witcher3.menus.gwint
 				mcCloseButton.clickable = true;
 				mcCloseButton.label = "[[panel_button_common_close]]";
 				mcCloseButton.setDataFromStage(NavigationCode.GAMEPAD_B, KeyCode.ESCAPE);
-				mcCloseButton.addEventListener(ButtonEvent.PRESS, closeButtonPressed, false, 0, true);
+				mcCloseButton.addEventListener(ButtonEvent.PRESS, closeButtonPressedOrTapped, false, 0, true);
+				mcCloseButton.addEventListener(GestureEventEx.GESTURE_TAP, closeButtonPressedOrTapped, false, 0, true);
 				mcCloseButton.validateNow();
 			}
 				 
+
 			visible = false;
 		}
 		
@@ -130,6 +142,7 @@ package red.game.witcher3.menus.gwint
 			showInputFeedback();
 			
 			InputDelegate.getInstance().addEventListener(InputEvent.INPUT, handleInputDialog, false, 0, true);
+			stage.addEventListener(GestureEvent.GESTURE_TWO_FINGER_TAP, closeButtonPressedOrTapped, false, 0, true);
 		}
 		
 		public function hide():void
@@ -142,6 +155,7 @@ package red.game.witcher3.menus.gwint
 				
 				GTweener.to(this, 0.2, { alpha:0.0 }, {  } );
 				
+				stage.removeEventListener( GestureEvent.GESTURE_TWO_FINGER_TAP, closeButtonPressedOrTapped );
 				InputDelegate.getInstance().removeEventListener(InputEvent.INPUT, handleInputDialog);
 				
 				hideInputFeedback();
@@ -258,7 +272,7 @@ package red.game.witcher3.menus.gwint
 			InputFeedbackManager.removeButtonById(GwintInputFeedback.close);
 		}
 		
-		public function closeButtonPressed( event : ButtonEvent ):void
+		public function closeButtonPressedOrTapped( event : Event ):void
 		{
 			if (_winningPlayer == CardManager.PLAYER_2 || _winningPlayer == CardManager.PLAYER_INVALID)
 			{
@@ -278,21 +292,23 @@ package red.game.witcher3.menus.gwint
 			{
 				var details:InputDetails = event.details;
 				var keyUp:Boolean = (details.value == InputValue.KEY_UP);
+				var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 				
 				if ( keyUp && !event.handled && _resultFunctor != null)
 				{
 					switch(details.navEquivalent)
 					{
-					case NavigationCode.GAMEPAD_B:
-						{
-							closeButtonPressed(null);
-						}
-						break;
-					case NavigationCode.GAMEPAD_Y:
-						{
-							onReplayPressed(null);
-						}
-						break;
+						case NavigationCode.GAMEPAD_B:
+							closeButtonPressedOrTapped(null);
+							break;
+						case NavigationCode.GAMEPAD_Y:
+						case NavigationCode.GAMEPAD_X:
+							if ((isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X) ||	// X on switch
+								(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y))	// Y on other platforms
+							{
+								onReplayPressedOrTapped(null);
+							}
+							break;
 					}
 					
 					if (details.code == KeyCode.SPACE)
@@ -307,7 +323,7 @@ package red.game.witcher3.menus.gwint
 			}
 		}
 		
-		protected function onReplayPressed( event : ButtonEvent ) : void
+		protected function onReplayPressedOrTapped( event : Event ) : void
 		{
 			if (_winningPlayer == CardManager.PLAYER_INVALID)
 			{

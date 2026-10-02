@@ -15,11 +15,13 @@ package red.game.witcher3.controls
 	import flash.events.MouseEvent;
 	import flash.events.Event;
 	import red.core.events.GameEvent;
+	import flash.events.TransformGestureEvent;
+	import red.game.witcher3.utils.CommonUtils;
 	
 	public class W3TextArea extends TextArea
 	{
 		//public var bBlockSound : Boolean = false;
-		
+		protected var _panYAccumulator : Number	= 0;
 		protected var _scrollSpeed 		: Number;
 		protected var _baseTextColor 	: uint
 		protected var _uppercase 		: Boolean;
@@ -27,6 +29,11 @@ package red.game.witcher3.controls
 		
 		// hack to arabic alignment
 		protected var txtInitPosition	: Number; 
+
+		public var allowSounds : Boolean = true;
+
+		private var lastSetPositionSoundTime : Number = 0;
+		static const SET_POSITION_SOUND_WAIT_TIME_MS : Number = 100;
 		
 		public function W3TextArea()
 		{
@@ -68,13 +75,18 @@ package red.game.witcher3.controls
 			scrollBar.position = value;
 			if ( _maxScroll > 1 )
 			{
-				if ( position != value )
+				var curTime = new Date().time;
+				if(curTime - lastSetPositionSoundTime >= SET_POSITION_SOUND_WAIT_TIME_MS)
 				{
-					dispatchEvent(new GameEvent(GameEvent.CALL, "OnPlaySoundEvent", ["gui_global_scroll_description"]));
-				}
-				else
-				{
-					dispatchEvent(new GameEvent(GameEvent.CALL, "OnPlaySoundEvent", ["gui_global_scroll_description_failed"]));
+					if ( position != value && allowSounds)
+					{
+						dispatchEvent(new GameEvent(GameEvent.CALL, "OnPlaySoundEvent", ["gui_global_scroll_description"]));
+					}
+					else if (allowSounds)
+					{
+						dispatchEvent(new GameEvent(GameEvent.CALL, "OnPlaySoundEvent", ["gui_global_scroll_description_failed"]));
+					}
+					lastSetPositionSoundTime = curTime;
 				}
 			}
         }
@@ -170,6 +182,30 @@ package red.game.witcher3.controls
 			}
         }
 		
+		protected function handleGesturePan( event : TransformGestureEvent ) : void
+		{
+			var avgLineHeight : Number = textField.textHeight / textField.numLines;
+			var result : Object = CommonUtils.stagePanToRowScroll( _panYAccumulator, avgLineHeight, event );
+
+			textField.scrollV -= result.outRowsToScroll; //(Ab)Use scrollV to clamp the position :)
+			position = textField.scrollV;
+
+			_panYAccumulator = result.outPanYAccumulator;
+		}
+
+		public function enableScrollWithPan( enable : Boolean ) : void
+		{
+			_panYAccumulator = 0;
+			if ( enable )
+			{
+				addEventListener( TransformGestureEvent.GESTURE_PAN, handleGesturePan, false, 0, true );
+			}
+			else
+			{
+				removeEventListener( TransformGestureEvent.GESTURE_PAN, handleGesturePan, false );
+			}
+		}
+
 		public function CanBeFocused() : Boolean
 		{
 			return (textField.maxScrollV > 1 );

@@ -11,7 +11,13 @@ package red.game.witcher3.menus.inventory_menu
 		public var end    : uint;
 		public var border : MovieClip;
 		
-		public function ItemSectionData(id : uint, start:uint, end:uint, label:String, border:MovieClip = null):void
+		// Don't use parameterized constructor, as it will explode when instanced in witcherscript!!!!!
+		// public function ItemSectionData(id : uint, start:uint, end:uint, label:String, border:MovieClip = null):void
+		// {
+		//		setData(id, start, end, label, border)
+		// }
+
+		public function setData(id : uint, start:uint, end:uint, label:String, border:MovieClip = null)
 		{
 			this.id = id;
 			this.start = start;

@@ -135,7 +135,7 @@
 				{
 					_label = "<font color='#3e9ddf'>" + _Title + questStatusColorEnd;
 				}
-				else
+				else if ( data.epIndex == 2 )
 				{
 					_label = "<font color='#E18168'>" + _Title + questStatusColorEnd;
 				}

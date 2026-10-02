@@ -16,6 +16,7 @@ package red.game.witcher3.menus.mainmenu
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.events.SliderEvent;
 	import scaleform.clik.ui.InputDetails;
+	
 	public class GammaSettingModule extends StaticOptionModule
 	{
 		public var txtTitle : TextField;
@@ -66,6 +67,15 @@ package red.game.witcher3.menus.mainmenu
 			mcSlider.snapping = true;
 			mcSlider.value = Number(data.current);
 			mcSlider.addEventListener( SliderEvent.VALUE_CHANGE, OnSliderValueChanged, false);
+
+			mcSlider.enableTouch( true );
+		}
+
+		override public function hide():void
+		{
+			super.hide();
+			
+			mcSlider.enableTouch( false );
 		}
 
 		override public function handleInputNavigate(event:InputEvent):void
@@ -75,7 +85,8 @@ package red.game.witcher3.menus.mainmenu
 				var details:InputDetails = event.details;
 				CommonUtils.convertWASDCodeToNavEquivalent(details);
 				
-				if (mcSlider)
+				// Prevent "A" button being passed to the slider, we want to use it as "continue" confirmation in the menu
+				if (mcSlider && details.navEquivalent != NavigationCode.GAMEPAD_A)
 				{
 					mcSlider.handleInput(event);
 				}

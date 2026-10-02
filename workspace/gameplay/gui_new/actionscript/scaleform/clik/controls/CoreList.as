@@ -284,6 +284,11 @@ package scaleform.clik.controls
             if (newIndex >= _renderers.length) { return null; }
             return _renderers[newIndex] as IListItemRenderer;
         }
+
+        public function getAllRenderers():Vector.<IListItemRenderer> {
+            if (_renderers == null) { return null; }
+            return _renderers;
+        }
         
         /** Mark the item renderers as invalid and schedule a draw() on next Stage.INVALIDATE event. */
         public function invalidateRenderers():void {

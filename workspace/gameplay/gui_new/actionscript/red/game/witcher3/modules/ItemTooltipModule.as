@@ -128,7 +128,7 @@ package red.game.witcher3.modules
 			if ( tfSetBonusDescription && tfSetBonusDescription2 )
 			{
 				const padding_SetBonusDescription = 5;
-				const padding_SetBonusBackground = 20;
+				const padding_SetBonusBackground = 20 + 9.3;
 				
 				if ( data.SetBonusDescription )
 				{

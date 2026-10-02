@@ -5,6 +5,8 @@
 	import flash.text.TextField;
 	import flash.utils.Timer;
 	import red.core.events.GameEvent;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
 	import red.game.witcher3.hud.modules.wolfHead.StaminaIndicator;
 	import red.game.witcher3.hud.modules.wolfHead.W3StatIndicator;
 	import red.game.witcher3.hud.modules.wolfHead.WolfMedallion;
@@ -81,6 +83,47 @@
 				mcMutationFeedback.visible = false;
 			}
 			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnConfigUI' ) );
+
+			stage.addEventListener(GestureEventEx.GESTURE_TAP, handleInputGestureTap);
+		}
+
+		public function handleInputGestureTap( event : GestureEvent )
+		{
+			var isAnyDisplayObjectHit : Boolean = false;
+
+			if (mcHealthBar && mcHealthBar.hitTestPoint(event.stageX, event.stageY))
+			{
+				isAnyDisplayObjectHit = true;
+			}
+			if (mcToxicityBar && mcToxicityBar.hitTestPoint(event.stageX, event.stageY))
+			{
+				isAnyDisplayObjectHit = true;
+			}
+			if (mcExperienceBar && mcExperienceBar.hitTestPoint(event.stageX, event.stageY))
+			{
+				isAnyDisplayObjectHit = true;
+			}
+			if (mcStaminaBar && mcStaminaBar.hitTestPoint(event.stageX, event.stageY))
+			{
+				isAnyDisplayObjectHit = true;
+			}
+			if (mcWolfsHead && mcWolfsHead.hitTestPoint(event.stageX, event.stageY))
+			{
+				isAnyDisplayObjectHit = true;
+			}
+			if (mcAdrenalinePoints && mcAdrenalinePoints.hitTestPoint(event.stageX, event.stageY))
+			{
+				isAnyDisplayObjectHit = true;
+			}
+			if (mcNewLevelIndcator && mcNewLevelIndcator.hitTestPoint(event.stageX, event.stageY))
+			{
+				isAnyDisplayObjectHit = true;
+			}
+
+			if (isAnyDisplayObjectHit)
+			{
+				dispatchEvent(new GameEvent(GameEvent.CALL, 'OnTapStats'));
+			}
 		}
 
 		public function setVitality( _Percentage : Number )

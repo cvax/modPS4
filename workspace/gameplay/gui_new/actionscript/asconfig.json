@@ -1,0 +1,17 @@
+{
+	"compilerOptions": {
+		"debug": true,
+		"include-sources": [
+			"com",
+			"red",
+			"scaleform",
+			"C:\\Program Files\\Adobe\\Adobe Animate 2024\\Common\\Configuration\\ActionScript 3.0\\projects\\Flash\\src"
+		],
+		"output": "test.swf",
+		"source-path": [
+			"."
+		]
+	},
+	"config": "flex",
+    "type": "lib"
+}

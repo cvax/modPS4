@@ -29,6 +29,7 @@ package red.game.witcher3.menus.overlay
 	import flash.events.Event;
 	import scaleform.clik.events.InputEvent;
 	import red.game.witcher3.utils.CommonUtils;
+	import red.core.events.GestureEventEx;
 	
 	
 	/**
@@ -73,9 +74,16 @@ package red.game.witcher3.menus.overlay
 			_isFirstInit = true;
 			tabChildren = false;
 			
+			txtMessage.enableScrollWithPan( true );
 			mcBooksList.addEventListener(ListEvent.INDEX_CHANGE, handleIndexChanged, false, 0, true);
-			btnPrior.addEventListener(MouseEvent.CLICK, handlePriorClick, false, 0, true);
-			btnNext.addEventListener(MouseEvent.CLICK, handleNextClick, false, 0, true);
+			mcBooksList.enableTouch( true );
+			
+			btnPrior.addEventListener( MouseEvent.CLICK, handlePriorClickOrTap, false, 0, true );
+			btnPrior.addEventListener( GestureEventEx.GESTURE_TAP, handlePriorClickOrTap, false, 0, true );
+
+			btnNext.addEventListener(MouseEvent.CLICK, handleNextClickOrTap, false, 0, true);
+			btnNext.addEventListener( GestureEventEx.GESTURE_TAP, handleNextClickOrTap, false, 0, true );
+
 			InputDelegate.getInstance().addEventListener(InputEvent.INPUT, handleInput, false, 1000, true);
 		}
 		
@@ -293,12 +301,12 @@ package red.game.witcher3.menus.overlay
 			
 		}
 		
-		private function handleNextClick(event:MouseEvent):void
+		private function handleNextClickOrTap(event:Event):void
 		{
 			selectNextBook();
 		}
 		
-		private function handlePriorClick(event:MouseEvent):void
+		private function handlePriorClickOrTap(event:Event):void
 		{
 			selectPriorBook();
 		}

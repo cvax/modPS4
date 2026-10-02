@@ -135,7 +135,22 @@ package red.game.witcher3.constants
 		public static const BACKSLASH:uint = 220;
 		public static const RIGHTBRACKET:uint = 221;
 		public static const QUOTE:uint = 222;
-		
+
+		public static const GESTURE_TAP:uint = 276;
+		public static const GESTURE_DOUBLE_TAP:uint = 277;
+		public static const GESTURE_PRESS:uint = 278;
+		public static const GESTURE_PAN:uint = 279;
+		public static const GESTURE_SWIPE:uint = 280;
+		public static const GESTURE_TWO_FINGER_TAP:uint = 281;
+		public static const GESTURE_TWO_FINGER_DOUBLE_TAP:uint = 282;
+		public static const GESTURE_TWO_FINGER_PAN:uint = 283;
+		public static const GESTURE_TWO_FINGER_SWIPE:uint = 284;
+		public static const GESTURE_PINCH:uint = 285;
+		public static const GESTURE_ROTATE:uint = 286;
+
+		public static const GESTURE_FIRST:uint = GESTURE_TAP;
+		public static const GESTURE_LAST:uint = GESTURE_ROTATE;
+
 		public static const PAD_LEFT_STICK_AXIS = 1000;
 		public static const PAD_RIGHT_STICK_AXIS = 1001;
 		public static const PAD_LEFT_TRIGGER_AXIS = 1002;

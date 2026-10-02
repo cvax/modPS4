@@ -10,11 +10,15 @@ package red.game.witcher3.menus.crafting
 	import flash.display.MovieClip;
 	import flash.display.Sprite;
 	import flash.events.Event;
+	import flash.events.GestureEvent;
 	import flash.text.TextField;
 	import flash.utils.getDefinitionByName;
+
 	import red.core.constants.KeyCode;
 	import red.core.CoreMenuModule;
 	import red.core.events.GameEvent;
+	import red.core.events.GestureEventEx;
+	import red.game.witcher3.constants.EInputDeviceType;
 	import red.game.witcher3.controls.InputFeedbackButton;
 	import red.game.witcher3.controls.W3TextArea;
 	import red.game.witcher3.controls.W3UILoader;
@@ -24,12 +28,13 @@ package red.game.witcher3.menus.crafting
 	import red.game.witcher3.slots.SlotBase;
 	import red.game.witcher3.slots.SlotCrafting;
 	import red.game.witcher3.slots.SlotsListPreset;
+	import red.game.witcher3.utils.CommonUtils;
+
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.events.ButtonEvent;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.ui.InputDetails;
-	import red.game.witcher3.utils.CommonUtils;
 	
 	public class ItemCraftingModule extends CoreMenuModule
 	{
@@ -99,7 +104,7 @@ package red.game.witcher3.menus.crafting
 			
 			if (txtWarning && mcWarningBackgound)
 			{
-				const padding:Number = 30;
+				const padding:Number = 24;
 				txtWarning.text = "[[panel_crafting_description]]";
 				mcWarningBackgound.height = txtWarning.textHeight + padding;
 			}
@@ -169,7 +174,8 @@ package red.game.witcher3.menus.crafting
 				if (feedbackButton)
 				{
 					feedbackButton.setDataFromStage(NavigationCode.GAMEPAD_A, KeyCode.E);
-					feedbackButton.addEventListener(ButtonEvent.CLICK, handleCraftClick, false, 0, true);
+					feedbackButton.addEventListener(ButtonEvent.CLICK, handleCraftClickOrTap, false, 0, true);
+					feedbackButton.addEventListener( GestureEventEx.GESTURE_TAP, handleCraftClickOrTap, false, 0, true );	
 				}
 				
 				updateCraftingButton();
@@ -184,36 +190,39 @@ package red.game.witcher3.menus.crafting
 			
 			if (mcCanCraftFeedback)
 			{
-				var isGamepad:Boolean = InputManager.getInstance().isGamepad();
+				var isMouse:Boolean = InputManager.getInstance().isMouse();
 				var craftText:W3TextArea = mcCanCraftFeedback.getChildByName("txtCraft") as W3TextArea;
 				
 				if (craftText)
 				{
-					craftText.visible = isGamepad;
+					craftText.visible = !isMouse;
 				}
 				
 				var feedbackButton:InputFeedbackButton = mcCanCraftFeedback.getChildByName("mcButton") as InputFeedbackButton;
 				if (feedbackButton)
 				{
-					if (isGamepad)
+					if (isMouse)
+					{
+						feedbackButton.label = "[[panel_crafting_craft_item]]";
+						feedbackButton.y = BTN_MOUSE_Y;
+						feedbackButton.clickable = true;
+						feedbackButton.validateNow();
+
+						feedbackButton.x = - feedbackButton.getViewWidth() / 2;
+					}
+					else
 					{
 						feedbackButton.label = "";
 						feedbackButton.y = BTN_GAMEPAD_Y;
 						feedbackButton.x = BTN_GAMEPAD_X;
-					}
-					else
-					{
-						feedbackButton.label = "[[panel_crafting_craft_item]]";
+						feedbackButton.clickable = false;
 						feedbackButton.validateNow();
-						
-						feedbackButton.y = BTN_MOUSE_Y;
-						feedbackButton.x = - feedbackButton.getViewWidth() / 2;
 					}
 				}
 			}
 		}
 		
-		protected function handleCraftClick(event:Event):void
+		protected function handleCraftClickOrTap(event:Event):void
 		{
 			startCrafting();
 		}
@@ -346,6 +355,7 @@ package red.game.witcher3.menus.crafting
 				// mcItemSlotsListPreset.validateNow();
 			}
 			
+			mcItemSlotsListPreset.enableTouch( true );
 			mcItemSlotsListPreset.data = itemData;
 			mcItemSlotsListPreset.validateNow();
 			
@@ -493,6 +503,7 @@ package red.game.witcher3.menus.crafting
 		override public function handleInput( event:InputEvent ):void
 		{
 			var inputDetails:InputDetails = event.details as InputDetails;
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 			
 			if( inputDetails.value == InputValue.KEY_DOWN )
 			{
@@ -501,8 +512,8 @@ package red.game.witcher3.menus.crafting
 					startCrafting();
 					event.handled = true;
 				}
-				else
-				if (inputDetails.navEquivalent == NavigationCode.GAMEPAD_Y)
+				else if ((isSwitchPlatform && inputDetails.navEquivalent == NavigationCode.GAMEPAD_X) ||	// X on switch
+						(!isSwitchPlatform && inputDetails.navEquivalent == NavigationCode.GAMEPAD_Y))		// Y on other platforms
 				{
 					var ingrSlot:SlotCrafting = mcItemSlotsListPreset.getSelectedRenderer() as SlotCrafting;
 					

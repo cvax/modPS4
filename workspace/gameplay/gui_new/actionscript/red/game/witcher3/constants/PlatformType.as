@@ -8,6 +8,8 @@ package red.game.witcher3.constants
 		public static const PLATFORM_PS5 : uint = 3;
 		public static const PLATFORM_XB_SCARLETT_ANACONDA = 4;
 		public static const PLATFORM_XB_SCARLETT_LOCKHART = 5;
+		public static const PLATFORM_SWITCH2 = 6;
+		public static const PLATFORM_PC_GDK = 7;
 		public static const PLATFORM_UNKNOWN : uint = 255;
 		
 		public static function getPlatformSpecificResourceString(platformType : uint, resourcePrefix : String):String
@@ -16,6 +18,7 @@ package red.game.witcher3.constants
 			{
 				case PlatformType.PLATFORM_UNKNOWN:
 				case PlatformType.PLATFORM_PC:
+				case PlatformType.PLATFORM_PC_GDK:
 					// modPS4++
 					// return "[[" + resourcePrefix + "" + "]]";
 					return "[[" + resourcePrefix + "_ps4" + "]]";
@@ -33,6 +36,9 @@ package red.game.witcher3.constants
 					// modPS4--
 				case PlatformType.PLATFORM_PS5:
 					return "[[" + resourcePrefix + "_ps4" + "]]";
+					break;
+				case PlatformType.PLATFORM_SWITCH2:
+					return "[[" + resourcePrefix + "_switch" + "]]";
 					break;
 			}
 			return "";

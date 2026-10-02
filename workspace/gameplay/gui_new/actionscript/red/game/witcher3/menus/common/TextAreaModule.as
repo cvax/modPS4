@@ -23,6 +23,7 @@ package red.game.witcher3.menus.common
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
 	import red.game.witcher3.utils.CommonUtils;
+	import flash.events.TransformGestureEvent;
 
 	public class TextAreaModule extends CoreMenuModule
 	{
@@ -40,11 +41,14 @@ package red.game.witcher3.menus.common
 		public var mcScrollbar 	: ScrollBar;
 		public var mcSeparator 	: Sprite;
 		public var mcFrameDescr	: MovieClip;
-		
+
 		protected var _inputSymbolScroll				:int = -1;
-		public static const TEXT_HEIGHT_PADDING 		: int = 0.5;
-		public static const TEXT_HEADER_PADDING_BOTTOM 	: int = 18;
-		
+
+		public static const TEXT_HEIGHT_PADDING 		: Number = 0.5;
+		public static const TEXT_HEADER_PADDING_BOTTOM 	: Number = 18;
+		public static const FRAME_PADDING_TWO_SIDES : Number = 25;
+
+		private var cached_mcFrameDescr_Height : Number;
 		
 
 		/********************************************************************************************************************
@@ -77,6 +81,11 @@ package red.game.witcher3.menus.common
 			{
 				headerColor.visible = false;
 			}
+
+			if(mcFrameDescr)
+			{
+				cached_mcFrameDescr_Height = mcFrameDescr.height;
+			}
 		}
 
 		protected override function configUI():void
@@ -103,7 +112,7 @@ package red.game.witcher3.menus.common
 
 			return false;
 		}
-
+		
 		/********************************************************************************************************************
 			DATA
 		/ ******************************************************************************************************************/
@@ -120,6 +129,15 @@ package red.game.witcher3.menus.common
 				}
 				tfTitle.htmlText = value;
 				tfTitle.htmlText = CommonUtils.toUpperCaseSafe(tfTitle.htmlText);
+
+				if(mcFrameDescr)
+				{
+					var newHeight : Number = tfTitle.textHeight + FRAME_PADDING_TWO_SIDES;
+					if (newHeight < cached_mcFrameDescr_Height) newHeight = cached_mcFrameDescr_Height;
+					mcFrameDescr.height = newHeight;
+
+					trace("JIFIX TESTING", tfTitle, "HEIGHTS", tfTitle.textHeight, newHeight, mcFrameDescr.height);
+				}
 				
 			}
 			handleDataChanged();
@@ -211,7 +229,7 @@ package red.game.witcher3.menus.common
 						headerColor.gotoAndStop( "main" );
 						break;
 					case 1: //Main Quests
-						headerColor.gotoAndStop( "main" );;
+						headerColor.gotoAndStop( "main" );
 						break;
 					case 2://Secondary Quests
 						headerColor.gotoAndStop( "secondary" );
@@ -252,7 +270,6 @@ package red.game.witcher3.menus.common
 			validateNow();
 			updateInputFeedback();
 		}
-
 
 		override public function set focused(value:Number):void
 		{
@@ -344,6 +361,11 @@ package red.game.witcher3.menus.common
 			}
 			
 			InputFeedbackManager.updateButtons(this);
+		}
+
+		public function enableTouch( enable : Boolean ) : void
+		{
+			mcTextArea.enableScrollWithPan( enable );
 		}
 	}
 }

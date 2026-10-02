@@ -15,6 +15,7 @@ package red.game.witcher3.controls
 	import red.core.constants.KeyCode;
 	import red.core.events.GameEvent;
 	import red.game.witcher3.events.CategoryChangeEvent;
+	import red.game.witcher3.managers.InputManager;
 	import red.game.witcher3.menus.common.IconItemRenderer;
 	import red.game.witcher3.slots.SlotsListBase;
 	import red.game.witcher3.slots.SlotsListGrid;
@@ -36,6 +37,9 @@ package red.game.witcher3.controls
 	import scaleform.clik.interfaces.IListItemRenderer;
 	import scaleform.clik.ui.InputDetails;
 	import red.core.CoreComponent;
+	import red.game.witcher3.utils.CommonUtils;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
 
 	public class W3DropdownMenuListItem extends DropdownMenu implements IListItemRenderer
 	{
@@ -52,6 +56,7 @@ package red.game.witcher3.controls
 		private var bOpenedByDefault : Boolean = false;
 		private var categoryPostfix : String = "";
 		protected var bLabelSortingEnabled : Boolean = true;
+		private var bEnableTouch : Boolean = false;
 				
 		public var selectionEventName : String = "OnEntrySelected";
 
@@ -69,7 +74,7 @@ package red.game.witcher3.controls
 		override protected function configUI():void
 		{
 			super.configUI();
-			addEventListener(ButtonEvent.CLICK, handleItemPress, false, 0, true);
+			addEventListener(ButtonEvent.CLICK, handleDropdownHeaderClickOrTap, false, 0, true);
 		}
 
 		override public function toString():String
@@ -119,6 +124,20 @@ package red.game.witcher3.controls
         public function set CategoryTag( value : uint ) : void
 		{
 			categoryTag = value;
+		}
+
+        public function set enableTouch( enable : Boolean ) : void
+		{
+			bEnableTouch = enable;
+
+			if ( bEnableTouch )
+			{
+				addEventListener( GestureEventEx.GESTURE_TAP, handleDropdownHeaderClickOrTap, false, 0, true);
+			}
+			else
+			{
+				removeEventListener( GestureEventEx.GESTURE_TAP, handleDropdownHeaderClickOrTap );
+			}
 		}
 
         public function setListData(listData:ListData):void
@@ -385,7 +404,7 @@ package red.game.witcher3.controls
 		{
 			changeFocus();
 
-			trace("GFX - @@@@@@@@@@@@ SelectSubListItem "+this+" idx "+idx);
+			trace("W3DropdownMenuListItem::SelectSubListItem "+this+" idx "+idx);
 			_dropdownRef.selectedIndex = idx;
 			selectedIndex = idx;
 		}
@@ -572,6 +591,7 @@ package red.game.witcher3.controls
 			if (list && list is W3ScrollingList)
 			{
 				var convertedList:W3ScrollingList = list as W3ScrollingList;
+				convertedList.enableTouch( bEnableTouch );
 				convertedList.validateNow();
 
 				var currentItem:IconItemRenderer;
@@ -649,11 +669,13 @@ package red.game.witcher3.controls
 			dispatchEvent(event);
 		}
 
-		protected function handleItemPress( e : ButtonEvent )  // #B haxed :/ - fix it later
+		protected function handleDropdownHeaderClickOrTap( event : Event ) : void // #B haxed :/ - fix it later
 		{
-			W3DropDownList(parent).previousSelectedIndex = -3;
-			W3DropDownList(parent).ResetPreviousDropdownSelection( W3DropDownList(parent).selectedIndex );
-			W3DropDownList(parent).selectedIndex = this.index;
+			var parentList : W3DropDownList = W3DropDownList( parent );
+
+			parentList.previousSelectedIndex = -3;
+			parentList.ResetPreviousDropdownSelection( W3DropDownList(parent).selectedIndex );
+			parentList.selectedIndex = this.index;
 
 			!isOpen() ? open() : close();
 		}
@@ -731,12 +753,12 @@ package red.game.witcher3.controls
 
 		override protected function handleStageClick(event:MouseEvent):void
 		{
+
         }
 
 		override protected function handleMenuItemClick(e:ListEvent):void
 		{
 			var dropdownList:W3DropDownList = parent as W3DropDownList;
-			
 			if (dropdownList)
 			{
 				dropdownList.previousSelectedIndex = -3;
@@ -759,10 +781,12 @@ package red.game.witcher3.controls
 
 		protected function handleMenuItemDoubleClick(e:ListEvent):void
 		{
+
         }
 
 		protected function handleMenuItemPress(e:ListEvent):void
 		{
+			
         }
 
 		override protected function changeFocus():void //#B overrided as super.super.changeFocus, because we don't want to changeFocus affect if dropDown is opened
@@ -811,6 +835,7 @@ package red.game.witcher3.controls
 
 		override public function set selected(value:Boolean):void
 		{
+			//[ W3DropdownMenuListItem is a CLIK Button ] Override button selected, fire category change event if selection is changed, and run super
 			if (value != _selected)
 			{
 				var catChangeEvent:CategoryChangeEvent = new CategoryChangeEvent(CategoryChangeEvent.CATEGORY_CHANGED, true);
@@ -818,17 +843,19 @@ package red.game.witcher3.controls
 				catChangeEvent.categoryItemRenderer = this;
 				dispatchEvent(catChangeEvent);
 			}
+			
 			super.selected = value;
 		}
 
         override public function handleInput(event:InputEvent):void
 		{
             if ( event.handled || !_selected || !enabled ) { return; }
+			if ( !CommonUtils.isActuallyVisible(this) ) { return; }
+
 			var details:InputDetails = event.details;
-
 			var keyFilter:Boolean = details.value == InputValue.KEY_DOWN || details.value == InputValue.KEY_HOLD;
-
 			var extendedNavCode:String = details.navEquivalent;
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 
 			// #J Did this to match behavior in W3ScrollingList which works off of keycodes instead of nav codes and uses w/s
 			switch (details.code)
@@ -855,23 +882,26 @@ package red.game.witcher3.controls
 
 			switch (extendedNavCode)
 			{
+				case NavigationCode.GAMEPAD_X:
 				case NavigationCode.GAMEPAD_Y:
-					
-					if (selected && details.value == InputValue.KEY_DOWN)
+					if ((isSwitchPlatform && extendedNavCode == NavigationCode.GAMEPAD_X) ||	// X on switch2
+						(!isSwitchPlatform && extendedNavCode == NavigationCode.GAMEPAD_Y))		// Y on all other platforms
 					{
-						if ( isOpen() )
+						if (selected && details.value == InputValue.KEY_DOWN)
 						{
-							close();
-							
-							var mcSelection:MovieClip = getChildByName("mcSelectionHighlight") as MovieClip; // sorry
-							if ( mcSelection ) mcSelection.visible = true;
+							if ( isOpen() )
+							{
+								close();
+								
+								var mcSelection:MovieClip = getChildByName("mcSelectionHighlight") as MovieClip; // sorry
+								if ( mcSelection ) mcSelection.visible = true;
+							}
+							event.handled = true;
 						}
+						
+						//W3DropDownList(parent).forceUpdateSelection(this.index);
+						//W3DropDownList(parent).selectedIndex = this.index;
 					}
-					
-					//W3DropDownList(parent).forceUpdateSelection(this.index);
-					//W3DropDownList(parent).selectedIndex = this.index;
-					event.handled = true;
-					
 					break;
 				case NavigationCode.GAMEPAD_A:
 					if (selected && selectedIndex == -1 && details.value == InputValue.KEY_DOWN)

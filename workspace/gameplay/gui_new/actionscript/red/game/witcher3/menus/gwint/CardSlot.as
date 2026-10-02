@@ -325,7 +325,7 @@
 			
 			if (data != null)
 			{
-				trace("GFX - CardSlot setData called with cardID: " + data.cardID + ", and copy count: " + data.numCopies);
+				CardManager.log("CardSlot setData called with cardID: " + data.cardID + ", and copy count: " + data.numCopies);
 				cardIndex = data.cardID;
 				
 				if (mcCopyCount)
@@ -403,7 +403,7 @@
 		
 		protected function setupCardWithTemplate(cardTemplate:CardTemplate):void
 		{
-			trace("GFX - CardSlot setting card up with cardID: " + cardIndex + ", and template: " + cardTemplate);
+			CardManager.log("CardSlot setting card up with cardID: " + cardIndex + ", and template: " + cardTemplate);
 			if (cardTemplate)
 			{
 				var typeString = cardTemplate.getTypeString();
@@ -511,7 +511,7 @@
 					}
 				}
 				
-				trace("GFX --- setting up card with effect: " + cardTemplate.getEffectString());
+				CardManager.log("setting up card with effect: " + cardTemplate.getEffectString());
 				
 				if (mcEffectIcon1)
 				{
@@ -542,6 +542,11 @@
 				if (instanceId != -1)
 				{
 					var cardInstance:CardInstance = CardManager.getInstance().getCardInstance(instanceId);
+					if(cardInstance == null)
+					{
+						trace("CRITICAL ERROR : Null pointer", new Error().getStackTrace());
+						return;
+					}
 					var totalPower:int = cardInstance.getTotalPower();
 					txtPowerValue.text = totalPower.toString();
 				}

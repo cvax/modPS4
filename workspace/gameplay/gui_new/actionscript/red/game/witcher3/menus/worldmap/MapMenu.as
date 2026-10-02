@@ -10,6 +10,8 @@ package red.game.witcher3.menus.worldmap
 	import com.gskinner.motion.easing.Exponential;
 	import com.gskinner.motion.GTween;
 	import com.gskinner.motion.GTweener;
+	import red.game.witcher3.LinearEase;
+
 	import flash.display.MovieClip;
 	import flash.display.Sprite;
 	import flash.events.Event;
@@ -19,9 +21,15 @@ package red.game.witcher3.menus.worldmap
 	import flash.geom.Rectangle;
 	import flash.text.TextField;
 	import flash.utils.Dictionary;
+	import flash.events.TransformGestureEvent;
+	import flash.events.GestureEvent;
+
 	import red.core.constants.KeyCode;
 	import red.core.CoreMenu;
 	import red.core.events.GameEvent;
+	import red.core.events.GestureEventEx;
+	import red.core.events.TransformGestureEventEx;
+	import red.game.witcher3.constants.EInputDeviceType;
 	import red.game.witcher3.constants.MapState;
 	import red.game.witcher3.controls.InputFeedbackButton;
 	import red.game.witcher3.controls.W3ScrollingList;
@@ -34,11 +42,13 @@ package red.game.witcher3.menus.worldmap
 	import red.game.witcher3.menus.worldmap.data.CategoryData;
 	import red.game.witcher3.tooltips.TooltipMap;
 	import red.game.witcher3.utils.CommonUtils;
+
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.controls.TileList;
 	import scaleform.clik.core.UIComponent;
 	import scaleform.clik.data.DataProvider;
+	import scaleform.clik.events.ButtonEvent;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.events.ListEvent;
 	import scaleform.clik.interfaces.IDataProvider;
@@ -46,9 +56,7 @@ package red.game.witcher3.menus.worldmap
 	import scaleform.clik.ui.InputDetails;
 	import scaleform.gfx.Extensions;
 	import scaleform.gfx.MouseEventEx;
-	import red.game.witcher3.controls.InputFeedbackButton;
-	import scaleform.clik.events.ButtonEvent;
-	
+
 	Extensions.enabled = true;
 	Extensions.noInvisibleAdvance = true;
 
@@ -67,6 +75,10 @@ package red.game.witcher3.menus.worldmap
 		private const LAYER_HUB      = 1;
 		private const LAYER_INTERIOR = 2;
 
+		private const MAPNAME_SAFE_PADDING:Number = 10;
+
+		private static const ANIM_TIME : Number = 0.22;
+
 		public var tfDebugInfo		: TextField;
 
 		public var mcVisibleArea	: MovieClip;
@@ -78,13 +90,15 @@ package red.game.witcher3.menus.worldmap
 		public var tooltipInstance  : TooltipMap;
 		public var userPinPanel		: UserPinPanel;
 		public var userPinPanelBackground : MovieClip;
-		public var mcHubMapPinPanel		: MovieClip;
-		public var mcHubMapQuestTracker : MovieClip;
+		public var mcHubMapPinPanel		: HubMapPinPanel;
+		public var mcHubMapQuestTracker : MovieClip; //<-- current quest objective tracker
+		public var mcHubMapQuestTrackerMain : MovieClip;
 
 		public var mcGotoWorldMap		: MovieClip;
 		public var mapName				: MovieClip;
 		public var objectivesTitleHint	: CurrentQuestMapHint;
 		public var mcWorldMapButton		: MovieClip;
+		public var mcQTButtons			: MovieClip;
 
 		private var m_fastTravelPinData	 : Object;
 		private var m_trackableMappinTag : uint;
@@ -100,15 +114,12 @@ package red.game.witcher3.menus.worldmap
 		private var m_action_OpenRegion		 : int = -1;
 		private var m_action_PlaceMappin	 : int = -1;
 		private var m_action_MappinPanel     : int = -1;
-		/*
-		private var m_action_MapPreview      : int = -1;
-		*/
-		/*
-		private var m_action_OpenWorldMap	 : int = -1;
-		*/
-		/*
-		private var m_action_Navigate		 : int = -1;
-		*/
+		private var m_action_Back			 : int = -1;
+		
+		//private var m_action_MapPreview      : int = -1;
+		//private var m_action_OpenWorldMap	 : int = -1;
+		//private var m_action_Navigate		 : int = -1;
+		
 		private var m_action_NavigateFilters : int = -1;
 		
 		private var m_action_GotoPlayer		 : int = -1;
@@ -134,11 +145,13 @@ package red.game.witcher3.menus.worldmap
 		static private var m_currGlobalMousePos : Point = new Point;
 		static private var m_currLocalMousePos : Point = new Point;
 		static private var m_isUsingGamepad : Boolean = false;
+		static private var m_isUsingMouse : Boolean = false;
 		
 		public var mcPointersCanvas			: MovieClip;
 		public var mcMapHitArea:Sprite;
 		
 		private var _lastVisitedHub : UniverseArea;
+		private var cachedAreaName : String;
 		
 		public function MapMenu()
 		{
@@ -150,6 +163,9 @@ package red.game.witcher3.menus.worldmap
 			mcHubMapQuestTracker.visible = false;
 			invalidateControlPanels();
 			upToCloseEnabled = false;
+
+			_enableInputValidation = true;
+			_restrictDirectClosing = true;
 			//objectivesTitleHint.visible = false;
 			
 			tfDebugInfo.visible = false; // true
@@ -177,15 +193,8 @@ package red.game.witcher3.menus.worldmap
 			PinPointersManager.getInstance().init(mcPointersCanvas);
 		}
 		
-		
-		
-		
-
-		override protected function configUI():void
+		override protected function configUI() : void
 		{
-			//
-			//trace("Minimap configUI()");
-			//
 			super.configUI();
 
 			dispatchEvent( new GameEvent( GameEvent.CALL, "OnConfigUI" ) );
@@ -194,7 +203,11 @@ package red.game.witcher3.menus.worldmap
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'map.current.area.name', [setCurrentName] ) );
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'map.quest.name', [setCurrentQuest] ) );
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'map.objectives', [setCurrentObjectives] ) );
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'map.quests.new', [setQuestsNew] ) );
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'map.quest.new.objective', [setNewQuestAndObjectives] ) );
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'map.hubs.custom', [handleCustomHubs] ) ); // NGE
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'map.quest.tracker.state', [setQuestTrackerState] ) );
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'map.show.pin.from.list', [tryShowingAPinFromList] ) );
 			
 			
 			_inputHandlers.push( mcUniverseMap );
@@ -206,15 +219,24 @@ package red.game.witcher3.menus.worldmap
 			stage.addEventListener( InputEvent.INPUT, handleInput, false, 0, true );
 
 			mcMapHitArea.doubleClickEnabled = true;
-			mcMapHitArea.addEventListener( MouseEvent.MOUSE_DOWN,		OnMouseDown,		false, 0, true );
-			mcMapHitArea.addEventListener( MouseEvent.CLICK,			OnMouseDoubleDown,	false, 0, true );
-			mcMapHitArea.addEventListener( MouseEvent.MOUSE_UP,			OnMouseUp,			false, 0, true );
-			mcMapHitArea.addEventListener( MouseEvent.MOUSE_MOVE,		OnMouseMove,		false, 0, true );
-			mcMapHitArea.addEventListener( MouseEvent.MOUSE_WHEEL,		OnMouseWheel,		false, 0, true );
+			mcMapHitArea.addEventListener( MouseEvent.MOUSE_DOWN, onMouseDown, false, 0, true );
+			mcMapHitArea.addEventListener( MouseEvent.CLICK, onMouseClick, false, 0, true );
+			mcMapHitArea.addEventListener( MouseEvent.DOUBLE_CLICK, onMouseDoubleClick, false, 0, true );
+			mcMapHitArea.addEventListener( MouseEvent.MOUSE_UP, onMouseUp, false, 0, true );
+			mcMapHitArea.addEventListener( MouseEvent.MOUSE_MOVE, onMouseMove, false, 0, true );
+			mcMapHitArea.addEventListener( MouseEvent.MOUSE_WHEEL, onMouseWheel, false, 0, true );
+			mcMapHitArea.addEventListener( TransformGestureEvent.GESTURE_ZOOM, onGestureZoom, false, 0, true );
+			mcMapHitArea.addEventListener( TransformGestureEvent.GESTURE_PAN, onGesturePan, false, 0, true );
+			mcMapHitArea.addEventListener( GestureEventEx.GESTURE_TAP, onGestureTap, false, 0, true );
+			mcMapHitArea.addEventListener( GestureEventEx.GESTURE_PRESS, onGesturePress, false, 0, true );
+			mcMapHitArea.addEventListener( GestureEventEx.GESTURE_DOUBLE_TAP, onGestureDoubleTap, false, 0, true );
 			
-			userPinPanelBackground.addEventListener( MouseEvent.MOUSE_DOWN,		OnUserPinBackgroundMouseDown, false, 0, true );
-			userPinPanelBackground.addEventListener( MouseEvent.MOUSE_MOVE,		OnUserPinBackgroundMouseMove, false, 0, true );
-			userPinPanel.addEventListener(           MouseEvent.MOUSE_MOVE,		OnUserPinBackgroundMouseMove, false, 0, true );
+			userPinPanelBackground.addEventListener( MouseEvent.MOUSE_DOWN, onUserPinBackgroundClickOrTouch, false, 0, true );
+			userPinPanelBackground.addEventListener( GestureEventEx.GESTURE_TAP, onUserPinBackgroundClickOrTouch, false, 0, true );
+			userPinPanelBackground.addEventListener( GestureEventEx.GESTURE_PRESS, onUserPinBackgroundClickOrTouch, false, 0, true );
+
+			userPinPanelBackground.addEventListener( MouseEvent.MOUSE_MOVE, onUserPinBackgroundMouseMove, false, 0, true );
+			userPinPanel.addEventListener( MouseEvent.MOUSE_MOVE, onUserPinBackgroundMouseMove, false, 0, true );
 
 			mcHubMap.addEventListener(MapContextEvent.CONTEXT_CHANGE, handleMapContext, false, 0, true);
 			mcHubMap.addEventListener(Event.CHANGE, handleHubMapUpdated, false, 0, true);
@@ -249,9 +271,10 @@ package red.game.witcher3.menus.worldmap
 			UpdateLayers( LAYER_HUB, true );
 			
 			updateKeyboardButtons();
+			initializeQTButtons();
 		}
 		
-		override protected function handleShowAnimComplete(instTween:GTween):void
+		override protected function handleShowAnimComplete(instTween:GTween) : void
 		{
 			super.handleShowAnimComplete(instTween);
 			
@@ -272,8 +295,13 @@ package red.game.witcher3.menus.worldmap
 		{
 			return m_isUsingGamepad;
 		}
+
+		public static function IsUsingMouse() : Boolean
+		{
+			return m_isUsingMouse;
+		}
 		
-		public function setDefaultMapPostion(defX:Number, defY:Number):void
+		public function setDefaultMapPostion(defX:Number, defY:Number) : void
 		{
 			mcHubMap.setDefaultPosition(defX, defY);
 		}
@@ -287,7 +315,7 @@ package red.game.witcher3.menus.worldmap
 			return mcGotoWorldMap.y <= GOTO_WORLD_HINT_SHOWN_Y;
 		}
 		
-		public function showGotoWorldHint(value:Boolean):void
+		public function showGotoWorldHint(value:Boolean) : void
 		{
 			if (value && !m_gotoWorldHintShown)
 			{
@@ -304,12 +332,12 @@ package red.game.witcher3.menus.worldmap
 			}
 		}
 
-		public function setUserMapPin( index : int, fromSelectionPanel : Boolean )
+		public function setUserMapPin( index : int, fromSelectionPanel : Boolean ) : void
 		{
 			mcHubMap.setUserMapPin( index, fromSelectionPanel );
 		}
 
-		private function updateKeyboardButtons()
+		private function updateKeyboardButtons() : void
 		{
 			var show : Boolean = ( IsLayer( LAYER_HUB ) && !m_isUsingGamepad );
 
@@ -334,18 +362,65 @@ package red.game.witcher3.menus.worldmap
 			mcWorldMapButton.mcBackground.x -= backgroundWidthDiff;
 			mcWorldMapButton.mcBackground.width = backgroundWidth;
 		}
-		
-		private function initializeKeyboardButtons()
+
+		private function initializeQTButtons() : void
 		{
+			mcQTButtons.btnChangeQuest.clickable = true;
+			mcQTButtons.btnChangeQuest.setDataFromStage( NavigationCode.GAMEPAD_L2, KeyCode.F );				
+			mcQTButtons.btnChangeQuest.visible = true;
+			mcQTButtons.btnChangeQuest.addEventListener( ButtonEvent.CLICK, handleChangeQuestClickOrTap, false, 0, true );
+			mcQTButtons.btnChangeQuest.addEventListener( GestureEventEx.GESTURE_TAP, handleChangeQuestClickOrTap, false, 0, true );
+			mcQTButtons.btnChangeQuest.label = "[[panel_button_map_change_quest]]";
+			mcQTButtons.btnChangeQuest.validateNow();
+			mcQTButtons.btnChangeQuest.x = - mcQTButtons.btnChangeQuest.getViewWidth();
+
+			mcQTButtons.btnChangeObj.clickable = true;
+			mcQTButtons.btnChangeObj.setDataFromStage( getChangeObjectiveGPadNavCode(), KeyCode.G );				
+			mcQTButtons.btnChangeObj.visible = true;
+			mcQTButtons.btnChangeObj.addEventListener( ButtonEvent.CLICK, handleChangeObjClickOrTap, false, 0, true );
+			mcQTButtons.btnChangeObj.addEventListener( GestureEventEx.GESTURE_TAP, handleChangeObjClickOrTap, false, 0, true );
+			mcQTButtons.btnChangeObj.label = "[[panel_button_map_change_objective]]";
+			mcQTButtons.btnChangeObj.validateNow();
+			mcQTButtons.btnChangeObj.x = mcQTButtons.btnChangeQuest.x + mcQTButtons.btnChangeQuest.getViewWidth() - mcQTButtons.btnChangeObj.getViewWidth();
+
+			updateQTButtons();
+		}
+
+		private function updateQTButtons() : void //only positioning
+		{
+			mcQTButtons.btnChangeObj.updateDataFromStage();
+			mcQTButtons.btnChangeQuest.updateDataFromStage();
+
+			var BUTTON_GAP : Number = 10;
+			var buttonWidth : Number = mcQTButtons.btnChangeQuest.getViewWidth() + mcQTButtons.btnChangeObj.getViewWidth() + BUTTON_GAP;
+			var backgroundWidth     : Number = buttonWidth + 2 * 20;
+			var backgroundWidthDiff : Number = backgroundWidth - mcQTButtons.mcBackground.width;
+			//mcQTButtons.btnChangeObj.validateNow();
+			//mcQTButtons.btnChangeQuest.validateNow();
+
+			mcQTButtons.mcBackground.x -= backgroundWidthDiff;
+			mcQTButtons.mcBackground.width = backgroundWidth;
+			//mcWorldMapButton.btnWorldMap.x = -buttonWidth;
+			mcQTButtons.btnChangeObj.x = - mcQTButtons.btnChangeObj.getViewWidth();
+			mcQTButtons.btnChangeQuest.x = - mcQTButtons.btnChangeObj.getViewWidth() - BUTTON_GAP - mcQTButtons.btnChangeQuest.getViewWidth();
+			//mcQTButtons.btnChangeQuest.x = - mcQTButtons.btnChangeQuest.getViewWidth();
+			//mcQTButtons.btnChangeObj.x = mcQTButtons.btnChangeQuest.x + mcQTButtons.btnChangeQuest.getViewWidth() - mcQTButtons.btnChangeObj.getViewWidth() + BUTTON_GAP;;		
+		}
+		
+		private function initializeKeyboardButtons() : void
+		{
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
 			mcWorldMapButton.btnWorldMap.clickable = true;
-			mcWorldMapButton.btnWorldMap.setDataFromStage( NavigationCode.GAMEPAD_Y, KeyCode.SPACE );				
+			mcWorldMapButton.btnWorldMap.setDataFromStage( isSwitchPlatform ? NavigationCode.GAMEPAD_X : NavigationCode.GAMEPAD_Y, KeyCode.SPACE );				
 			mcWorldMapButton.btnWorldMap.visible = true;
-			mcWorldMapButton.btnWorldMap.addEventListener( ButtonEvent.CLICK, handleWorldMapButtonClicked, false, 0, true );
+			mcWorldMapButton.btnWorldMap.addEventListener( ButtonEvent.CLICK, handleWorldMapButtonClickOrTap, false, 0, true );
+			mcWorldMapButton.btnWorldMap.addEventListener( GestureEventEx.GESTURE_TAP, handleWorldMapButtonClickOrTap, false, 0, true );
 			mcWorldMapButton.btnWorldMap.validateNow();
 			mcWorldMapButton.btnWorldMap.x = - mcWorldMapButton.btnWorldMap.getViewWidth();
 		}
 		
-		public function handleWorldMapButtonClicked( event : ButtonEvent )
+		public function handleWorldMapButtonClickOrTap( event : Event ) : void
 		{
 			if ( IsLayer( LAYER_HUB ) )
 			{
@@ -363,73 +438,103 @@ package red.game.witcher3.menus.worldmap
 			}
 		}
 
-		override protected function handleControllerChanged(event:ControllerChangeEvent):void		
+		public function handleChangeObjClickOrTap( event : Event ) : void
+		{
+			if (IsLayer(LAYER_HUB))
+			{
+				dispatchEvent( new GameEvent(GameEvent.CALL, "OnCycleObjectivesDefault") );
+			}
+		}
+
+		public function handleChangeQuestClickOrTap( event : Event ) : void
+		{
+			var hubState = mcHubMapQuestTracker.GetState();
+
+			if (IsLayer(LAYER_HUB))
+			{
+				if(hubState == "normal")
+					dispatchEvent( new GameEvent(GameEvent.CALL, "OnRequestQuestTrackerState", ["quest"]) );
+				else
+					dispatchEvent( new GameEvent(GameEvent.CALL, "OnRequestQuestTrackerState", ["normal"]) );
+			}
+		}
+
+		override protected function handleControllerChanged(event:ControllerChangeEvent) : void		
 		{
 			super.handleControllerChanged(event);
 
-			//
-			//trace("Minimap CONTROLLER " + event.isGamepad + " " + InputManager.getInstance().isGamepad() );
-			//
-
 			m_isUsingGamepad = InputManager.getInstance().isGamepad(); // event.isGamepad
+			m_isUsingMouse = InputManager.getInstance().isMouse();
 			
-			mcUniverseMap.OnControllerChanged( m_isUsingGamepad );
-			mcHubMap.OnControllerChanged( m_isUsingGamepad );
+			mcUniverseMap.OnControllerChanged( m_isUsingGamepad, m_isUsingMouse );
+			mcHubMap.OnControllerChanged( m_isUsingGamepad, m_isUsingMouse );
 			
-			mcHubMapPinPanel.OnControllerChanged( m_isUsingGamepad );
+			mcHubMapPinPanel.OnControllerChanged( m_isUsingGamepad, m_isUsingMouse );
+
+			// Update input hints
+			if (m_action_PlaceMappin > 0)
+			{
+				InputFeedbackManager.removeButton(this, m_action_PlaceMappin);
+				m_action_PlaceMappin =	InputFeedbackManager.appendButton(this, getWaypointGPadNavCode(), KeyCode.RIGHT_MOUSE, "panel_map_open_waypoint_panel");
+			}
+			if (m_action_MappinPanel > 0)
+			{
+				InputFeedbackManager.removeButton(this, m_action_MappinPanel);
+				m_action_MappinPanel =	InputFeedbackManager.appendButton(this, getWaypointGPadNavCode(), KeyCode.RIGHT_MOUSE, "panel_map_place_waypoint", true);
+			}
+
+			mcQTButtons.btnChangeObj.setDataFromStage( getChangeObjectiveGPadNavCode(), KeyCode.G );
+			
+			InputFeedbackManager.updateButtons(this);
 			
 			updateKeyboardButtons();
+			updateQTButtons();
 		}
 		
-		private function handleGotoWorldHintHidden(tweenInstance:GTween):void
+		private function handleGotoWorldHintHidden(tweenInstance:GTween) : void
 		{
 			mcGotoWorldMap.visible = false;
 		}
 		
-		public function /* Witchescript */ RemoveUserMapPin( id : uint ):void
+//---------------------------------------------------------------------------------------------------------------------
+//Witcherscript functions
+		public function RemoveUserMapPin( id : uint ) : void
 		{
 			if ( IsLayer( LAYER_HUB ) )
 			{
 				mcHubMap.RemoveUserMapPin( id );
-				
 				removePinFromCategoryPanel( id );
 			}
 		}
 		
-		public function /* Witchescript */ SetMapZooms( minZoom : Number, maxZoom : Number, zoom12 : Number, zoom23 : Number, zoom34 : Number )
+		public function SetMapZooms( minZoom : Number, maxZoom : Number, zoom12 : Number, zoom23 : Number, zoom34 : Number ) : void
 		{
 			mcHubMap.SetMapZooms( minZoom,  maxZoom, zoom12, zoom23, zoom34 );
 		}
 
-		public function /* Witchescript */ SetMapVisibilityBoundaries( minX : int, maxX : int, minY : int, maxY : int, gradientScale : Number )
+		public function SetMapVisibilityBoundaries( minX : int, maxX : int, minY : int, maxY : int, gradientScale : Number ) : void
 		{
 			mcHubMap.SetMapVisibilityBoundaries( minX, maxX, minY, maxY, gradientScale );
 		}
 
-		public function /* Witchescript */ SetMapScrollingBoundaries( minX : int, maxX : int, minY : int, maxY : int )
+		public function SetMapScrollingBoundaries( minX : int, maxX : int, minY : int, maxY : int ) : void
 		{
 			mcHubMap.SetMapScrollingBoundaries( minX, maxX, minY, maxY );
 		}
 
-		public function /* Witchescript */ SetMapSettings( mapSize : Number, tileCount : int, textureSize : int, minLod : int, maxLod : int, imagePath : String, previewAvailable : Boolean, previewMode : int )
+		public function SetMapSettings( mapSize : Number, tileCount : int, textureSize : int, minLod : int, maxLod : int, imagePath : String, previewAvailable : Boolean, previewMode : int ) : void
 		{
-			//
 			// DEBUG INFO
-			//
 			//MapMenu.m_debugInfo.__DebugInfo_SetMinMaxLod( minLod, maxLod );
-			//
-			//
-			//
-
 			mcHubMap.SetMapSettings( mapSize, tileCount, textureSize, minLod, maxLod, imagePath, mcVisibleArea, previewAvailable, previewMode );
 		}
 
-		public function /* Witchescript */ ReinitializeMap()
+		public function ReinitializeMap() : void
 		{
 			mcHubMap.ReinitializeMap();
 		}
-		
-		public function /* Witchescript */ EnableDebugMode( enable : Boolean )
+
+		public function EnableDebugMode( enable : Boolean ) : void
 		{
 			if ( tfDebugInfo )
 			{
@@ -437,62 +542,78 @@ package red.game.witcher3.menus.worldmap
 			}
 		}
 
-		public function /* Witchescript */ EnableUnlimitedZoom( enable : Boolean )
+		public function EnableUnlimitedZoom( enable : Boolean ) : void
 		{
 			mcHubMap.EnableUnlimitedZoom( enable );
 		}
 
-		public function /* Witchescript */ EnableManualLod( enable : Boolean )
+		public function EnableManualLod( enable : Boolean ) : void
 		{
 			mcHubMap.EnableManualLod( enable );
 		}
 
-		public function /* Witchescript */ ShowBorders( enable : Boolean )
+		public function ShowBorders( enable : Boolean ) : void
 		{
 			m_showDebugBorders = enable;
 			mcHubMap.UpdateDebugBorders();
 		}
 
-		public function /* Witchescript */ ShowToussaint( show : Boolean )
+		public function ShowToussaint( show : Boolean ) : void
 		{
 			mcUniverseMap.mcUniverseMapContainer.mcToussaint.visible = show;
 			mcUniverseMap.mcUniverseMapContainer.mcToussaint.enabled = show;
 			mcUniverseMap.mcUniverseMapContainer.mcToussaint_mask.enabled = show;
 		}
 		
-		public function /* Witchescript */ SetHighlightedMapPin( tag : int )
+		public function SetHighlightedMapPin( tag : int ) : void
 		{
 			mcHubMap.setHighlightedMapPin( tag );
 		}
+//---------------------------------------------------------------------------------------------------------------------
 		
-		protected function setCurrentQuest(value:Object):void
+		protected function setCurrentQuest(value:Object) : void
 		{
 			mcHubMapQuestTracker.setCurrentQuest( value );
 		}
 		
-		protected function setCurrentObjectives( value: Object )
+		protected function setCurrentObjectives( value: Object ) : void
 		{
 			mcHubMapQuestTracker.setCurrentObjectives( value as Array );
 		}
 
-		protected function setMapName(value:String):void
+		protected function setQuestsNew( value: Object ) : void
+		{
+			mcHubMapQuestTracker.setQuestsNew( value as Array );
+		}
+
+		protected function setNewQuestAndObjectives(value : Object):void
+		{
+			mcHubMapQuestTracker.setNewQuestAndObjectives(value);
+		}
+
+		protected function setMapName(value:String) : void
 		{
 			var targetTextField:TextField = mapName["textField"];
 			targetTextField.text = value;
 			targetTextField.text = CommonUtils.toUpperCaseSafe(targetTextField.text);
+			var bgArea:MovieClip = mapName["mcBackgroundArea"];
+			var oldWidth : Number = bgArea.width;
+			bgArea.width = targetTextField.textWidth + 2 * MAPNAME_SAFE_PADDING;
+			mapName.x = mapName.x - (oldWidth - bgArea.width) / 2;
 		}
 
-		protected function setCurrentArea(areaId:int):void
+		protected function setCurrentArea(areaId:int) : void
 		{
 			mcHubMap.setCurrentAreaId( areaId );
 		}
 
-		protected function setCurrentName(areaName:String):void
+		protected function setCurrentName(areaName:String) : void
 		{
 			_lastVisitedHub = mcUniverseMap.mcUniverseMapContainer.GetHubMapByName( areaName );
+			cachedAreaName = areaName;
 		}
 
-		override public function setMenuState(value:String):void
+		override public function setMenuState(value:String) : void
 		{
 			super.setMenuState(value);
 
@@ -501,13 +622,33 @@ package red.game.witcher3.menus.worldmap
 			m_invalidateState = value;
 		}
 
-		private function handleStateValidate(event:Event):void
+		private function handleStateValidate(event:Event) : void
 		{
 			removeEventListener(Event.ENTER_FRAME, handleStateValidate, false);
 			applyState(m_invalidateState);
 		}
 
-		private function applyState(stateName:String, changeMapLayer:Boolean = false):void
+		private function getWaypointGPadNavCode() : String
+		{
+			if (InputManager.getInstance().isSwitchPlatform())
+			{
+				return InputManager.getInstance().gamepadType == EInputDeviceType.IDT_Switch2_Mouser ? NavigationCode.GAMEPAD_R2 : NavigationCode.GAMEPAD_Y;
+			}
+
+			return NavigationCode.GAMEPAD_X;
+		}
+
+		private function getChangeObjectiveGPadNavCode() : String
+		{
+			if (InputManager.getInstance().isSwitchPlatform() && InputManager.getInstance().gamepadType == EInputDeviceType.IDT_Switch2_Mouser)
+			{
+				return NavigationCode.GAMEPAD_RSTICK_HOLD;
+			}
+
+			return NavigationCode.GAMEPAD_R2;
+		}
+
+		private function applyState(stateName:String, changeMapLayer:Boolean = false) : void
 		{
 			if (stateName != m_currentState)
 			{
@@ -533,11 +674,11 @@ package red.game.witcher3.menus.worldmap
 					}
 					if (m_action_PlaceMappin < 0)
 					{
-						m_action_PlaceMappin =	InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X,				KeyCode.RIGHT_MOUSE,	"panel_map_place_waypoint");
+						m_action_PlaceMappin =	InputFeedbackManager.appendButton(this, getWaypointGPadNavCode(), KeyCode.RIGHT_MOUSE, "panel_map_open_waypoint_panel");
 					}
 					if (m_action_MappinPanel < 0)
 					{
-						m_action_MappinPanel =	InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X,				KeyCode.RIGHT_MOUSE,	"panel_map_open_waypoint_panel", true);
+						m_action_MappinPanel =	InputFeedbackManager.appendButton(this, getWaypointGPadNavCode(), KeyCode.RIGHT_MOUSE, "panel_map_place_waypoint", true);
 					}
 					/*
 					if (m_action_MapPreview < 0)
@@ -564,7 +705,7 @@ package red.game.witcher3.menus.worldmap
 			}
 		}
 		
-		private function handleHubMapUpdated(event:Event):void
+		private function handleHubMapUpdated(event:Event) : void
 		{
 			updateGotoPinButton();
 			InputFeedbackManager.updateButtons(this);
@@ -572,6 +713,11 @@ package red.game.witcher3.menus.worldmap
 
 		public function enableUserPinPanel(value:Boolean, stagePositionForUserPin : Point = null) : void
 		{
+			if ( !value && IsLayer(LAYER_HUB ) )
+			{
+				mcHubMap.OnUserPinPanelClose();
+			}
+
 			if ( m_userPinPanelShown != value )
 			{
 				if ( value )
@@ -609,51 +755,27 @@ package red.game.witcher3.menus.worldmap
 					{
 						centerPosX = mcVisibleArea.x + mcVisibleArea.width / 2 - userPinPanel.width / 2;
 					}
-					
-					/*
-					if ( centerPosY - userPinPanel.height / 2 < mcVisibleArea.y - mcVisibleArea.height / 2 )
+
+					if ( m_isUsingMouse )
 					{
-						centerPosY = mcVisibleArea.y - mcVisibleArea.height / 2 + userPinPanel.height / 2;
+						finalPosX = centerPosX;
+						finalPosY = centerPosY;
 					}
-					else if ( centerPosY + userPinPanel.height / 2 > mcVisibleArea.y + mcVisibleArea.height / 2 )
-					{
-						centerPosY = mcVisibleArea.y + mcVisibleArea.height / 2 - userPinPanel.height / 2;
-					}
-					*/
-					
-					if ( m_isUsingGamepad )
+					else
 					{
 						// move a bit up
 						finalPosX = centerPosX;
 						finalPosY = centerPosY - 30;
 					}
-					else
-					{
-						finalPosX = centerPosX;
-						finalPosY = centerPosY;
-					}
-
-					/*
-					// restrict upper limit
-					if ( finalPosY < mcVisibleArea.y - mcVisibleArea.height / 2 )
-					{
-						finalPosY = stagePositionForUserPin.y + userPinPanel.height / 2 + 20;
-					}
-					*/
 					
 					userPinPanel.x = finalPosX;
 					userPinPanel.y = finalPosY;
 
-					//trace("Minimap SHOW" );
-				}
-				else
-				{
-					//trace("Minimap HIDE" );
 				}
 			}
 		}
 		
-		private function invalidateControlPanels():void
+		private function invalidateControlPanels() : void
 		{
 			m_blockNavigation = false;
 
@@ -684,14 +806,14 @@ package red.game.witcher3.menus.worldmap
 			deactivateContext();
 		}
 
-		private function handleMapContext(event:MapContextEvent):void
+		private function handleMapContext(event:MapContextEvent) : void
 		{			
 			_pendingMapContext = event;
 			removeEventListener(Event.ENTER_FRAME, pendingMapContextUpdate, false);
 			addEventListener(Event.ENTER_FRAME, pendingMapContextUpdate, false, 0, true);
 		}
 		
-		private function pendingMapContextUpdate(event:Event):void
+		private function pendingMapContextUpdate(event:Event) : void
 		{
 			removeEventListener(Event.ENTER_FRAME, pendingMapContextUpdate, false);
 			
@@ -708,7 +830,7 @@ package red.game.witcher3.menus.worldmap
 			}
 		}
 		
-		private function deactivateContext():void
+		private function deactivateContext() : void
 		{
 			tooltipInstance.HideTooltip();
 			m_trackableMappinTag = 0;
@@ -718,7 +840,7 @@ package red.game.witcher3.menus.worldmap
 			InputFeedbackManager.updateButtons(this);
 		}
 		
-		private function cleanUpContextButtons():void
+		private function cleanUpContextButtons() : void
 		{
 			if (m_action_QuestTrack > 0)
 			{
@@ -737,7 +859,7 @@ package red.game.witcher3.menus.worldmap
 			}
 		}
 
-		private function activateContext(event:MapContextEvent):void
+		private function activateContext(event:MapContextEvent) : void
 		{
 			try
 			{
@@ -747,9 +869,6 @@ package red.game.witcher3.menus.worldmap
 				
 				cleanUpContextButtons();
 				
-				//
-				//trace("Minimap ##### activateContext" );
-				//
 				if (event.tooltipData && event.tooltipData.openRegion)
 				{
 					if (m_action_OpenRegion < 0)
@@ -758,7 +877,7 @@ package red.game.witcher3.menus.worldmap
 					}
 				}
 				else
-				if (event.mapppinData.isFastTravel )
+				if (event.mapppinData.isFastTravel && mcHubMapQuestTracker.GetState() == "normal" )
 				{
 					if (m_action_FastTravel < 0)
 					{
@@ -785,9 +904,11 @@ package red.game.witcher3.menus.worldmap
 			}
 		}
 		
-		private function updateGotoPinButton():void
+		private function updateGotoPinButton() : void
 		{
-			if ( IsLayer( LAYER_HUB ) && !MapMenu.IsUsingGamepad() )
+			var isSwitch2Mouser : Boolean = InputManager.getInstance().gamepadType == EInputDeviceType.IDT_Switch2_Mouser;
+
+			if ( IsLayer( LAYER_HUB ) && MapMenu.IsUsingMouse() && !isSwitch2Mouser)
 			{
 				// that depends on mouse cursor position
 				return;
@@ -804,11 +925,8 @@ package red.game.witcher3.menus.worldmap
 			mcHubMap.UpdateGotoButton( true );
 		}
 		
-		private function ShowGotoPlayerButton(show:Boolean):void
+		private function ShowGotoPlayerButton(show:Boolean) : void
 		{
-			//
-			//trace("Minimap ##### ShowGotoPlayerButton " + show );
-			//
 			if (show && m_action_GotoPlayer < 0)
 			{
 				m_action_GotoPlayer = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_LSTICK_HOLD, KeyCode.TAB, "panel_map_goto_player_pin");
@@ -821,11 +939,8 @@ package red.game.witcher3.menus.worldmap
 			}
 		}
 		
-		private function ShowGotoQuestButton(show:Boolean):void
+		private function ShowGotoQuestButton(show:Boolean) : void
 		{
-			//
-			//trace("Minimap ##### ShowGotoQuestButton " + show );
-			//
 			if (show && m_action_GotoQuest < 0)
 			{
 				m_action_GotoQuest = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_LSTICK_HOLD, KeyCode.TAB, "panel_map_goto_quest_pin");
@@ -838,17 +953,25 @@ package red.game.witcher3.menus.worldmap
 			}
 		}
 		
-		private function IsLayer( layer : int )
+		private function IsLayer( layer : int ) : Boolean
 		{
 			return m_currentLayer == layer;
 		}
 
-		private function UpdateLayers( layer : int, force : Boolean = false )
+		private function GetCurrentMapLayer() : BaseMap
 		{
-			//
-			//trace("Minimap UpdateLayers --------------------------------------------------------------------------");
-			//
+			switch (m_currentLayer)
+			{
+				case LAYER_UNIVERSE: return mcUniverseMap;
+				case LAYER_HUB: return mcHubMap;
+				case LAYER_INTERIOR: return mcInteriorMap;
+			}
+			
+			return null;
+		}
 
+		private function UpdateLayers( layer : int, force : Boolean = false ) : void
+		{
 			if ( layer < LAYER_UNIVERSE || layer > LAYER_INTERIOR )
 			{
 				throw(new Error( "Minimap Wrong layer FFS! (" + layer + ")" ));
@@ -864,13 +987,13 @@ package red.game.witcher3.menus.worldmap
 			mcUniverseMap.Enable( m_currentLayer == LAYER_UNIVERSE, force );
 			mcHubMap.Enable(      m_currentLayer == LAYER_HUB,      force );
 			mcInteriorMap.Enable( m_currentLayer == LAYER_INTERIOR, force );
+			mcQTButtons.visible = IsLayer(LAYER_HUB);
 			
 			PinPointersManager.getInstance().disabled = m_currentLayer != LAYER_HUB;
 		}
 
-		override public function handleInput( event:InputEvent ):void
+		override public function handleInput( event:InputEvent ) : void
 		{
-			
 			if ( m_userPinPanelShown )
 			{
 				userPinPanel.handleInput( event );
@@ -885,28 +1008,32 @@ package red.game.witcher3.menus.worldmap
 			}
 			
 			var details:InputDetails = event.details;
-			var keyDown : Boolean  = (details.value == InputValue.KEY_DOWN );
-			var keyUp : Boolean    = (details.value == InputValue.KEY_UP );
-            var keyPress : Boolean = (details.value == InputValue.KEY_DOWN || details.value == InputValue.KEY_HOLD);
-
+			CommonUtils.fixupKeyCode( details );
 
 			// ---------------------- States
-
 			if ( event.handled || m_blockNavigation )
 			{
 				return;
 			}
 
 			// -------------------- Navigation
-
 			if ( mcHubMapPinPanel.visible )
 			{
 				mcHubMapPinPanel.handleInput( event );
 			}
+
 			if ( mcHubMapQuestTracker.visible )
 			{
 				mcHubMapQuestTracker.handleInput( event );
 			}
+
+			var keyDown : Boolean  = (details.value == InputValue.KEY_DOWN );
+			var keyUp : Boolean    = (details.value == InputValue.KEY_UP );
+            var keyPress : Boolean = (details.value == InputValue.KEY_DOWN || details.value == InputValue.KEY_HOLD);
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+			var isSwitch2Mouser : Boolean = InputManager.getInstance().gamepadType == EInputDeviceType.IDT_Switch2_Mouser;
+
+			var hubState = mcHubMapQuestTracker.GetState();
 
 			switch ( details.code )
 			{
@@ -925,6 +1052,7 @@ package red.game.witcher3.menus.worldmap
 							if ( mcHubMap.CanProcessInput() )
 							{
 								switchMap();
+								dispatchEvent( new GameEvent(GameEvent.CALL, "OnRequestQuestTrackerState", ["normal"]) );
 							}
 						}
 					}
@@ -932,27 +1060,55 @@ package red.game.witcher3.menus.worldmap
 				case KeyCode.E:	
 				case KeyCode.ENTER:
 				case KeyCode.PAD_A_CROSS:
-					if ( keyDown )
+					if ( IsLayer( LAYER_UNIVERSE ) && keyDown)
 					{
-						if ( IsLayer( LAYER_UNIVERSE ) && keyDown)
+						if ( mcUniverseMap.CanProcessInput() )
 						{
-							if ( mcUniverseMap.CanProcessInput() )
-							{
-								switchMap();
-							}
+							switchMap();
 						}
-						else if ( IsLayer( LAYER_HUB ) && m_trackableMappinTag)
+					}
+					else if ( IsLayer( LAYER_HUB ))
+					{
+						if(hubState == "normal" && keyDown)
 						{
-							if ( mcHubMap.CanProcessInput() )
+							if ( mcHubMap.CanProcessInput() && m_trackableMappinTag)
 							{
 								dispatchEvent(new GameEvent(GameEvent.CALL, "OnTrackQuest", [m_trackableMappinTag]));
 							}
 						}
+						else if (hubState == "quest" && keyUp)
+						{
+							mcHubMapQuestTracker.setTrackCurrentQuest();
+						}
+						else if (hubState == "objective" && keyUp)
+						{
+							mcHubMapQuestTracker.setTrackCurrentObjective();
+						}
 					}
 					break;
 
+				case KeyCode.ESCAPE:	
+				case KeyCode.PAD_B_CIRCLE:
+					if((hubState == "normal" || IsLayer( LAYER_UNIVERSE )) && keyUp)
+					{
+						hideAnimation();
+					}
+					else if (keyUp)
+					{
+						dispatchEvent( new GameEvent(GameEvent.CALL, "OnRequestQuestTrackerState", ["normal"]) );
+					}
+					break;
+				case KeyCode.H:
+					if(hubState != "normal")
+					{
+						mcHubMapQuestTracker.OpenQuestInJournal();
+					}
+					break;
 				case KeyCode.PAD_Y_TRIANGLE:
-					if (keyDown)
+				case KeyCode.PAD_X_SQUARE:
+					if (keyDown &&
+						((isSwitchPlatform && details.code == KeyCode.PAD_X_SQUARE) ||		// X on switch
+						(!isSwitchPlatform && details.code == KeyCode.PAD_Y_TRIANGLE)))		// Y on other platforms
 					{
 						if ( IsLayer( LAYER_UNIVERSE ) )
 						{
@@ -965,27 +1121,20 @@ package red.game.witcher3.menus.worldmap
 						{
 							if ( mcHubMap.CanProcessInput() )
 							{
+								dispatchEvent( new GameEvent(GameEvent.CALL, "OnRequestQuestTrackerState", ["normal"]) );
 								switchMap();
 							}
 						}
 					}
-					break;
-
-				case KeyCode.PAD_RIGHT_STICK_DOWN:
-
-					// go from current hub to universe, but only if there is min zoom
-					/*
-					if ( IsLayer( LAYER_HUB ) )
+					else if (keyDown &&
+						((isSwitchPlatform && details.code == KeyCode.PAD_Y_TRIANGLE) ||		// Y on switch
+						(!isSwitchPlatform && details.code == KeyCode.PAD_X_SQUARE)))		// X on other platforms
 					{
-						if ( mcHubMap.IsMinZoom() && keyDown)
+						if(hubState != "normal")
 						{
-							if ( mcHubMap.CanProcessInput() )
-							{
-								switchMap();
-							}
+							mcHubMapQuestTracker.OpenQuestInJournal();
 						}
 					}
-					*/
 					break;
 
 				case KeyCode.PAD_RIGHT_STICK_UP:
@@ -999,6 +1148,29 @@ package red.game.witcher3.menus.worldmap
 						}
 					}
 					break;
+
+				case KeyCode.G:
+				case KeyCode.PAD_RIGHT_TRIGGER:
+				case KeyCode.PAD_RIGHT_STICK_DOWN:
+					if (IsLayer(LAYER_HUB) && keyDown && hubState == "normal" &&
+						((details.code == KeyCode.G) ||
+						(isSwitch2Mouser && details.code == KeyCode.PAD_RIGHT_STICK_DOWN) ||	// R3 on switch mouser
+						(!isSwitch2Mouser && details.code == KeyCode.PAD_RIGHT_TRIGGER)))		// R2 elsewhere
+					{
+						dispatchEvent( new GameEvent(GameEvent.CALL, "OnCycleObjectivesDefault") );
+					}
+					break;
+				case KeyCode.F:
+				case KeyCode.PAD_LEFT_TRIGGER:
+					if (IsLayer(LAYER_HUB) && keyDown)
+					{
+						if(hubState == "normal")
+							dispatchEvent( new GameEvent(GameEvent.CALL, "OnRequestQuestTrackerState", ["quest"]) );
+						else
+							dispatchEvent( new GameEvent(GameEvent.CALL, "OnRequestQuestTrackerState", ["normal"]) );
+					}
+					break;
+				//case KeyCode.W:
 			}
 
 			for each ( var handler:UIComponent in _inputHandlers )
@@ -1015,7 +1187,7 @@ package red.game.witcher3.menus.worldmap
 			}
 		}
 		
-		override public function handleDebugInput( event : InputEvent )
+		override public function handleDebugInput( event : InputEvent ) : void
 		{
 			if ( event.handled )
 			{
@@ -1027,7 +1199,7 @@ package red.game.witcher3.menus.worldmap
 				return;
 			}
 			
-            var details 	: InputDetails 	= event.details;
+            var details : InputDetails = event.details;
 			
 			switch( details.code )
 			{
@@ -1048,7 +1220,7 @@ package red.game.witcher3.menus.worldmap
 			}
 		}
 
-		override protected function handleInputNavigate(event:InputEvent):void
+		override protected function handleInputNavigate(event:InputEvent) : void
 		{
 			if (m_loadingState)
 			{
@@ -1059,11 +1231,8 @@ package red.game.witcher3.menus.worldmap
 			super.handleInputNavigate(event);
 		}
 
-		protected function switchMap( goToLastHub : Boolean = false )
+		protected function switchMap( goToLastHub : Boolean = false, useExternalPoint:Boolean = false, point:Point = null ) : void
 		{
-			//
-			//trace("Minimap ##### switchMap " );
-			//
 			if ( IsLayer( LAYER_HUB ) )
 			{
 				showGotoWorldHint(false);
@@ -1071,10 +1240,11 @@ package red.game.witcher3.menus.worldmap
 				mcUniverseMap.centerCurrentArea(false);
 				
 				trace( 'Minimap @@@@@ switchMap' );
-				ForceMouseMove();
+				forceMouseMove();
 				mcUniverseMap.updateAreaSelection( true );
 				
 				dispatchEvent( new GameEvent(GameEvent.CALL, 'OnSwitchToWorldMap'));
+				dispatchEvent( new GameEvent( GameEvent.CALL, 'OnPlaySoundEvent', ["gui_global_panel_close"] ));
 	
 				if (m_action_Zoom > 0)
 				{
@@ -1096,71 +1266,21 @@ package red.game.witcher3.menus.worldmap
 					InputFeedbackManager.removeButton(this, m_action_MappinPanel);
 					m_action_MappinPanel = -1;
 				}
-				/*
-				if (m_action_MapPreview  > 0)
+				if (m_action_Back > 0)
 				{
-					InputFeedbackManager.removeButton(this, m_action_MapPreview );
-					m_action_MapPreview  = -1;
+					InputFeedbackManager.removeButton(this, m_action_Back);
+					m_action_Back = -1;
 				}
-				*/
-
-				/*
-				if (m_action_OpenWorldMap > 0)
-				{
-					InputFeedbackManager.removeButton(this, m_action_OpenWorldMap);
-					m_action_OpenWorldMap = -1;
-				}
-				*/
 			}
 			else
 			{
-				var update : Boolean = false;
-				
-				if ( goToLastHub )
-				{
-					update = mcUniverseMap.GoToHubMap( _lastVisitedHub );
-				}
-				else
-				{
-					update = mcUniverseMap.GoToSelectedHubMap();
-				}
-
-				if ( update )
+				var canGoToHubMap : Boolean = ( goToLastHub ) ? mcUniverseMap.GoToHubMap( _lastVisitedHub ) : mcUniverseMap.GoToSelectedHubMap( useExternalPoint, point );
+				if ( canGoToHubMap )
 				{					
 					UpdateLayers( LAYER_HUB );
-					
-					if (m_action_Zoom < 0)
-					{
-						m_action_Zoom =			InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_RSTICK_SCROLL,	1002,					"panel_button_common_zoom"); // replace 1002 with MOUSE_SCROLL
-					}
-					if ( m_action_NavigateFilters < 0 )
-					{
-						m_action_NavigateFilters = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_DPAD_ALL, -1, "panel_map_navigate_filters");
-					}
-					if (m_action_PlaceMappin < 0)
-					{
-						m_action_PlaceMappin =	InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X,				KeyCode.RIGHT_MOUSE,	"panel_map_place_waypoint");
-					}
-					if (m_action_MappinPanel < 0)
-					{
-						m_action_MappinPanel =	InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X,				KeyCode.RIGHT_MOUSE,	"panel_map_open_waypoint_panel", true);
-					}
-					/*
-					if (m_action_MapPreview  < 0)
-					{
-						if ( mcHubMap.mcHubMapPreview.CanBeToggled() )
-						{
-							m_action_MapPreview  =	InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_R2,			KeyCode.Z,				"panel_map_toggle_preview" );
-						}
-					}
-					*/
-					
-					/*
-					if (m_action_OpenWorldMap < 0)
-					{
-						m_action_OpenWorldMap =	InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_Y,		-1,						"panel_map_title_worldmap");
-					}
-					*/
+
+					DoHubMapButtonSetup();
+				
 					InputFeedbackManager.updateButtons(this);
 				}
 			}
@@ -1168,8 +1288,81 @@ package red.game.witcher3.menus.worldmap
 			updateGotoPinButton();
 			updateKeyboardButtons();
 		}
+
+		private function DoHubMapButtonSetup():void
+		{
+			if (m_action_Zoom > 0)
+				{
+					InputFeedbackManager.removeButton(this, m_action_Zoom);
+					m_action_Zoom = -1;
+				}
+				if (m_action_NavigateFilters > 0)
+				{
+					InputFeedbackManager.removeButton(this, m_action_NavigateFilters);
+					m_action_NavigateFilters = -1;
+				}
+				if (m_action_PlaceMappin > 0)
+				{
+					InputFeedbackManager.removeButton(this, m_action_PlaceMappin);
+					m_action_PlaceMappin = -1;
+				}
+				if (m_action_MappinPanel > 0)
+				{
+					InputFeedbackManager.removeButton(this, m_action_MappinPanel);
+					m_action_MappinPanel = -1;
+				}
+				if (m_action_Back > 0)
+				{
+					InputFeedbackManager.removeButton(this, m_action_Back);
+					m_action_Back = -1;
+				}
+				InputFeedbackManager.updateButtons(this);
+
+				var hubState = mcHubMapQuestTracker.GetState();
+
+				if (m_action_Zoom < 0 && IsLayer(LAYER_HUB))
+				{
+					m_action_Zoom =	InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_RSTICK_SCROLL,	1002,					"panel_button_common_zoom"); // replace 1002 with MOUSE_SCROLL
+				}
+				if ( m_action_NavigateFilters < 0 && hubState == "normal" && IsLayer(LAYER_HUB))
+				{
+					m_action_NavigateFilters = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_DPAD_ALL, -1, "panel_map_navigate_filters");
+				}
+				if (m_action_PlaceMappin < 0 && hubState == "normal" && IsLayer(LAYER_HUB))
+				{
+					m_action_PlaceMappin =	InputFeedbackManager.appendButton(this, getWaypointGPadNavCode(), KeyCode.RIGHT_MOUSE, "panel_map_open_waypoint_panel");
+				}
+				if (m_action_MappinPanel < 0 && hubState == "normal" && IsLayer(LAYER_HUB))
+				{
+					m_action_MappinPanel =	InputFeedbackManager.appendButton(this, getWaypointGPadNavCode(), KeyCode.RIGHT_MOUSE, "panel_map_place_waypoint", true);
+				}
+				if (m_action_Back < 0 && hubState != "normal")
+				{
+					m_action_Back =	InputFeedbackManager.appendButton(this, "", KeyCode.ESCAPE, "panel_mainmenu_back");
+				}
+				
+				InputFeedbackManager.updateButtons(this);
+		}
+
+		private function panMap( x : Number, y : Number ) : void
+		{
+			if ( IsLayer( LAYER_UNIVERSE ) )
+			{
+				if ( mcUniverseMap.CanProcessInput() )
+				{
+					mcUniverseMap.ScrollMap( x, y );
+				}
+			}
+			else if ( IsLayer( LAYER_HUB ) )
+			{
+				if ( mcHubMap.CanProcessInput() )
+				{
+					mcHubMap.scrollMap( x, y );
+				}
+			}
+		}
 		
-		public function OnMouseDoubleDown( event : MouseEvent )
+		private function onMouseClick( event : MouseEvent ) : void
 		{
 			if ( m_blockNavigation )
 			{
@@ -1186,7 +1379,20 @@ package red.game.witcher3.menus.worldmap
 						switchMap();
 					}
 				}
-				else if ( IsLayer( LAYER_HUB ) )
+			}
+		}
+
+		private function onMouseDoubleClick( event : MouseEvent ) : void
+		{
+			if ( m_blockNavigation )
+			{
+				return;
+			}
+			
+			var eventEx:MouseEventEx = event as MouseEventEx;
+			if (eventEx && eventEx.buttonIdx == MouseEventEx.LEFT_BUTTON )
+			{
+				if ( IsLayer( LAYER_HUB ) )
 				{
 					if ( mcHubMap.CanProcessInput() )
 					{
@@ -1196,8 +1402,7 @@ package red.game.witcher3.menus.worldmap
 			}
 		}
 
-		
-		public function OnMouseDown( event : MouseEvent )
+		private function onMouseDown( event : MouseEvent ) : void
 		{
 			mcWorldMapButton.btnWorldMap.mouseEnabled  = false;
 			mcWorldMapButton.btnWorldMap.mouseChildren = false;
@@ -1250,7 +1455,7 @@ package red.game.witcher3.menus.worldmap
 			}
 		}
 
-		public function OnMouseUp( event : MouseEvent )
+		private function onMouseUp( event : MouseEvent ) : void
 		{
 			mcWorldMapButton.btnWorldMap.mouseEnabled  = true;
 			mcWorldMapButton.btnWorldMap.mouseChildren = true;
@@ -1279,12 +1484,8 @@ package red.game.witcher3.menus.worldmap
 			}
 		}
 
-		public function OnMouseMove( event : MouseEvent )
+		private function onMouseMove( event : MouseEvent ) : void
 		{
-			//
-			//trace( "Minimap OnMouseMove!!!!!!" );
-			//
-			
 			updateMouseCoords( event.stageX, event.stageY, event.localX, event.localY );
 			
 			if ( IsLayer( LAYER_UNIVERSE ) )
@@ -1305,65 +1506,125 @@ package red.game.witcher3.menus.worldmap
 			{
 				return;
 			}
-			
+
+			//Pan map by mouse drag	
 			if ( m_isLMBDown )
 			{
 				var deltaX = event.stageX - m_lastLMBPos.x;
 				var deltaY = event.stageY - m_lastLMBPos.y;
 				m_lastLMBPos.x = event.stageX;
 				m_lastLMBPos.y = event.stageY;
-	
-				if ( IsLayer( LAYER_UNIVERSE ) )
-				{
-					if ( mcUniverseMap.CanProcessInput() )
-					{
-						mcUniverseMap.ScrollMap( deltaX, deltaY );
-					}
-				}
-				else if ( IsLayer( LAYER_HUB ) )
-				{
-					//
-					//trace( "Minimap OnMouseMove " + delta.x + " " + delta.y );
-					//
-					if ( mcHubMap.CanProcessInput() )
-					{
-						mcHubMap.scrollMap( deltaX, deltaY );
-					}
-				}
+
+				panMap( deltaX, deltaY );
 			}
 		}
 		
-		public function OnMouseWheel( event : MouseEvent )
+		private function onMouseWheel( event : MouseEvent ) : void
 		{
 			if ( m_blockNavigation )
 			{
 				return;
 			}
 			
+			var currentMapLayer : BaseMap = GetCurrentMapLayer();
+			if ( currentMapLayer )
+			{
+				var zoomIn : Boolean = ( event.delta > 0 );
+				currentMapLayer.Zoom( zoomIn );
+			}
+		}
+
+		private function onGestureZoom( event : TransformGestureEvent ) : void 	
+		{
+			var currentMapLayer : BaseMap = GetCurrentMapLayer();
+			if ( currentMapLayer )
+			{
+				currentMapLayer.ZoomByFactor( event.scaleX );
+			}
+		}
+
+		private function onGesturePan( event : TransformGestureEvent ) : void 	
+		{
+			var handled : Boolean = false;
+
+			if ( IsLayer( LAYER_HUB ) )
+			{
+				handled = mcHubMap.onGesturePan( event );
+			}
+
+			if ( !handled )
+			{
+				panMap( event.offsetX, event.offsetY );
+			}
+		}
+
+		private function onGestureTap( event : GestureEvent ) : void
+		{
+			if ( m_blockNavigation )
+			{
+				return;
+			}
+
+			if ( !mcVisibleArea.hitTestPoint( event.stageX, event.stageY ) )
+			{
+				return;
+			}
+
 			if ( IsLayer( LAYER_UNIVERSE ) )
 			{
-				// nothing
+				if ( mcUniverseMap.CanProcessInput() )
+				{
+					var cursorPos : Point = new Point();
+					cursorPos.x = event.stageX;
+					cursorPos.y = event.stageY;
+
+					var sameArea : Boolean = mcUniverseMap.updateAreaSelection(false, true, cursorPos);
+					if ( sameArea )
+					{
+						switchMap( false, true, cursorPos );
+					}
+					else
+					{
+						mcUniverseMap.centerCurrentArea();
+					}
+				}
 			}
-			else if ( IsLayer( LAYER_HUB ) )
+			else if ( IsLayer( LAYER_HUB ) && !m_userPinPanelShown )
 			{
 				if ( mcHubMap.CanProcessInput() )
 				{
-					mcHubMap.zoomMap( event.delta > 0 );
+					mcHubMap.onGestureTap(event);
 				}
 			}
 		}
+
+		private function onGesturePress( event : GestureEvent ) : void
+		{
+			if ( IsLayer( LAYER_HUB ) && mcHubMap.CanProcessInput() && event.phase == "begin" )
+			{
+				mcHubMap.onGesturePress( event );
+			}
+		}
 		
-		public function OnUserPinBackgroundMouseDown( event : MouseEvent )
+		private function onGestureDoubleTap( event : GestureEvent ) : void
+		{
+			if ( IsLayer( LAYER_HUB ) && mcHubMap.CanProcessInput() )
+			{
+				mcHubMap.onDoubleTapGesture( event );
+			}
+		}
+
+		private function onUserPinBackgroundClickOrTouch( event : Event ) : void
 		{
 			enableUserPinPanel( false );
 		}
 
-		public function OnUserPinBackgroundMouseMove( event : MouseEvent )
+		private function onUserPinBackgroundMouseMove( event : MouseEvent ) : void
 		{
 			updateMouseCoords( event.stageX, event.stageY, event.localX, event.localY );
 		}
 		
-		private function updateMouseCoords( stageX : Number, stageY : Number, localX : Number, localY : Number )
+		private function updateMouseCoords( stageX : Number, stageY : Number, localX : Number, localY : Number ) : void
 		{
 			m_currGlobalMousePos.x = stageX;
 			m_currGlobalMousePos.y = stageY;
@@ -1371,47 +1632,49 @@ package red.game.witcher3.menus.worldmap
 			m_currLocalMousePos.y  = localY;
 		}
 
-		private function ForceMouseMove()
+		private function forceMouseMove() : void
 		{
-			if ( !m_isUsingGamepad )
+			if ( m_isUsingMouse )
 			{
 				mcUniverseMap.OnMouseMove( m_currGlobalMousePos );
 			}
 		}
-		
-		public function CloseMenu() : void
-		{
-			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnCloseMenu' ) );
-		}
 
-		override protected function get menuName():String
+		override protected function get menuName() : String
 		{
 			return "MapMenu";
 		}
 
-		public function clearCategoryPanel()
+		override protected function closeMenu():void
+		{
+			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnCloseMenu' ) );
+		}
+
+		public function clearCategoryPanel() : void
 		{
 			mcHubMapPinPanel.clearCategoryPanel();
 		}
 		
-		public function initializeCategoryPanel()
+		public function initializeCategoryPanel() : void
 		{
 			mcHubMapPinPanel.initializeCategoryPanel();			
 			// NGE - new "Default" category
-			dispatchEvent( new GameEvent( GameEvent.CALL, 'SetInitialFilters' ) );
+			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnSetInitialFilters' ) );
 		}
 		
-		public function updateCategoryPanel()
+		public function updateCategoryPanel() : void
 		{
 			mcHubMapPinPanel.updateCategoryPanel();
 		}
 		
-		public function enableCategoryPanel( value : Boolean )
+		public function enableCategoryPanel( value : Boolean ) : void
 		{
+			mcHubMapPinPanel.x = value?146:-300;
+			mcHubMapPinPanel.alpha = value?1:0;
 			mcHubMapPinPanel.visible = value;
 		}
 
-		public function enableQuestTracker( value : Boolean )
+		public function enableQuestTracker( value : Boolean ) : void
 		{
 			if ( value )
 			{
@@ -1423,24 +1686,24 @@ package red.game.witcher3.menus.worldmap
 			mcHubMapQuestTracker.visible = value;
 		}
 		
-		public function addPinToCategoryPanel( pinData : StaticMapPinData )
+		public function addPinToCategoryPanel( pinData : StaticMapPinData ) : void
 		{
 			mcHubMapPinPanel.addPinInstance( pinData );
 		}
 
-		public function removePinFromCategoryPanel( id : uint )
+		public function removePinFromCategoryPanel( id : uint ) : void
 		{
 			mcHubMapPinPanel.removePinInstance( id );
 			
 			updateCategoryPanel();
 		}
 
-		public function centerOnWorldPosition( worldPos : Point, animate : Boolean = false )
+		public function centerOnWorldPosition( worldPos : Point, animate : Boolean = false ) : void
 		{
 			mcHubMap.centerOnWorldPosition( worldPos, animate );
 		}
 		
-		public function showPinsFromCategory( pins : Array, showUserPins : Boolean, showFastTravelPins : Boolean, showQuestPins : Boolean, disabledPins : Dictionary, onStart : Boolean )
+		public function showPinsFromCategory( pins : Array, showUserPins : Boolean, showFastTravelPins : Boolean, showQuestPins : Boolean, disabledPins : Dictionary, onStart : Boolean ) : void
 		{
 			mcHubMap.showPinsFromCategory( pins, showUserPins, showFastTravelPins, showQuestPins, disabledPins, onStart );
 		}
@@ -1450,12 +1713,12 @@ package red.game.witcher3.menus.worldmap
 			return mcHubMap.isAnimationRunning();
 		}
 		
-		protected function debugData():void
+		protected function debugData()  :void
 		{
 			//
 		}
 
-		public function __UpdateDebugInfo()
+		public function __UpdateDebugInfo() : void
 		{
 			if ( tfDebugInfo )
 			{
@@ -1507,11 +1770,108 @@ package red.game.witcher3.menus.worldmap
 		}
 
 		// NGE
-		protected function handleCustomHubs(value : Object)
+		protected function handleCustomHubs(value : Object) : void
 		{
 			this.mcUniverseMap.mcUniverseMapContainer.addCustomHubs(value as Array);
 		}
 		// NGE
+
+		public function SetHubMapPinPanelVisibleWithAnim(vis:Boolean):void
+		{
+			GTweener.removeTweens(mcHubMapPinPanel);
+
+			if(vis)
+			{
+				mcHubMapPinPanel.visible = true;
+				GTweener.to(mcHubMapPinPanel, ANIM_TIME, {alpha:1, x:146}, {ease:LinearEase.easeOut});
+			}
+			else
+			{
+				GTweener.to(mcHubMapPinPanel, ANIM_TIME, {alpha:0, x:-300}, {ease:LinearEase.easeIn, onComplete:OnetHubMapPinPanelVisibleComplete});
+			}
+		}
+
+		public function OnetHubMapPinPanelVisibleComplete():void
+		{
+			if(mcHubMapPinPanel.alpha == 0)
+				mcHubMapPinPanel.visible = false;
+		}
+
+		public function setQuestTrackerState(state : String) : void
+		{
+			mcHubMapQuestTracker.SetState(state);
+			mcHubMapPinPanel._inputEnabled = state == "normal";
+			mcHubMap.m_questTrackerInNormalState = state == "normal";
+			//mcHubMapPinPanel.visible = state == "normal" && IsLayer(LAYER_HUB);
+			SetHubMapPinPanelVisibleWithAnim(state == "normal" && IsLayer(LAYER_HUB));
+
+			if (m_action_FastTravel > 0)
+			{
+				InputFeedbackManager.removeButton(this, m_action_FastTravel);
+				m_action_FastTravel = -1;
+			}
+
+			if(state != "normal")
+			{
+				ShowGotoPlayerButton(false);
+				ShowGotoQuestButton(false);
+			}
+			else
+			{
+				mcHubMap.UpdateGotoButton(true);
+				mcHubMap.disableAltHighlights();
+			}
+			DoHubMapButtonSetup();
+
+		}
+
+		public function tryShowingAPinFromList(data:Object)
+		{
+			mcHubMap.disableAltHighlights();
+
+			var array : Array = data.array;
+
+			var pinArray : Vector.<Object> = new Vector.<Object>();
+			for(var i : int = 0; i < array.length; i++)
+			{
+				var tag : uint = array[i];
+
+				var pin : Object = mcHubMap.getPinPositionByTag(tag);
+				mcHubMap.setAltHighlightsByTag(tag);
+
+				if(pin.success)
+				{
+					pinArray.push(pin);
+				}
+			}
+
+			pinArray.sort(function(a:Object, b : Object)
+			{
+				var axDelta : Number = a.x - mcHubMap.m_playerWorldPosX;
+				var ayDelta : Number = a.y - mcHubMap.m_playerWorldPosX;
+				var aDist : Number = axDelta * axDelta + ayDelta * ayDelta;
+
+				var bxDelta : Number = b.x - mcHubMap.m_playerWorldPosX;
+				var byDelta : Number = b.y - mcHubMap.m_playerWorldPosX;
+				var bDist : Number = bxDelta * bxDelta + byDelta * byDelta;
+
+				return aDist - bDist;
+			})
+
+			if(pinArray.length > 0)
+			{
+				centerOnWorldPosition(new Point(pinArray[0].x, pinArray[0].y), true);
+				mcHubMap.showOnlyTooltipByPosition(pinArray[0].x, pinArray[0].y);
+			}
+			else if(data.hasOwnProperty("fallbackData"))
+			{
+				mcHubMap.showOnlyTooltipByData(data.fallbackData)
+			}
+			else
+			{
+				mcHubMap.hideOnlyTooltip();
+			}
+		}
 	}
 }
 
@@ -1543,14 +1903,14 @@ class MapDebugInfo
 	public var _lod4Visible     : int = 0;
 	public var _lod4Invisible   : int = 0;
 
-	public function __DebugInfo_SetCurrentLod( lod : int )
+	public function __DebugInfo_SetCurrentLod( lod : int ) : void
 	{
 		_currentLod = lod;
 
 		__mapMenu.__UpdateDebugInfo();
 	}
 
-	public function __DebugInfo_SetMinMaxLod( minLod : int, maxLod : int )
+	public function __DebugInfo_SetMinMaxLod( minLod : int, maxLod : int ) : void
 	{
 		_minLod = minLod;
 		_maxLod = maxLod;
@@ -1558,14 +1918,14 @@ class MapDebugInfo
 		__mapMenu.__UpdateDebugInfo();
 	}
 
-	public function __DebugInfo_SetZoom( zoom : Number )
+	public function __DebugInfo_SetZoom( zoom : Number ) : void
 	{
 		_zoom = zoom;
 
 		__mapMenu.__UpdateDebugInfo();
 	}
 
-	public function __DebugInfo_SetScroll( sx : Number, sy : Number )
+	public function __DebugInfo_SetScroll( sx : Number, sy : Number ) : void
 	{
 		_scrollX = -sx;
 		_scrollY = -sy;
@@ -1573,7 +1933,7 @@ class MapDebugInfo
 		__mapMenu.__UpdateDebugInfo();
 	}
 
-	public function __DebugInfo_SetPointedTile( ptx : int, pty : int )
+	public function __DebugInfo_SetPointedTile( ptx : int, pty : int ) : void
 	{
 		_pointedTileX = ptx;
 		_pointedTileY = pty;
@@ -1581,7 +1941,7 @@ class MapDebugInfo
 		__mapMenu.__UpdateDebugInfo();
 	}
 
-	public function __DebugInfo_SetVisibleAndPointedTiles( tiles : int, mintx : int, minty : int, maxtx : int, maxty : int )
+	public function __DebugInfo_SetVisibleAndPointedTiles( tiles : int, mintx : int, minty : int, maxtx : int, maxty : int ) : void
 	{
 		_visibleTiles = tiles;
 		_pointedMinTileX = mintx;
@@ -1592,7 +1952,7 @@ class MapDebugInfo
 		__mapMenu.__UpdateDebugInfo();
 	}
 	
-	public function __DebugInfo_SetTileStats( lod : int, tilesVisible : int, tilesInvisible : int )
+	public function __DebugInfo_SetTileStats( lod : int, tilesVisible : int, tilesInvisible : int ) : void
 	{
 		if ( lod == 1 )
 		{

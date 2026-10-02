@@ -31,6 +31,7 @@ package red.game.witcher3.slots
 		public static const ACTION_OIL:uint = 8;
 		public static const ACTION_REPAIR:uint = 9;
 		public static const ACTION_DIY:uint = 10;
+		public static const ACTION_SHARPEN:uint = 11;
 		
 		private var _data:*;
 		private var _sourceLoader:UILoader;

@@ -18,6 +18,10 @@
 	import scaleform.clik.ui.InputDetails;
 	import scaleform.gfx.Extensions;
 
+	import red.game.witcher3.menus.modmenu.ModImageLoadHandler;
+	import red.game.witcher3.controls.W3UILoader;
+	import red.game.witcher3.menus.modmenu.ModImageData;
+
 	/**
 	 * Overlay layer for popups and other stuff
 	 * @author Yaroslav Getsevich
@@ -49,6 +53,7 @@
 			
 			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnConfigUI' ) );
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'popup.data', [handlePopupData]));
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'panel.mod.temp.update', [handleModTempUpdate]));
 			stage.addEventListener( InputEvent.INPUT, handleInput, false, 0, true );
 
 			background.x = Extensions.visibleRect.x;
@@ -64,6 +69,12 @@
 			visible = true;
 			this.alpha = 0;
 			GTweener.to(this, .5, { alpha:1 }, { ease:Exponential.easeOut } );
+		}
+
+		private function handleModTempUpdate(data:Object):void
+		{
+			if(_popup && _popup is ModTempAuthenticationPopup)
+				ModTempAuthenticationPopup(_popup).onModTempUpdate(data);
 		}
 
 		protected function handlePopupData(dataObject:Object):void
@@ -101,7 +112,14 @@
 					closeMenu();
 				}
 			}
-			if (popupInstance)
+			if(popupInstance && popupInstance is ModVerificationPopup)
+			{
+				addChild(popupInstance);
+				popupInstance.data = dataObject;
+				_popup = popupInstance;
+				popupInstance.validateNow();
+			}
+			else if (popupInstance)
 			{
 				popupInstance.data = dataObject;
 				_popup = popupInstance;
@@ -161,6 +179,28 @@
 			if ( quantityMonsterBarganingPopup )
 			{
 				quantityMonsterBarganingPopup.setBarValue( _Percentage );
+			}
+		}
+
+		private var logoLoadHandler			:	ModImageLoadHandler;
+		public function callLogoLoad(loader:W3UILoader, modid:String, resolution:String = ModImageData.ORIGINAL)
+		{
+			trace("GFX ############ callLogoLoad");
+			if(!logoLoadHandler) {
+				logoLoadHandler = new ModImageLoadHandler();
+				addChild(logoLoadHandler);
+			}
+
+			logoLoadHandler.addLoader(loader, modid, -1, resolution);
+		}
+
+		public function /*WitcherScript*/ handleImageLoaded(modid:String, resolution:String, caller:String, path:String, galleryIndex:int = -1 )
+		{
+			path = "img://" + path + ".modimg";
+
+			if(caller == "logo") 
+			{
+				logoLoadHandler.onImageLoaded(modid, resolution, path);
 			}
 		}
 	}

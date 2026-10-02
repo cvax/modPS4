@@ -165,6 +165,9 @@ package red.game.witcher3.menus.blacksmith
 		{
 			super.configUI();
 			stage.addEventListener(InputEvent.INPUT, handleInput, false, 0, true);
+
+			mcPlayerGrid.enableTouch( true );
+			mcPlayerGrid.enableScrollWithPan( true );
 		}
 		
 		override protected function handleDataSet(gameData:Object, index:int):void

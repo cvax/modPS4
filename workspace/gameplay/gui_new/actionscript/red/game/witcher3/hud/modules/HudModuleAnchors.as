@@ -40,6 +40,7 @@
 		public var mcAnchorCompanion	: MovieClip;
 		public var mcAnchorDamagedItems	: MovieClip;
 		public var mcAnchorControlsFeedback	: MovieClip;
+		public var mcAnchorLootFeed : MovieClip;
 
 		public function HudModuleAnchors()
 		{

@@ -24,6 +24,8 @@ package  red.game.witcher3.menus.common
 	import scaleform.clik.core.UIComponent;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.events.ListEvent;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
 
 	public class DropdownListModuleBase extends CoreMenuModule
 	{
@@ -149,7 +151,8 @@ package  red.game.witcher3.menus.common
 
 			mcDropDownList.dropdownMenuScrollingList = _itemListClass;
 			mcDropDownList.dropdownMenuItemRenderer = _itemRendererClass;
-			mcDropDownList.addEventListener(MouseEvent.CLICK, handleItemClick, false, 0, true);
+			mcDropDownList.addEventListener(MouseEvent.CLICK, handleItemClickOrTap, false, 0, true);
+			mcDropDownList.addEventListener(GestureEventEx.GESTURE_TAP, handleItemClickOrTap, false, 0, true);
 			mcDropDownList.addEventListener(ListEvent.INDEX_CHANGE, handleDropdownIndexChange, false, 0, true);
 			mcDropDownList.addEventListener(CategoryChangeEvent.CATEGORY_CHANGED, handleDropdownCategoryChanged, false, 0, true);
 			addChild(mcDropDownList);
@@ -293,9 +296,8 @@ package  red.game.witcher3.menus.common
 			return true;
 		}
 		
-		protected function handleItemClick(event:Event):void
+		protected function handleItemClickOrTap(event:Event):void
 		{
-			trace("Minimap handleItemClick");
 			if (selectModuleOnClick && focused < 1)
 			{
 				dispatchEvent(new Event(EVENT_MOUSE_FOCUSE));
@@ -398,6 +400,11 @@ package  red.game.witcher3.menus.common
 			{
 				tfCurrentState.htmlText = _moduleDisplayName;
 			}
+		}
+
+		public function enableTouch( enable : Boolean ) : void
+		{
+			mcDropDownList.enableTouch( enable );
 		}
 
 		override public function handleInput( event:InputEvent ):void

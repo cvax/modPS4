@@ -21,6 +21,11 @@ package red.game.witcher3.menus.meditation {
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.ui.InputDetails;
 	import scaleform.gfx.Extensions;
+
+	import com.gskinner.motion.GTween;
+	import com.gskinner.motion.GTweener;
+	import red.game.witcher3.LinearEase;
+	import com.gskinner.motion.easing.Sine;
 	
 	Extensions.enabled = true;
 	Extensions.noInvisibleAdvance = true;
@@ -30,6 +35,7 @@ package red.game.witcher3.menus.meditation {
 		public var mcMeditationBonuses:MeditationBonusPanel;
 		public var meditationClock:MeditationClock;
 		public var mcGeraltImage:MovieClip;
+		public var stBg:MovieClip;
 
         private var _navBlocked:Boolean;
 		private var _bonusMeditationTime:int;
@@ -46,11 +52,12 @@ package red.game.witcher3.menus.meditation {
 		{
 			super.configUI();
 			
-			dispatchEvent( new GameEvent( GameEvent.CALL, "OnConfigUI" ) );
             dispatchEvent( new GameEvent(GameEvent.REGISTER, 'meditation.clock.blocked', [blockClock] ) );
 			dispatchEvent( new GameEvent(GameEvent.REGISTER, 'meditation.bonus', [setMeditationBonus] ) );
 			
 			meditationClock.timeChangeCallback = timeChangedCallback;
+
+			dispatchEvent( new GameEvent( GameEvent.CALL, "OnConfigUI" ) );
 			
 			focused = 1;
             _navBlocked = false;
@@ -100,7 +107,37 @@ package red.game.witcher3.menus.meditation {
 		{
 			if (mcGeraltImage)
 			{
-				//mcGeraltImage.visible = value;
+				mcGeraltImage.visible = value;
+			}
+		}
+
+		public function fadeInEverything(timeInSeconds:Number):void
+		{
+			alpha = 0
+			GTweener.removeTweens(this);
+			GTweener.to(this, timeInSeconds, {alpha: 1})
+		}
+
+		public function fadeOutGeraltBackground(timeInSeconds:Number):void
+		{
+			GTweener.removeTweens(mcGeraltImage);
+			GTweener.to(mcGeraltImage, timeInSeconds, {alpha: 0})
+		}
+
+		public function movePanelXTo(_x : Number, _time : Number = 0)
+		{
+			if(_time <= 0)
+			{
+				meditationClock.x = _x;
+				stBg.x = _x - 682;
+				meditationClock.calcInitStuff();
+			}
+			else
+			{
+				GTweener.removeTweens(meditationClock);
+				GTweener.to(meditationClock, _time, {x: _x}, {ease:Sine.easeInOut, onComplete: function(){meditationClock.calcInitStuff(); } } );
+				GTweener.removeTweens(stBg);
+				GTweener.to(stBg, _time, {x: _x - 682}, {ease:Sine.easeInOut});
 			}
 		}
 		
@@ -117,6 +154,17 @@ package red.game.witcher3.menus.meditation {
 		public function Set24HRFormat( value : Boolean )
 		{
 			meditationClock.Set24HRFormat( value );
+		}
+
+		public function setCurrentTime( hours : int, minutes : int):void /*WS*/
+		{
+			meditationClock.setCurrentHours(hours);
+			meditationClock.setCurrentMin(minutes);
+		}
+
+		public function meditationConfirmed()/*WS*/
+		{
+			meditationClock.OnMeditationConfirmed();
 		}
 	}
 }

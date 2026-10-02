@@ -20,6 +20,10 @@
 	import red.game.witcher3.utils.CommonUtils;
 	import flash.display.MovieClip;
 	import scaleform.clik.events.InputEvent;
+	import com.gskinner.motion.GTween;
+	import com.gskinner.motion.GTweener;
+	import com.gskinner.motion.easing.Exponential;
+	import red.game.witcher3.hud.modules.journalupdate.QuestFinishedWindow;
 
 	public class HudModuleJournalUpdate extends HudModuleBase
 	{
@@ -29,6 +33,7 @@
 		public var mcTitle : Label;
 		public var mcIconLoader : W3UILoader;
 		public var mcInputFeedback:ModuleInputFeedback;
+		public var mcQuestFinishedWindow : QuestFinishedWindow;
 		public var displayTime:Number = 3000;
 		public var lvlupanim:MovieClip;
 		
@@ -59,6 +64,8 @@
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'hud.journalupdate.buttons.setup', [handleSetupButtons]));
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'hud.journalupdate.bookinfo', [showItemInfo]));
 			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnConfigUI' ) );
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, "hud.journal.update.quest.finished", [showQuestFinished]));
+			
 		}
 		
 		public function updateItemInfo():void
@@ -180,6 +187,8 @@
 		
 		public function SetIcon( value : String  ) : void
 		{
+			if(!mcIconLoader)
+				return;
 			if ( value == "")
 			{
 				mcIconLoader.visible = false;
@@ -192,7 +201,9 @@
 		}
 
 		public function SetJournalUpdateStatus( value : int ) : void
-		{
+		{			
+			gotoAndStop(value);
+
 			if(lvlupanim){lvlupanim.visible = false;}
 			if ( value == 0 )
 			{
@@ -202,12 +213,10 @@
 			{
 				if(lvlupanim){lvlupanim.visible = true; lvlupanim.gotoAndPlay(1);}
 			}
-			if ( value == 7)
+			if ( value == 7 || value == 8)
 			{
 				if(lvlupanim){lvlupanim.visible = false;}
 			}
-			
-			gotoAndStop(value);
 		}
 		
 		public function PauseShowTimer( value : Boolean ):void
@@ -329,10 +338,13 @@
 		{
 			RemoveShowTimer();
 			ShowElementFromState(false, false);
-			mcTitle.htmlText = "";
-			mcText.htmlText = "";
+			if(mcTitle)
+				mcTitle.htmlText = "";
+			if(mcText)
+				mcText.htmlText = "";
 			SetIcon("");
-			mcInputFeedback.cleanupButtons();
+			if(mcInputFeedback)
+				mcInputFeedback.cleanupButtons();
 		}
 
 		override public function SetState( value : String )
@@ -365,7 +377,10 @@
 
 		protected function handleSetupButtons( gameData:Object, index:int ) : void
 		{
-			mcInputFeedback.handleSetupButtons(gameData);
+			if(mcQuestFinishedWindow)
+				mcQuestFinishedWindow.handleSetupButtons(gameData);
+			else
+				mcInputFeedback.handleSetupButtons(gameData);
 		}
 
 		// #Y Remove scaling; requested by Dan, TT#73355
@@ -392,7 +407,18 @@
 				}
 			}
 		}
-		
+
+		protected function showQuestFinished(data : Object):void
+		{	
+			trace("JIFIX hud.journal.update.quest.finished showQuestFinished", data);
+			mcQuestFinishedWindow.data = data;
+			mcQuestFinishedWindow.hudModuleRef = this;
+		}
+
+		public function endQuestFinished():void
+		{
+			ShowElementFromState(false, false);
+		}
 	}
 
 }

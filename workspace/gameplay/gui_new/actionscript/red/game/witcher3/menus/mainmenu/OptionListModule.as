@@ -12,6 +12,8 @@ package red.game.witcher3.menus.mainmenu
 	import flash.display.MovieClip;
 	import flash.events.Event;
 	import flash.events.MouseEvent;
+	import flash.events.TouchEvent;
+	import flash.events.GestureEvent;
 	import flash.text.TextField;
 	import red.core.constants.KeyCode;
 	import red.core.CoreMenuModule;
@@ -19,7 +21,6 @@ package red.game.witcher3.menus.mainmenu
 	import red.core.events.GameEvent;
 	import red.game.witcher3.controls.W3ScrollingList;
 	import red.game.witcher3.events.ControllerChangeEvent;
-	import red.game.witcher3.managers.InputManager;
 	import red.game.witcher3.menus.common.W3SubMenuListItemRenderer;
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
@@ -29,9 +30,14 @@ package red.game.witcher3.menus.mainmenu
 	import scaleform.clik.events.ListEvent;
 	import scaleform.clik.ui.InputDetails;
 	import scaleform.gfx.MouseEventEx;
+	import red.game.witcher3.utils.CommonUtils;
+	import flash.events.TransformGestureEvent;
+	import scaleform.clik.managers.FocusHandler;
 	
 	public class OptionListModule extends CoreMenuModule
 	{
+		private static const ACTION_DOWNLOAD : uint = 66;
+
 		public var mcPresetOption : MovieClip;
 		
 		public var mcOptionList : W3ScrollingList;
@@ -55,25 +61,57 @@ package red.game.witcher3.menus.mainmenu
 		public var mcScrollingListItem6 : W3MenuListItemRenderer;
 		public var mcScrollingListItem7 : W3MenuListItemRenderer;
 
-		public var optionListData : Array;
-		
+		public var tooltip : MovieClip;
+		public var mcTelemetryDataRequestPopup : TelemetryDataRequestPopup;
+		public var mcTelemetrySpinner : MovieClip;
+
 		public var mcOptionScrollbar : ScrollBar;
-		
 		protected var txtPresetTitle : TextField;
-		
 		public var txtOptionDescription : TextField;
-		
-		protected var presetSelected : Boolean = false;
-		protected var presetsEnabled : Boolean = false;
+		public var optionListData : Array;
+		protected var itemsX : Number;
 		protected var currentPresetGroupName : uint;
 
-		private static const ACTION_DOWNLOAD : uint = 66;
-
-		protected var itemsX : Number;
-		
+		protected var presetSelected : Boolean = false;
+		protected var presetsEnabled : Boolean = false;
 		public var _lastMoveWasMouse:Boolean = false;
+		private var _panYAccumulator : Number = 0;
+		protected var _lastMouseOveredPresetItem:int = -1;
+		protected var _lastMouseOveredOptionItem:int = -1;
+		protected var _mouseIsDown:Boolean = false;
+		protected var _disableStateChanged:Boolean = false;
+		private var _isFakeMouseUpEvent:Boolean = false;
 		
-		public function get lastMoveWasMouse():Boolean { return _lastMoveWasMouse; }
+		public function showTelemetryDataRequestPopup( qrBufferId : String, description : String, url : String ) : void
+		{
+			var ingameMenu : IngameMenu = parent as IngameMenu;
+			ingameMenu.showMainMenuButtonPanel( false );
+
+			mcTelemetryDataRequestPopup.addEventListener( TelemetryDataRequestPopup.EVENT_CLOSE, onTelemetryDataRequestClose, false, 0, true );
+			mcTelemetryDataRequestPopup.setData( qrBufferId, description, url );
+			mcTelemetryDataRequestPopup.visible = true;
+		}
+		
+		private function onTelemetryDataRequestClose( ) : void
+		{
+			mcTelemetryDataRequestPopup.visible = false;
+			mcTelemetryDataRequestPopup.removeEventListener( TelemetryDataRequestPopup.EVENT_CLOSE, onTelemetryDataRequestClose );
+
+			var ingameMenu : IngameMenu = parent as IngameMenu;
+			ingameMenu.showMainMenuButtonPanel( true );
+		}
+
+		private function onShowSpinner( show : Boolean ) : void
+		{
+			mcTelemetrySpinner.tfLoadingText.text = "[[panel_telemetry_processing]]";
+			mcTelemetrySpinner.visible = show;
+		}
+
+		public function get lastMoveWasMouse():Boolean 
+		{ 
+			return _lastMoveWasMouse; 
+		}
+
 		public function set lastMoveWasMouse(value:Boolean):void
 		{
 			_lastMoveWasMouse = value;
@@ -101,6 +139,9 @@ package red.game.witcher3.menus.mainmenu
 					mcOptionList.selectedIndex = 0;
 				}
 			}
+
+			_lastMouseOveredPresetItem = -1;
+			_lastMouseOveredOptionItem = -1;
 			
 			// for (var i:int = 0; i < optionListItems.length; ++i)
 			// {
@@ -108,6 +149,32 @@ package red.game.witcher3.menus.mainmenu
 			// }
 		}
 		
+		protected function handleGesturePan( event : TransformGestureEvent ) : void
+		{	
+			//HACK : mcOptionList rowHeight is Nan (I dont think rows are added as children so it never gets propery sized)
+			//Use mcOptionListItem1 height instead.
+			//var rowHeight : Number = mcOptionList.rowHeight;
+			var rowHeight : Number = mcOptionListItem1.height;
+			var result : Object = CommonUtils.stagePanToRowScroll( _panYAccumulator, rowHeight, event );
+
+			mcOptionScrollbar.position -= result.outRowsToScroll;
+			_panYAccumulator = result.outPanYAccumulator;
+		}
+
+		private function enableTouch() : void
+		{
+			_panYAccumulator = 0;
+			mcOptionList.enableTouch( true );
+			addEventListener( TransformGestureEvent.GESTURE_PAN, handleGesturePan, false, 0, true );
+		}
+
+		private function disableTouch() : void
+		{
+			_panYAccumulator = 0;
+			mcOptionList.enableTouch( false );
+			removeEventListener( TransformGestureEvent.GESTURE_PAN, handleGesturePan, false );
+		}
+
 		override protected function configUI():void
 		{
 			super.configUI();
@@ -174,10 +241,49 @@ package red.game.witcher3.menus.mainmenu
 			visible = false;
 			enabled = false;
 			alpha = 0;
+			mcTelemetrySpinner.visible = false;
+			mcTelemetryDataRequestPopup.visible = false;
 			
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, "options.insert_entry", [onInsertOptionsEntry] ) );
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, "options.remove_entry", [onRemoveOptionsEntry] ) );
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, "options.update_disabled", [onUpdateDisabled] ) );
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, "options.force_update_values", [onForceUpdateValues] ) );
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, "options.show_spinner", [onShowSpinner] ) );
+		}
+		
+		override protected function handleControllerChanged(event:ControllerChangeEvent):void
+		{
+			super.handleControllerChanged(event);
+
+			if (_lastMouseOveredPresetItem != -1)
+			{
+				presetSelected = true;
+				mcPresetList.selectedIndex = _lastMouseOveredPresetItem;
+				mcOptionList.selectedIndex = -1;
+			}
+			else if (_lastMouseOveredOptionItem != -1)
+			{
+				presetSelected = false;
+				mcPresetList.selectedIndex = -1;
+				mcOptionList.selectedIndex = mcOptionList.getRendererAt(_lastMouseOveredOptionItem, mcOptionList.scrollPosition).index;
+			}
+			else if (mcOptionList.selectedIndex == -1 && mcPresetList.selectedIndex == -1)
+			{
+				presetSelected = false;
+				mcOptionList.selectedIndex = 0;
+			}
+
+			_lastMouseOveredPresetItem = -1;
+			_lastMouseOveredOptionItem = -1;
+
+			// Stupid-ass hack for switch2 to handle the disappearing cursor while toggling the Mouser on/off...
+			// We have to return the focus to the menu, and send a missing MOUSE_UP event, when the mouser is turned off via the MouserActivationMode option slider...
+			// Flag the mouser event as fake, so we don't call the setupDataProviders() function in MouseUp eventhandler here that repopulates all the removed options...
+			{
+				_isFakeMouseUpEvent = true;
+				dispatchEvent(new MouseEvent(MouseEvent.MOUSE_UP));
+				FocusHandler.getInstance().setFocus(this, 0);
+			}
 		}
 		
 		public function showWithData(data:Array):void
@@ -186,6 +292,8 @@ package red.game.witcher3.menus.mainmenu
 			{
 				return;
 			}
+
+			trace( "OptionListModule showWithData()" );
 			
 			var ingameMenu:IngameMenu = parent as IngameMenu;
 			var finalData:Array = new Array();
@@ -232,12 +340,16 @@ package red.game.witcher3.menus.mainmenu
 			{
 				mcOptionList.selectedIndex = -1;
 			}
+
+			enableTouch();
 		}
 		
 		public function updateData(data:Array):void
 		{
 			var currentPresetIndex:int;
 			var currentOptionIndex:int;
+
+			trace( "OptionListModule updateData()" );
 
 			if (mcPresetList && mcPresetList.visible)
 			{
@@ -246,19 +358,18 @@ package red.game.witcher3.menus.mainmenu
 			currentOptionIndex = mcOptionList.selectedIndex;
 			
 			setupDataProviders(data);
-			mcPresetList.validateNow();
-			mcOptionList.validateNow();
 			
 			if (mcPresetList && mcPresetList.visible)
 			{
 				mcPresetList.selectedIndex = currentPresetIndex;
-				mcPresetList.validateNow();
 			}
 			mcOptionList.selectedIndex = currentOptionIndex;
+			
+			mcPresetList.validateNow();
 			mcOptionList.validateNow();
 		}
 	
-		function onOptionSelectionChanged(e:ListEvent):void
+		protected function onOptionSelectionChanged(e:ListEvent):void
 		{
 			updateDescriptionText(e.itemData);
 		}
@@ -286,6 +397,9 @@ package red.game.witcher3.menus.mainmenu
 			var i:int;
 			var presetData:Object = null;
 			var finalDataList:Array = new Array();
+
+			trace("OptionListModule setupDataProviders()");
+
 			for (i = 0; i < data.length; ++i)
 			{
 				if (data[i].id == "Presets")
@@ -305,10 +419,10 @@ package red.game.witcher3.menus.mainmenu
 		}
 
 		// [dsl] We don't want to apply the disable states until we release the mouse
-		protected var _mouseIsDown:Boolean = false;
-		protected var _disableStateChanged:Boolean = false;
 		protected function handleMouseDown(event:MouseEvent):void
 		{
+			trace( "OptionListModule handleMouseDown()" );
+
 			// Sometimes UI can glitch and we missed the mouse up (Released outside window). Flash seems pretty good at sending the event no matter what, but I dont like taking any chances on this with Experience with other UI systems *cough* winforms *cough*
 			if (_mouseIsDown)
 			{
@@ -316,8 +430,8 @@ package red.game.witcher3.menus.mainmenu
 
 				if (_disableStateChanged)
 				{
+					trace( "    _mouseIsDown TRUE && _disableStateChanged TRUE" );
 					setupDataProviders(optionListData);
-					mcOptionList.validateNow();
 					_disableStateChanged = false;
 				}
 			}
@@ -326,21 +440,33 @@ package red.game.witcher3.menus.mainmenu
 
 		protected function handleMouseUp(event:MouseEvent):void
 		{
-			if (_disableStateChanged)
+			trace( "OptionListModule handleMouseUp()" );
+
+			if (_isFakeMouseUpEvent)
 			{
-				setupDataProviders(optionListData);
-				mcOptionList.validateNow();
-				_disableStateChanged = false;
+				trace( "    _isFakeMouseUpEvent TRUE" );
+				_isFakeMouseUpEvent = false;
 			}
+			else if (_disableStateChanged)
+			{
+				trace( "    _disableStateChanged TRUE" );
+				setupDataProviders(optionListData);
+			}
+
 			_mouseIsDown = false;
+			_disableStateChanged = false;
 		}
 
 		private function onUpdateDisabled(data:Array):void
 		{
 			var i:int;
 			var j:int;
+			var changeFocus:Boolean = false;
 
-			if (optionListData == null) return; // Could be called too early it seems.
+			if (optionListData == null)  // Could be called too early it seems.
+				return;
+
+			trace( "OptionListModule onUpdateDisabled()" );
 
 			for (i = 0; i < data.length; ++i)
 			{
@@ -349,6 +475,10 @@ package red.game.witcher3.menus.mainmenu
 					if (optionListData[j].tag == data[i].tag)
 					{
 						optionListData[j].disabled = data[i].disabled;
+
+						if (j == mcOptionList.selectedIndex && data[i].disabled == true)
+							changeFocus = true;
+
 						if (data[i].current != null) optionListData[j].current = data[i].current; // We can override value
 						else if (data[i].resetToStartingValue) optionListData[j].current = optionListData[j].startingValue;
 						else if (data[i].resetStartingValue) optionListData[j].startingValue = optionListData[j].current;
@@ -360,13 +490,58 @@ package red.game.witcher3.menus.mainmenu
 			_disableStateChanged = false;
 			if (!_mouseIsDown) // Could have been moved with keyboard
 			{
+				trace( "    - _mouseIsDown FALSE" );
 				setupDataProviders(optionListData);
-				mcOptionList.validateNow();
 			}
 			else
 			{
 				_disableStateChanged = true;
 			}
+
+			if (changeFocus)
+			{
+				mcOptionList.selectedIndex = -1;
+			}
+			// HACK: force focus on list module to keep focus on IngameMenu and to avoid stuck keyboard navigation after mouse click
+			FocusHandler.getInstance().setFocus(this, 0);
+		}
+
+		private function onForceUpdateValues(data:Array):void
+		{
+			var i:int;
+			var j:int;
+
+			if (optionListData == null) // Could be called too early it seems.
+				return;
+
+			trace( "OptionListModule onForceUpdateValues()" );
+
+			for (i = 0; i < data.length; ++i)
+			{
+				for (j = 0; j < optionListData.length; ++j)
+				{
+					if (optionListData[j].tag == data[i].tag)
+					{
+						if (data[i].current != null)
+						{
+							trace( "    setting '" + data[i].tag + "' to value " + data[i].current );
+							optionListData[j].current = data[i].current; // We can override value
+						}
+						else if (data[i].resetToStartingValue)
+						{
+							optionListData[j].current = optionListData[j].startingValue;
+						}
+						else if (data[i].resetStartingValue)
+						{
+							optionListData[j].startingValue = optionListData[j].current;
+						}
+						
+						break;
+					}
+				}
+			}
+
+			setupDataProviders(optionListData);
 		}
 
 		// The menu has 9 movieclips that represents the items. Depending on scroll, the index doesn't match the index of the data.
@@ -420,6 +595,7 @@ package red.game.witcher3.menus.mainmenu
 		{
 			if (visible)
 			{
+				disableTouch();
 				GTweener.removeTweens(this);
 				
 				enabled = false;
@@ -432,12 +608,15 @@ package red.game.witcher3.menus.mainmenu
 		{
 			visible = false;
 		}
-		
-		protected var _lastMouseOveredPresetItem:int = -1;
-		protected var _lastMouseOveredOptionItem:int = -1;
+
 		protected function handleMouseMove(event:MouseEvent):void
 		{
 			if (!visible)
+			{
+				return;
+			}
+
+			if ( mcTelemetryDataRequestPopup.visible || mcTelemetrySpinner.visible )
 			{
 				return;
 			}
@@ -562,76 +741,95 @@ package red.game.witcher3.menus.mainmenu
 		{
 			if (visible)
 			{
-				var details:InputDetails = event.details;
-				var keyUp:Boolean = (details.value == InputValue.KEY_UP);
-				var optionRenderer:W3SubMenuListItemRenderer = mcOptionList.getSelectedRenderer() as W3SubMenuListItemRenderer;
-				
-				if (presetSelected)
+				if ( mcTelemetryDataRequestPopup.visible )
 				{
-					mcPresetList.handleInput(event);
+					mcTelemetryDataRequestPopup.handleInput( event );
+				}
+				else if ( mcTelemetrySpinner.visible )
+				{
+
 				}
 				else
 				{
-					mcOptionList.handleInput(event);
-				}
-				
-				if ( !event.handled )
-				{
-					if (keyUp && optionRenderer && details.code == KeyCode.E)
+					var details:InputDetails = event.details;
+					var keyUp:Boolean = (details.value == InputValue.KEY_UP);
+					var optionRenderer:W3SubMenuListItemRenderer = mcOptionList.getSelectedRenderer() as W3SubMenuListItemRenderer;
+					
+					if (presetSelected)
 					{
-						optionRenderer.activate();
+						mcPresetList.handleInput(event);
+					}
+					else
+					{
+						mcOptionList.handleInput(event);
 					}
 					
-					switch(details.navEquivalent)
+					if ( !event.handled )
 					{
-					case NavigationCode.GAMEPAD_A:
-						if (keyUp)
+						if (keyUp && optionRenderer && details.code == KeyCode.E)
 						{
-							if (mcPresetList && mcPresetList.visible && mcPresetList.selectedIndex != -1)
-							{
-								dispatchEvent(new GameEvent( GameEvent.CALL, 'OnPresetApplied', [ currentPresetGroupName, mcPresetList.selectedIndex ] ));
-							}
-							else if (optionRenderer)
-							{
-								optionRenderer.activate();
-							}
+							optionRenderer.activate();
 						}
-						break;
-					case NavigationCode.GAMEPAD_B:
-						if (keyUp)
+						
+						switch(details.navEquivalent)
 						{
-							handleNavigateBack();
-						}
-						break;
-					case NavigationCode.UP:
-						if (!keyUp && presetsEnabled)
-						{
-							if (!presetSelected && mcPresetList.visible)
+						case NavigationCode.GAMEPAD_A:
+							if (keyUp)
 							{
-								presetSelected = true;
-								mcPresetList.selectedIndex = 0;
-								mcOptionList.selectedIndex = -1;
+								if (mcPresetList && mcPresetList.visible && mcPresetList.selectedIndex != -1)
+								{
+									dispatchEvent(new GameEvent( GameEvent.CALL, 'OnPresetApplied', [ currentPresetGroupName, mcPresetList.selectedIndex ] ));
+								}
+								else if (optionRenderer)
+								{
+									optionRenderer.activate();
+								}
 							}
-						}
-						break;
-					case NavigationCode.DOWN:
-						if (!keyUp && presetsEnabled)
-						{
-							if (presetSelected)
+							break;
+						case NavigationCode.GAMEPAD_B:
+							if (keyUp)
 							{
-								presetSelected = false;
-								mcPresetList.selectedIndex = -1;
-								mcOptionList.selectedIndex = -1;
-								mcOptionList.moveDown();
+								handleNavigateBack();
 							}
+							break;
+						case NavigationCode.UP:
+							if (!keyUp && presetsEnabled)
+							{
+								if (!presetSelected && mcPresetList.visible)
+								{
+									presetSelected = true;
+									mcPresetList.selectedIndex = 0;
+									mcOptionList.selectedIndex = -1;
+								}
+							}
+							break;
+						case NavigationCode.DOWN:
+							if (!keyUp && presetsEnabled)
+							{
+								if (presetSelected)
+								{
+									presetSelected = false;
+									mcPresetList.selectedIndex = -1;
+									mcOptionList.selectedIndex = -1;
+									mcOptionList.moveDown();
+								}
+							}
+							break;
 						}
-						break;
 					}
 				}
 			}
 		}
 		
 		public function onRightClick(event:MouseEvent):void
+		{
+			if (visible)
+			{
+				handleNavigateBack();
+			}
+		}
+
+		public function onTap(event:GestureEvent):void
 		{
 			if (visible)
 			{
@@ -660,7 +858,7 @@ package red.game.witcher3.menus.mainmenu
 			var sourceData : DataProvider = mcOptionList.dataProvider as DataProvider;
 			var entryAlreadyExists : Boolean = false;
 			
-			trace( "onInsertOptionsEntry " + entries.list.length.toString() );
+			trace( "OptionListModule onInsertOptionsEntry() " + entries.list.length.toString() );
 			
 			// find item with master tag in order to insert entries after it
 			for (i = 0; i < sourceData.length; i++)
@@ -694,7 +892,6 @@ package red.game.witcher3.menus.mainmenu
 				}
 			}
 			
-			
 			mcOptionList.invalidateData();
 		}
 		
@@ -704,7 +901,7 @@ package red.game.witcher3.menus.mainmenu
 			var removeEntryIndex : int = -1;
 			var sourceData : DataProvider = mcOptionList.dataProvider as DataProvider;
 			
-			trace( "onRemoveOptionsEntry " + entries.list.length.toString() );
+			trace( "OptionListModule onRemoveOptionsEntry() " + entries.list.length.toString() );
 			
 			for ( var eId:uint = 0; eId < entries.list.length; eId++ )
 			{
@@ -717,11 +914,11 @@ package red.game.witcher3.menus.mainmenu
 					}
 				}
 			
-				if ( removeEntryIndex == -1 )
-					continue;
-			
-				sourceData.splice(removeEntryIndex, 1);
-				removeEntryIndex = -1;
+				if ( removeEntryIndex != -1 )
+				{
+					sourceData.splice(removeEntryIndex, 1);
+					removeEntryIndex = -1;
+				}
 			}
 			
 			mcOptionList.invalidateData();

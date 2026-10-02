@@ -31,10 +31,19 @@
 		 * */
 		public static function between (value:Number,min:Number,max:Number):Number 
 		{
-			value=value>max?max:value;
-			value = value < min? min:value;
+			value = value > max ? max : value;
+			value = value < min ? min : value;
 			return value;
 		}
+
+		/**
+		 * Alias for between
+		 */
+		public static function clamp ( value:Number, min:Number, max:Number ) : Number 
+		{
+			return between ( value, min, max );
+		}
+
 		/**
 		 * method returns rounded number with n signs after coma
 		 * @param	value value to round
@@ -134,6 +143,19 @@
 		
 		/**
 		 * Get segment length between two points
+		 * @param	p1x start point X
+		 * @param	p1y start point Y
+		 * @param	p2x start point X
+		 * @param	p2y start point Y
+		 * @return	length
+		 */
+		public static function getSegmentLength2(p1x:Number, p1y:Number, p2x:Number, p2y:Number):Number
+		{
+			return Math.sqrt(Math.pow(p2x - p1x, 2) + Math.pow(p2y - p1y, 2));
+		}
+
+		/**
+		 * Get segment length between two points
 		 * @param	p1 start point
 		 * @param	p2 end point
 		 * @return	length
@@ -141,6 +163,19 @@
 		public static function getSegmentLength(p1:Point, p2:Point):Number
 		{
 			return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+		}
+
+		/**
+		 * Get squared segment length between two points
+		 * @param	p1x start point X
+		 * @param	p1y start point Y
+		 * @param	p2x start point X
+		 * @param	p2y start point Y
+		 * @return	squared length
+		 */
+		public static function getSquaredSegmentLength2(p1x:Number, p1y:Number, p2x:Number, p2y:Number):Number
+		{
+			return Math.pow(p2x - p1x, 2) + Math.pow(p2y - p1y, 2);
 		}
 
 		/**

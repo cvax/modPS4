@@ -20,6 +20,10 @@ package red.game.witcher3.menus.overlay
 	import scaleform.clik.managers.InputDelegate;
 	import scaleform.clik.ui.InputDetails;
 	import red.core.CoreComponent;
+	import flash.events.IOErrorEvent;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
+	import flash.events.Event;
 
 	/**
 	 * Full screen tutorial hint; used in popup_tutorial.fla
@@ -36,12 +40,12 @@ package red.game.witcher3.menus.overlay
 		protected static const BUTTONS_PADDING:Number = 10;
 		protected static const GRADIENT_PADDING:Number = 130;
 		
-		public var txtTitle:TextField;
-		public var txtDescription:TextField;
-		public var btnAccept:InputFeedbackButton;
-		public var btnGlossary:InputFeedbackButton;
-		public var topDelemiter:Sprite;
-		public var mcBackground:Sprite;
+		public var txtTitle			:TextField;
+		public var txtDescription	:TextField;
+		public var btnAccept		:InputFeedbackButton;
+		public var btnGlossary		:InputFeedbackButton;
+		public var topDelemiter		:Sprite;
+		public var mcBackground		:Sprite;
 		
 		protected var _data:Object;
 		protected var _imageLoader:UILoader;
@@ -57,27 +61,40 @@ package red.game.witcher3.menus.overlay
 			_container.addChild(txtDescription);
 			_container.addChild(btnAccept);
 			_container.addChild(btnGlossary);
-			
-			btnAccept.label = "[[panel_continue]]";
-			btnAccept.clickable = false;
-			btnAccept.setDataFromStage(NavigationCode.GAMEPAD_A, KeyCode.SPACE);			
-			
+						
 			btnGlossary.label = "[[panel_title_glossary]]";
 			btnGlossary.clickable = false;
-			btnGlossary.setDataFromStage(NavigationCode.GAMEPAD_BACK, -1, -1, 1000);			
+			btnGlossary.setDataFromStage(NavigationCode.GAMEPAD_BACK, -1, -1, 1000);
+			btnGlossary.addEventListener( GestureEventEx.GESTURE_TAP, handleGlossaryTap, false, 0, true );
 			cleanup();
 		}
 
 		public function get data():Object { return _data }
 		public function set data(value:Object):void
 		{
-			var buttonsWidth:Number;
-			
+			trace("TutorialOverlay::data");
+
+			var waitImageLoading:Boolean = false;
+
 			cleanup();
-			_data = value;			
-			
+			_data = value;
+
+			//TODO remove when journal builded
+			if(_data.scriptTag == "PlaystyleDualGrip" && _data.imagePath == "")
+			{					
+				_data.imagePath = "textures/glossary/tutorials/playstile-alert.png";
+			}
+
+			// image
+			if (_data.imagePath)
+			{
+				// #Y not sure that we need it, disabled for now
+				waitImageLoading = true;
+				loadImage(_data.imagePath);
+			}
+
 			// buttons visibility
-			
+
 			if (_data.enableGlossaryLink)
 			{
 				btnGlossary.visible = true;
@@ -88,61 +105,98 @@ package red.game.witcher3.menus.overlay
 				btnGlossary.visible = false;
 				btnGlossary.holdCallback = null;
 			}
+
+			if(txtTitle)
+			{
+				txtTitle.htmlText = CommonUtils.toUpperCaseSafe(_data.messageTitle);
+				trace("TutorialOverlay::data - title : ", _data.messageTitle );
+			}
+
+			if(txtDescription)
+			{
+				txtDescription.htmlText =  CommonUtils.fixFontStyleTags(_data.messageText);
+				trace("TutorialOverlay::data - text : ", _data.messageText );
+			}
+
+			if ( CoreComponent.isArabicAligmentMode )
+			{
+				txtDescription.htmlText = "<p align=\"right\">" + _data.messageText + "</p>";				
+			}
+
+			if (!waitImageLoading)
+			{
+				alignContent();
+			}
+		}
+
+		private function alignContent():void
+		{
+			var safeRect:Rectangle = CommonUtils.getScreenRect();
+			var safePadding:Number = safeRect.width * .05;
+
+			var messageCenter:Number;
+			var centralLine:Number;
+			var backgroundWidth:Number;
+			var buttonsWidth:Number;
+
+			// if (_data.scriptTag == 'TutorialDualGripStyleAlert')
+			// {				
+			// 	btnAccept.visible = false;
+			// }
+
+			if(_data.enableAcceptButton)
+			{	
+				btnAccept.visible = true;
+				btnAccept.label = "[[panel_continue]]";
+				btnAccept.clickable = false;
+				btnAccept.setDataFromStage(NavigationCode.GAMEPAD_A, KeyCode.SPACE);
+				btnAccept.addEventListener( GestureEventEx.GESTURE_TAP, handleAcceptTap, false, 0, true );		
+			}
+			else
+			{
+				btnAccept.visible = false;
+			}
+
 			if (btnAccept.visible && btnGlossary.visible)
 			{
-				buttonsWidth = btnAccept.getViewWidth() + btnGlossary.getViewWidth() + BUTTONS_PADDING;				
+				buttonsWidth = btnAccept.getViewWidth() + btnGlossary.getViewWidth() + BUTTONS_PADDING;
 			}
 			else
 			{
 				buttonsWidth = btnGlossary.getViewWidth();
 			}
 			
-			// content 
-			
-			var safeRect:Rectangle = CommonUtils.getScreenRect();
-			var safePadding:Number = safeRect.width * .05;
-			
-			var messageCenter:Number = Math.max(txtDescription.width / 2, buttonsWidth / 2);
-			var centralLine:Number = safePadding + EDGE_PADDING + messageCenter;
-			var backgroundWidth:Number = centralLine + messageCenter + GRADIENT_PADDING;
-			
+			messageCenter = Math.max(txtDescription.width / 2, buttonsWidth / 2);
+			centralLine = safePadding + EDGE_PADDING + messageCenter;
+			backgroundWidth = centralLine + messageCenter + GRADIENT_PADDING;
+
 			mcBackground.width = backgroundWidth;
-			
-			txtTitle.htmlText = CommonUtils.toUpperCaseSafe(_data.messageTitle);
-			txtTitle.width = txtTitle.textWidth + CommonConstants.SAFE_TEXT_PADDING;
-			
-			txtDescription.htmlText =  CommonUtils.fixFontStyleTags(_data.messageText);
+
+			txtTitle.width = txtTitle.textWidth + CommonConstants.SAFE_TEXT_PADDING;			
+
 			txtDescription.height = txtDescription.textHeight + CommonConstants.SAFE_TEXT_PADDING;
-			
+
 			topDelemiter.x = centralLine;
-			txtTitle.x = centralLine - txtTitle.textWidth / 2;
-			
+			txtTitle.x = centralLine - (txtTitle.width / 2 ) ;
+ 
 			var format:TextFormat = new TextFormat();
 			if ( CoreComponent.isArabicAligmentMode )
 			{
-				txtDescription.htmlText = "<p align=\"right\">" + _data.messageText + "</p>";
 				txtDescription.x = centralLine - txtDescription.textWidth / 2 - (txtDescription.width - txtDescription.textWidth);
-				
+
 				format.font = "$NormalFont";
 			}
 			else
 			{
 				txtDescription.x = centralLine - txtDescription.textWidth / 2;
-				
+
 				format.font = "$BoldFont";
 			}
-			
-			txtTitle.setTextFormat(format);
-			
-			// image
-			if (_data.imagePath)
-			{
-				// #Y not sure that we need it, disabled for now
-				// loadImage(_data.imagePath);
-			}
-			
+
+			txtTitle.setTextFormat(format);			
+
 			// buttons alignment
-			
+
 			btnAccept.y =  btnGlossary.y = (txtDescription.y + txtDescription.height + BUTTONS_TOP_PADDING);
 			if (btnGlossary.visible)
 			{
@@ -153,7 +207,13 @@ package red.game.witcher3.menus.overlay
 			{
 				btnAccept.x = centralLine - btnAccept.getViewWidth() / 2;
 			}
-			
+
+			if(_imageLoader)
+			{
+				_imageLoader.y += txtDescription.height + BLOCK_PADDING + 400;
+				_imageLoader.x += 80;
+			}
+
 			// container
 			_container.y = safeRect.y + (safeRect.height - _container.height) / 2
 		}
@@ -183,7 +243,22 @@ package red.game.witcher3.menus.overlay
 			_imageLoader.source = "img://" + imagePath;
 			_imageLoader.x = txtDescription.x;
 			_imageLoader.y = txtDescription.y + txtDescription.height
+			_imageLoader.addEventListener(Event.COMPLETE, handleImageLoaded, false, 0, true);
+			_imageLoader.addEventListener(IOErrorEvent.IO_ERROR, handleImageLoadinfFailed, false, 0, true);
 			addChild(_imageLoader);
+		}
+
+		private function handleImageLoadinfFailed(event:IOErrorEvent):void
+		{
+			trace("TutorialDebug handleImageLoadinfFailed");
+			removeChild(_imageLoader);
+			alignContent();
+		}
+
+		private function handleImageLoaded(event:Event):void
+		{
+			trace("TutorialDebug handleImageLoaded");
+			alignContent();
 		}
 
 		private function handleGlossaryLink():void
@@ -193,7 +268,22 @@ package red.game.witcher3.menus.overlay
 				dispatchEvent( new GameEvent( GameEvent.CALL, 'OnGotoGlossary' ) );
 			}
 		}
+
+		protected function handleGlossaryTap(event:GestureEvent) : void
+		{
+			trace("TutorialOverlay - handleGlossaryTap");
+			handleGlossaryLink();
+		}
 		
+		protected function hide()
+		{
+			var animProps:Object = { ease:Exponential.easeOut, onComplete:handleOverlayHidden } ;
+			var animValues:Object = { x: OVER_ANIM_OFFSET_X, alpha: 0 };
+			GTweener.removeTweens(this);
+			GTweener.to(this, OVER_ANIM_DURATION, animValues, animProps);
+			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnStartHiding' ) );
+		}
+
 		public function proccedInput(event:InputEvent, useDownEvent:Boolean = false):void
 		{
 			var details    : InputDetails = event.details;
@@ -201,16 +291,18 @@ package red.game.witcher3.menus.overlay
 			var isKeyUp    : Boolean = details.value == (useDownEvent ? InputValue.KEY_DOWN : InputValue.KEY_UP);
 			var isKeyValid : Boolean = details.navEquivalent == NavigationCode.GAMEPAD_A || details.navEquivalent == NavigationCode.GAMEPAD_B;
 			
-			if (isEnable && isKeyUp && isKeyValid)
+			if (isEnable && isKeyUp && isKeyValid && btnAccept.visible) 
 			{
-				var animProps:Object = { ease:Exponential.easeOut, onComplete:handleOverlayHidden } ;
-				var animValues:Object = { x: OVER_ANIM_OFFSET_X, alpha: 0 };
-				GTweener.removeTweens(this);
-				GTweener.to(this, OVER_ANIM_DURATION, animValues, animProps);
-				dispatchEvent( new GameEvent( GameEvent.CALL, 'OnStartHiding' ) );
+				hide();
 			}
 		}
-		
+
+		protected function handleAcceptTap(event:GestureEvent) : void
+		{
+			trace("TutorialOverlay - handleAcceptTap");
+			hide();
+		}
+
 		protected function handleOverlayHidden(tweenInst:GTween):void
 		{
 			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnHideTimer' ) );

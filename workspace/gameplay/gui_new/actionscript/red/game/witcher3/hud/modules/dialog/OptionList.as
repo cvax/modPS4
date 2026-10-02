@@ -8,7 +8,7 @@ package red.game.witcher3.hud.modules.dialog
 	{
 		override public function trySelectingIndex( index : int )
 		{
-			if ( !InputManager.getInstance().isGamepad() )
+			if ( InputManager.getInstance().isMouse() )
 			{
 				selectedIndex = index;
 			}

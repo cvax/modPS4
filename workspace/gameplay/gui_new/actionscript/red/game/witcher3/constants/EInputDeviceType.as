@@ -9,5 +9,7 @@ package red.game.witcher3.constants
 		public static const IDT_Tablet = 4;
 		public static const IDT_Unknown = 5;
 		public static const IDT_PS5 = 6;
+		public static const IDT_Switch2 = 7;
+		public static const IDT_Switch2_Mouser = 8;
 	}
 }

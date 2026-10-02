@@ -200,9 +200,11 @@ package red.game.witcher3.menus.worldmap
 			}
 		}
 		
-		public function removePinPointer():void
+		public function removePinPointer(mappin:StaticMapPinDescribed):void
 		{
-			// TODO:
+			var mappinPointer : MovieClip = _pointersMap[ mappin ];
+			_canvas.removeChild(mappinPointer);			
+			delete _pointersMap[mappin];
 		}
 		
 		public function showPinPointer(mappin:StaticMapPinDescribed, visibility:Boolean):void
@@ -246,7 +248,7 @@ package red.game.witcher3.menus.worldmap
 				cnv.endFill();
 			}
 			
-			_canvas.addChild(pointerMovieClip);			
+			_canvas.addChild(pointerMovieClip);
 			return pointerMovieClip;
 		}
 		

@@ -114,7 +114,7 @@
 			////////////
 		}
 		
-		override protected function hideAnimation():void
+		override public function hideAnimation():void
 		{
 			closeMenu();
 		}

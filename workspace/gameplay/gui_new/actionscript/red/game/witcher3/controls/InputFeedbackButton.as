@@ -29,6 +29,8 @@
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.managers.InputDelegate;
 	import scaleform.clik.ui.InputDetails;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
 
 	/**
 	 * Input button binded
@@ -56,6 +58,7 @@
 		public var mcIconPS4:MovieClip;
 		public var mcIconPS5:MovieClip;
 		public var mcIconSteam:MovieClip;
+		public var mcIconSwitch:MovieClip;
 		public var mcKeyboardIcon:KeyboardButtonIcon;
 		public var mcMouseIcon:KeyboardButtonMouseIcon;
 		public var mcHoldAnimation:MovieClip;
@@ -67,15 +70,21 @@
 		
 		public var holdCallback:Function;
 		public var addHoldPrefix:Boolean;
+
+		public var holdOnlyOnGamepad:Boolean = false;
+		protected var forceHold:Boolean = false;
 		
 		protected var _currentWidth:Number;
 		protected var _targetViewer:DisplayObject;
 		protected var _bindingData:KeyBindingData;
 		protected var _isGamepad:Boolean;
+		protected var _isMouse:Boolean;
+		protected var _showKeyboardIconOnSwitch2Mouser:Boolean = false;
 		protected var _gpadIcon:MovieClip;
 		protected var _clickable:Boolean = true;
 		protected var _labelPosition:Number;
 		
+		protected var _holdStart:Number;
 		protected var _holdTimer:Timer;
 		protected var _holdProgress:Number;
 		protected var _holdDuration:Number = -1;
@@ -109,6 +118,7 @@
 			if (mcIconPS) mcIconPS.visible = false;
 			if (mcIconPS4) mcIconPS4.visible = false;
 			if (mcIconPS5) mcIconPS5.visible = false;
+			if (mcIconSwitch) mcIconSwitch.visible = false;
 			if (mcKeyboardIcon) mcKeyboardIcon.visible = false;
 			if (mcIconSteam) mcIconSteam.visible = false;
 			
@@ -190,6 +200,21 @@
 		public function set clickable(value:Boolean):void
 		{
 			_clickable = value;
+			if (mcClickRect)
+			{
+				mcClickRect.visible = value;
+			}
+		}
+
+		public function showKeyboardIconOnSwitch2Mouser(value:Boolean):void
+		{
+			_showKeyboardIconOnSwitch2Mouser = value;
+
+			if (_dataFromStage)
+			{
+				SetHoldButtonText();
+				updateDataFromStage();
+			}
 		}
 
 		/**
@@ -248,17 +273,47 @@
 			return _bindingData;
 		}
 
+		public function setHoldOnlyOnGamepad(value:Boolean, isGamepad:Boolean)
+		{
+			holdOnlyOnGamepad = value;
+
+			if(holdOnlyOnGamepad && isGamepad)
+			{
+				forceHold = true;
+				updateText();
+				var curGpadNavCode:String = _bindingData.gamepad_navEquivalent;
+				SetupGamepadIcon(curGpadNavCode);
+			}
+			else 
+			{
+				forceHold = false;
+				updateText();
+			}
+		}
+
 		public function setData(bindingData:KeyBindingData, isGamepad:Boolean, dontUpdate:Boolean = false):void
 		{
 			_bindingData = bindingData;
 			if (dontUpdate) return;
+
+			if (mcIconXbox) mcIconXbox.visible = false;
+			if (mcIconPS) mcIconPS.visible = false;
+			if (mcIconPS4) mcIconPS4.visible = false;
+			if (mcIconPS5) mcIconPS5.visible = false;
+			if (mcIconSwitch) mcIconSwitch.visible = false;
+			if (mcKeyboardIcon) mcKeyboardIcon.visible = false;
+			if (mcIconSteam) mcIconSteam.visible = false;
+			if (mcClickRect) mcClickRect.visible = false;
+			if (mcHoldAnimation) mcHoldAnimation.visible = false;
+			if (tfKeyLabel) tfKeyLabel.visible = false;
+			if (mcMouseIcon) mcMouseIcon.visible = false;
 			
 			if (_bindingData)
 			{
 				var isPlayStation:Boolean = InputManager.getInstance().isPsPlatform();
-				
+				var isSwitchPlatform:Boolean = InputManager.getInstance().isSwitchPlatform();
 				var newGpadIcon:MovieClip =  getCurrentPadIcon();
-				
+
 				if (_gpadIcon && _gpadIcon != newGpadIcon)
 				{
 					_gpadIcon.visible = false;
@@ -269,14 +324,35 @@
 				}
 				_gpadIcon = newGpadIcon;
 				_isGamepad = isGamepad;
+				_isMouse = InputManager.getInstance().isMouse();
 				_label = _bindingData.label;
+
+				holdDuration = _bindingData.holdDuration;
+
+				if(holdOnlyOnGamepad && isGamepad)
+				{
+					forceHold = true;
+					updateText();
+				}
+				else 
+				{
+					forceHold = false;
+					updateText();
+				}
 				
 				if (_shiftXForGamepad > 0) 
 				{
 					x = _posXSource;
 					if (isGamepad || isPlayStation) 
 					{
-						x += _shiftXForGamepad;
+						if (isSwitchPlatform && _isMouse && _showKeyboardIconOnSwitch2Mouser)
+						{
+							x += _shiftXForKeyboard;
+						}
+						else
+						{
+							x += _shiftXForGamepad;
+						}
 					}
 					else
 					{
@@ -284,10 +360,18 @@
 					}
 				}
 				
-				if (_isGamepad || isPlayStation)
+				if (isGamepad || isPlayStation)
 				{
-					displayGamepadIcon();
-					if (mcHoldAnimation) { mcHoldAnimation.alpha = 1; }
+					if (isSwitchPlatform && _isMouse && _showKeyboardIconOnSwitch2Mouser)
+					{
+						displayKeyboardIcon();
+						if (mcHoldAnimation) { mcHoldAnimation.alpha = 0; }
+					}
+					else
+					{
+						displayGamepadIcon();
+						if (mcHoldAnimation) { mcHoldAnimation.alpha = 1; }
+					}
 				}
 				else
 				{
@@ -315,6 +399,7 @@
 					else {
 						return mcIconPS4;
 					}
+
 				case EInputDeviceType.IDT_PS5:
 					if(mcIconPS5){
 						return mcIconPS5;
@@ -322,20 +407,64 @@
 					else {
 						return mcIconPS;
 					}
+
 				case EInputDeviceType.IDT_Xbox1:
 					return mcIconXbox;
+
 				case EInputDeviceType.IDT_Steam:
-					if (mcIconSteam)
+					if (mcIconSteam) {
 						return mcIconSteam;
-					else
+					}
+					else {
 						return mcIconXbox;
+					}
+
+				case EInputDeviceType.IDT_Switch2:
+				case EInputDeviceType.IDT_Switch2_Mouser:
+					return mcIconSwitch;
+			}
+			
+			return getPadIconByPlatformFallback();
+		}
+
+		// Falback function if the current input device is gamepad yet mouse is still used at the same time
+		private function getPadIconByPlatformFallback():MovieClip
+		{
+			var platformType:uint = InputManager.getInstance().getPlatform();
+
+			switch (platformType)
+			{
+				case PlatformType.PLATFORM_PS4:
+					if(mcIconPS){
+						return mcIconPS;
+					}
+					else {
+						return mcIconPS4;
+					}
+
+				case PlatformType.PLATFORM_PS5:
+					if(mcIconPS5){
+						return mcIconPS5;
+					}
+					else {
+						return mcIconPS;
+					}
+
+				case PlatformType.PLATFORM_SWITCH2:
+					return mcIconSwitch;
+
+				case PlatformType.PLATFORM_XBOX1:
+				case PlatformType.PLATFORM_XB_SCARLETT_ANACONDA:
+				case PlatformType.PLATFORM_XB_SCARLETT_LOCKHART:
+				case PlatformType.PLATFORM_PC:
+				case PlatformType.PLATFORM_PC_GDK:
 				default:
 					// modPS4++
 					// return mcIconXbox;
 					return mcIconPS4;
 					// modPS4--
 			}
-			
+
 			// modPS4++
 			// return mcIconXbox;
 			return mcIconPS4;
@@ -374,7 +503,8 @@
 		
 		protected function SetHoldButtonText():void
 		{
-			if (tfHoldPrefix && tfHoldPrefix.visible)
+			var alreadyLocalized : Boolean = ( _bindingData ) ? _bindingData.isAlreadyLocalized : false;
+			if (tfHoldPrefix && tfHoldPrefix.visible && !alreadyLocalized)
 			{
 				tfHoldPrefix.autoSize = TextFieldAutoSize.LEFT;
 				// NGE
@@ -399,7 +529,7 @@
 		protected function SetupGamepadIcon( navCode : String )
 		{
 			var hitArea:Sprite;
-			
+
 			try
 			{
 				_gpadIcon.visible = true;
@@ -420,8 +550,8 @@
 				
 				updateText();
 				
-				_currentWidth = currentPadIconWidth + textField.width + TEXT_PADDING_PAD + (_holdDuration > 0 ? tfHoldPrefix.width : 0);
-				
+				_currentWidth = currentPadIconWidth + textField.width + TEXT_PADDING_PAD + ((_holdDuration > 0 || forceHold) ? tfHoldPrefix.width : 0);
+
 				if (_holdIndicator) _holdIndicator.visible = false; // prev one
 				_holdIndicator = _gpadIcon["holdIndicator"] as Sprite;
 				if (_holdIndicator) _holdIndicator.visible = false;
@@ -462,26 +592,8 @@
 			if (curKbCode > 0)
 			{
 				var keyLabel:String = KeyboardKeys.getKeyLabel(curKbCode);
-				
-				if (!clickable)
-				{
-					if (mcMouseIcon && mcMouseIcon.isMouseKey(curKbCode))
-					{
-						mcMouseIcon.visible = true;
-						mcMouseIcon.keyCode = curKbCode;
-						_labelPosition = mcMouseIcon.width + TEXT_PADDING_KEYBOARD;
-					}
-					else
-					{
-						mcKeyboardIcon.visible = true;
-						mcKeyboardIcon.label = keyLabel;
-						_labelPosition = mcKeyboardIcon.width + TEXT_PADDING_KEYBOARD;
-					}
-					
-					if (tfKeyLabel)	tfKeyLabel.visible = false;
-					if (mcClickRect) mcClickRect.visible = false;
-				}
-				else
+
+				if (clickable)
 				{
 					if (tfKeyLabel)
 					{
@@ -515,13 +627,31 @@
 						mcClickRect.visible = true;
 					}
 				}
+				else
+				{
+					if (mcMouseIcon && mcMouseIcon.isMouseKey(curKbCode))
+					{
+						mcMouseIcon.visible = true;
+						mcMouseIcon.keyCode = curKbCode;
+						_labelPosition = mcMouseIcon.width + TEXT_PADDING_KEYBOARD;
+					}
+					else
+					{
+						mcKeyboardIcon.visible = true;
+						mcKeyboardIcon.label = keyLabel;
+						_labelPosition = mcKeyboardIcon.width + TEXT_PADDING_KEYBOARD;
+					}
+					
+					if (tfKeyLabel)	tfKeyLabel.visible = false;
+					if (mcClickRect) mcClickRect.visible = false;
+				}
 				
 				_contentInvalid = false;
 				_gpadIcon.visible = false;
 				
 				updateText();
 				
-				_currentWidth = mcKeyboardIcon.width + textField.width + TEXT_PADDING_PAD + (_holdDuration > 0 ? tfHoldPrefix.width : 0);
+				_currentWidth = mcKeyboardIcon.width + textField.width + TEXT_PADDING_PAD + ((_holdDuration > 0 || forceHold) ? tfHoldPrefix.width : 0);
 			}
 			else
 			{
@@ -535,17 +665,19 @@
 		{
 			if (_displayGamepadCode || _displayKeyboardCode > 0 || _displayGamepadKeyCode > 0 )
 			{
-				var newBinderData:KeyBindingData = new KeyBindingData();
-				newBinderData.actionId = 0;
-				newBinderData.gamepad_navEquivalent = _displayGamepadCode;
-				newBinderData.keyboard_keyCode = _displayKeyboardCode;
-				newBinderData.gamepad_keyCode = _displayGamepadKeyCode;
-				newBinderData.label = label ? label : "";
+				var bindingData:KeyBindingData = new KeyBindingData();
+				bindingData.actionId = 0;
+				bindingData.gamepad_navEquivalent = _displayGamepadCode;
+				bindingData.keyboard_keyCode = _displayKeyboardCode;
+				bindingData.gamepad_keyCode = _displayGamepadKeyCode;
+				bindingData.label = label ? label : "";
+				bindingData.holdDuration = _holdDuration;
 				
 				_isGamepad = InputManager.getInstance().isGamepad();
+				_isMouse = InputManager.getInstance().isMouse();
 				_dataFromStage = true;
 				
-				setData(newBinderData, _isGamepad);
+				setData(bindingData, _isGamepad);
 				stopHoldAnimation();
 			}
 		}
@@ -573,7 +705,7 @@
 		{
 			if (tfHoldPrefix)
 			{
-				if ((holdDuration > 0 || addHoldPrefix) && _label && textField)
+				if ((holdDuration > 0 || addHoldPrefix || forceHold) && _label && textField)
 				{
 					SetHoldButtonText();
 					tfHoldPrefix.textColor = (_overrideTextColor > -1) ? _overrideTextColor : 0xFFFFFF;
@@ -613,7 +745,10 @@
 					if (animStateClip)
 					{
 						animStateClip.state = state;
-						animStateClip.setActualSize(CLICKABLE_BK_OFFSET + textField.x + textField.width, mcClickRect.height);
+						var newActualWidth : Number = CLICKABLE_BK_OFFSET + textField.x + textField.width;
+						if(tfHoldPrefix.visible)
+							newActualWidth += tfHoldPrefix.width;
+						animStateClip.setActualSize(newActualWidth, mcClickRect.height);
 						mcClickRect.x = 0;
 						mcClickRect.y = - mcClickRect.height / 2;
 						mcClickRect.visible = true;
@@ -650,10 +785,9 @@
 			}
 		}
 		
-		// private
-		public function startHoldAnimation():void
+		protected function startHoldAnimation():void
 		{
-			if (!_holdIndicator)
+			if (!_holdIndicator && _isGamepad)
 			{
 				trace("GFX Can't find _holdIndicator in the InputFeedbackButton ", parent);
 				return;
@@ -666,6 +800,18 @@
 			}
 			
 			stopHoldAnimation(); // reset all
+
+			if(!_isGamepad)
+			{
+				_holdStart = new Date().time;
+				_holdTimer = new Timer(HOLD_ANIM_INTERVAL);
+				_holdTimer.addEventListener(TimerEvent.TIMER, handleHoldTimer, false, 0, true);
+				_holdTimer.start();
+				
+				_holdProgress = 0;
+				UpdateHoldAnimationKBM();
+				return;
+			}
 			
 			if (!mcHoldAnimation)
 			{
@@ -683,6 +829,7 @@
 				}
 			}
 			
+			_holdStart = new Date().time;
 			_holdTimer = new Timer(HOLD_ANIM_INTERVAL);
 			_holdTimer.addEventListener(TimerEvent.TIMER, handleHoldTimer, false, 0, true);
 			_holdTimer.start();
@@ -694,6 +841,8 @@
 		{
 			if (_holdTimer)
 			{
+				_holdStart = new Date().time;
+				UpdateHoldAnimationKBM();
 				_timerActivated = false;
 				_holdTimer.removeEventListener(TimerEvent.TIMER, handleHoldTimer, false);
 				_holdTimer.stop();
@@ -725,8 +874,23 @@
 		protected function handleHoldTimer(event:TimerEvent):void
 		{
 			var maxValue:Number = mcHoldAnimation ? HOLD_INT_MAX_FRAME : HOLD_INT_MAX_ANGLE;
-			
-			if (_holdProgress > maxValue)
+
+			if(!_isGamepad)
+			{
+				var elapsed : Number = (new Date().time - _holdStart);
+				if(elapsed > _holdDuration)
+				{
+					stopHoldAnimation();
+					if (holdCallback != null && !_timerActivated)
+					{
+						holdCallback();
+						_timerActivated = true;
+					}
+
+					return;
+				}
+			}
+			else if (_holdProgress > maxValue)
 			{
 				stopHoldAnimation();
 				if (holdCallback != null && !_timerActivated)
@@ -734,10 +898,12 @@
 					holdCallback();
 					_timerActivated = true;
 				}
+
 				if (mcHoldAnimation)
 				{
 					mcHoldAnimation.gotoAndPlay("Done");
 				}
+
 				return;
 			}
 			
@@ -753,13 +919,29 @@
 			
 			UpdateHoldAnimation();
 		}
+
+		protected function UpdateHoldAnimationKBM()
+		{
+			var elapsed : Number = (new Date().time - _holdStart);
+			var pct : Number = elapsed / _holdDuration;
+
+			if(elapsed > _holdDuration) pct = 0; //end hack
+
+			var fillValue : int = int(100 * pct);
+			mcKeyboardIcon.setFill( fillValue );
+		}
 		
 		protected function UpdateHoldAnimation()
 		{
 			var delta:Number;
 			var percentage:Number;
-						
-			
+
+			if(!_isGamepad && _holdTimer)
+			{
+				UpdateHoldAnimationKBM();
+				return;
+			}
+
 			if ((!_holdIndicator || !_holdIndicatorMask && !mcHoldAnimation) || (mcHoldAnimation && !mcHoldAnimation.visible) || !visible)
 			{
 				return;
@@ -770,7 +952,6 @@
 			delta = maxValue / (_holdDuration / HOLD_ANIM_INTERVAL);
 			_holdProgress += delta;
 			percentage = Math.min(maxValue, _holdProgress);
-			
 			if (percentage > 0)
 			{
 				if (mcHoldAnimation)
@@ -788,6 +969,57 @@
 					_holdIndicatorMask.visible = true;
 					_holdIndicatorMask.graphics.clear();
 					CommonUtils.drawPie(_holdIndicatorMask.graphics, _holdIndicator.width, HOLD_ANIM_STEPS_COUNT, 0, percentage);
+				}
+			}
+			else
+			{
+				if (mcHoldAnimation)
+				{
+					mcHoldAnimation.visible = false;
+				}
+				else
+				{
+					_holdIndicator.visible = false;
+					_holdIndicatorMask.visible = false;
+				}
+			}
+		}
+
+		public function UpdateHoldAnimationWithPercentage(percentage : Number)
+		{
+			var delta:Number;
+						
+			if(percentage > 0 && !_holdIndicatorMask && !mcHoldAnimation)
+				SpawnHoldAnimationMask();
+			
+			if ((!_holdIndicator || !_holdIndicatorMask && !mcHoldAnimation) || (mcHoldAnimation && !mcHoldAnimation.visible) || !visible)
+			{
+				return;
+			}
+
+			
+			var maxValue:Number = mcHoldAnimation ? HOLD_INT_MAX_FRAME : HOLD_INT_MAX_ANGLE;
+			
+			delta = maxValue / (_holdDuration / HOLD_ANIM_INTERVAL);
+			_holdProgress += delta;
+			
+			if (percentage > 0)
+			{
+				if (mcHoldAnimation)
+				{
+					mcHoldAnimation.visible = true;
+					mcHoldAnimation.gotoAndStop(HOLD_INT_FIRST_FRAME + percentage);
+					if (clickable && mcClickRect["mcHoldAnim"])
+					{
+						mcClickRect["mcHoldAnim"].gotoAndStop(HOLD_INT_FIRST_FRAME + percentage);
+					}
+				}
+				else
+				{
+					_holdIndicator.visible = true;
+					_holdIndicatorMask.visible = true;
+					_holdIndicatorMask.graphics.clear();
+					CommonUtils.drawPie(_holdIndicatorMask.graphics, _holdIndicator.width, HOLD_ANIM_STEPS_COUNT, 0, percentage * 360);
 				}
 			}
 			else
@@ -843,6 +1075,43 @@
 						{
 							stopHoldAnimation();
 						}
+					}
+				}
+			}
+		}
+
+		public function enablePressToHold( enable : Boolean ) : void
+		{
+			if ( enable )
+			{
+				addEventListener( GestureEventEx.GESTURE_PRESS, handleButtonPress, false, 0, true );
+			}
+			else
+			{
+				removeEventListener( GestureEventEx.GESTURE_PRESS, handleButtonPress, false );
+			}
+		}
+
+		protected function handleButtonPress(event:GestureEvent) : void
+		{
+			if ( _holdDuration > 0 && _bindingData )
+			{
+				if (visible)
+				{
+					switch (event.phase)
+					{
+						case "begin" : 
+						if ( !_holdTimer )
+						{
+							startHoldAnimation();	
+						}
+						break;
+						case "end" : 
+						if ( _holdTimer )
+						{
+							stopHoldAnimation();
+						}
+						break;
 					}
 				}
 			}

@@ -6,16 +6,22 @@
 /***********************************************************************/
 package red.game.witcher3.menus.crafting
 {
+	import flash.display.DisplayObject;
 	import flash.display.MovieClip;
 	import flash.events.Event;
+	import flash.events.GestureEvent;
 	import flash.text.TextField;
+	import flash.utils.setTimeout;
+
 	import red.core.constants.KeyCode;
 	import red.core.CoreMenu;
 	import red.core.events.GameEvent;
+	import red.core.events.GestureEventEx;
 	import red.game.witcher3.events.GridEvent;
 	import red.game.witcher3.constants.CommonConstants;
 	import red.game.witcher3.managers.ContextInfoManager;
 	import red.game.witcher3.managers.InputFeedbackManager;
+	import red.game.witcher3.managers.InputManager;
 	import red.game.witcher3.managers.PanelModuleManager;
 	import red.game.witcher3.menus.common.CheckboxListMode;
 	import red.game.witcher3.menus.common.DropdownListModuleBase;
@@ -23,6 +29,8 @@ package red.game.witcher3.menus.crafting
 	import red.game.witcher3.menus.common.ModuleMerchantInfo;
 	import red.game.witcher3.menus.common.RecipeIconItemRenderer;
 	import red.game.witcher3.modules.ItemTooltipModule;
+	import red.game.witcher3.utils.CommonUtils;
+
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.events.InputEvent;
@@ -50,6 +58,7 @@ package red.game.witcher3.menus.crafting
 		//public var 		moduleMerchantInfo					: ModuleMerchantInfo;
 		public var 		merchantInfo						: MovieClip;
 		public var 		mcFiltersMode						: CheckboxListMode;
+		public var 		mcImageBackground					: MovieClip;
 		
 		public var 		txtActiveFiltersTitle				: TextField;
 		public var 		txtActiveFiltersList				: TextField;
@@ -67,6 +76,8 @@ package red.game.witcher3.menus.crafting
 		protected var   lastSelectedItem					: RecipeIconItemRenderer;
 		
 		protected var   pinnedTag							: uint = 0;
+
+		protected var 	m_glossaryMode						: Boolean = false;
 
 		/********************************************************************************************************************
 				INTERNAL PROPERTIES
@@ -114,6 +125,7 @@ package red.game.witcher3.menus.crafting
 			mcMainListModule.mcDropDownList.addEventListener(ListEvent.INDEX_CHANGE, handleSelectChange, false, 0 , true );
 			mcMainListModule.mcDropDownList.addEventListener(ListEvent.ITEM_DOUBLE_CLICK, handleItemDoubleClick, false, 0, true );
 			mcMainListModule.filterFunc = filterList;
+			mcMainListModule.enableTouch( true );
 			
 			InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_RSTICK_HOLD, KeyCode.F , "panel_common_filters");
 			InputFeedbackManager.updateButtons(this);
@@ -146,13 +158,15 @@ package red.game.witcher3.menus.crafting
 			
 			if (lastSelectedItem != null)
 			{
+				var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
 				if (lastSelectedItem.data && lastSelectedItem.data.tag == pinnedTag)
 				{
-					_inputSymbolIDX = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_unpin_recipe");
+					_inputSymbolIDX = InputFeedbackManager.appendButton(this, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_unpin_recipe");
 				}
 				else
 				{
-					_inputSymbolIDX = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_pin_recipe");
+					_inputSymbolIDX = InputFeedbackManager.appendButton(this, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_pin_recipe");
 				}
 			}
 			
@@ -438,6 +452,24 @@ package red.game.witcher3.menus.crafting
 			}
 		}
 		
+		protected function onItemTappedAgain( event : GestureEvent ) : void
+		{
+			togglePinOnSelectedRecipe();
+		}
+
+		private function addSelectedItemTapListeners() : void
+		{
+			lastSelectedItem.addEventListener( GestureEventEx.GESTURE_TAP, onItemTappedAgain, false, 0, true );
+			//Add double tap too in case you mash the button a bit too much
+			lastSelectedItem.addEventListener( GestureEventEx.GESTURE_DOUBLE_TAP, onItemTappedAgain, false, 0, true );
+		}
+
+		private function removeSelectedItemTapListeners() : void
+		{
+			lastSelectedItem.removeEventListener( GestureEventEx.GESTURE_TAP, onItemTappedAgain, false );
+			lastSelectedItem.removeEventListener( GestureEventEx.GESTURE_DOUBLE_TAP, onItemTappedAgain, false );
+		}
+		
 		public function handleSelectChange(event:ListEvent):void
 		{
 			if (_inputSymbolIDX != -1)
@@ -448,21 +480,30 @@ package red.game.witcher3.menus.crafting
 			
 			if (event.itemRenderer is RecipeIconItemRenderer)
 			{
+				//Remove previous tap listener
+				if ( lastSelectedItem )
+				{
+					removeSelectedItemTapListeners();
+				}
+				//Add new tap listener after all events are handled
+				setTimeout( addSelectedItemTapListeners, 0 );
 				lastSelectedItem = event.itemRenderer as RecipeIconItemRenderer;
+
 				mcCraftingModule.setItemColorQuality( lastSelectedItem.data.rarity );
 				mcCraftedItemTooltipModule.setItemColorQuality( lastSelectedItem.data.rarity  );
 				
 				mcCraftingGlossaryModule.setItemColorQuality( lastSelectedItem.data.rarity );
 				mcCraftedItemTooltipModule.setItemColorQuality( lastSelectedItem.data.rarity  );
 				
-				
+				var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
 				if (lastSelectedItem.data && lastSelectedItem.data.tag == pinnedTag)
 				{
-					_inputSymbolIDX = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_unpin_recipe");
+					_inputSymbolIDX = InputFeedbackManager.appendButton(this, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_unpin_recipe");
 				}
 				else
 				{
-					_inputSymbolIDX = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_pin_recipe");
+					_inputSymbolIDX = InputFeedbackManager.appendButton(this, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_pin_recipe");
 				}
 				
 				if (craftingEnabled && event.itemData)
@@ -479,7 +520,12 @@ package red.game.witcher3.menus.crafting
 			}
 			else
 			{
-				lastSelectedItem = null;
+				//Invalidate last selected recipe, since we tapped a non recipe list element (most likely the dropdown list header)
+				if ( lastSelectedItem )
+				{
+					removeSelectedItemTapListeners();
+					lastSelectedItem = null;
+				}
 			}
 			
 			InputFeedbackManager.updateButtons(this);
@@ -524,7 +570,9 @@ package red.game.witcher3.menus.crafting
 			super.handleInputNavigate(event);
 			
 			var details:InputDetails = event.details;
+			CommonUtils.fixupKeyCode( details );
 			var inputEnabled:Boolean = details.value == InputValue.KEY_UP && !event.handled;
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 			
 			if (inputEnabled)
 			{
@@ -534,7 +582,9 @@ package red.game.witcher3.menus.crafting
 					showFilterMode();
 				}
 				
-				if (details.code == KeyCode.Q || details.navEquivalent == NavigationCode.GAMEPAD_X)
+				if (details.code == KeyCode.Q ||
+					(isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y) ||		// Y on switch
+					(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X))		// X on other platforms
 				{
 					togglePinOnSelectedRecipe();
 				}
@@ -546,6 +596,7 @@ package red.game.witcher3.menus.crafting
 			if (lastSelectedItem != null && lastSelectedItem.data)
 			{
 				var targetTag:uint;
+				var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 				
 				if (_inputSymbolIDX != -1)
 				{
@@ -556,12 +607,12 @@ package red.game.witcher3.menus.crafting
 				if (pinnedTag == lastSelectedItem.data.tag)
 				{
 					targetTag = 0;
-					_inputSymbolIDX = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_pin_recipe");
+					_inputSymbolIDX = InputFeedbackManager.appendButton(this, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_pin_recipe");
 				}
 				else
 				{
 					targetTag = lastSelectedItem.data.tag;
-					_inputSymbolIDX = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_unpin_recipe");
+					_inputSymbolIDX = InputFeedbackManager.appendButton(this, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.Q, "inputfeedback_unpin_recipe");
 				}
 				
 				InputFeedbackManager.updateButtons(this);
@@ -708,5 +759,44 @@ package red.game.witcher3.menus.crafting
 			}
 			dispatchEvent(displayEvent);
 		}
+
+		private function moveAllChildrenYBy(yMove:Number):void
+		{
+			for(var i:int = 0; i < numChildren; i++)
+			{
+				var obj:DisplayObject = getChildAt(i);
+
+				trace("JIFIX moveY BEF", obj.name, obj.y);
+
+				obj.y += yMove;
+
+				trace("JIFIX moveY AFT", obj.name, obj.y);
+			}
+		}
+
+		/*WS*/ public function setGlossaryMode(value:Boolean):void
+		{
+			var GLOSSARY_PUSH:Number = 45;
+
+			if(m_glossaryMode == value)
+				return;
+
+			m_glossaryMode = value;
+			
+			if(value)
+			{
+				moveAllChildrenYBy(GLOSSARY_PUSH);
+				mcImageBackground.y -= GLOSSARY_PUSH;
+				mcMainListModule.mcDropDownList.listHeight -= GLOSSARY_PUSH;
+				mcMainListModule.mcScrollBar.height -= GLOSSARY_PUSH;
+			}
+			else
+			{
+				moveAllChildrenYBy(-GLOSSARY_PUSH);
+				mcImageBackground.y += GLOSSARY_PUSH;
+				mcMainListModule.mcDropDownList.listHeight += GLOSSARY_PUSH;
+				mcMainListModule.mcScrollBar.height += GLOSSARY_PUSH;
+			}
+		} 
 	}
 }

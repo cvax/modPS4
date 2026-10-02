@@ -20,6 +20,7 @@ package red.game.witcher3.menus.mainmenu
 		public var subElements:Array;
 		public var description:String;
 		public var unavailable:Boolean;
+		public var isNewGameAndModded:Boolean = false;
 		/*---------------------------------------*/
 	}
 }

@@ -21,6 +21,9 @@ You will need the [REDkit](https://www.thewitcher.com/us/en/redkit) to completel
 7. In REDkit main window, `Publish > Save and publish mod project > Next > Start cooking`
 
 # Changelog
+v2.70
+- Added: Witcher 3 v5.00c support
+
 v2.60
 - Fixed: PS4 icons now finally work in Gwent and Quick Items again!
 

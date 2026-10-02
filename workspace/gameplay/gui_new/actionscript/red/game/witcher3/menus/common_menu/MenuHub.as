@@ -17,8 +17,8 @@ package red.game.witcher3.menus.common_menu
 	import flash.text.TextField;
 	import red.core.constants.KeyCode;
 	import red.core.events.GameEvent;
+	import red.game.witcher3.constants.EInputDeviceType;
 	import red.game.witcher3.controls.ConditionalButton;
-	import red.game.witcher3.controls.ConditionalCloseButton;
 	import red.game.witcher3.controls.InputFeedbackButton;
 	import red.game.witcher3.controls.InvisibleComponent;
 	import red.game.witcher3.controls.TabListItem;
@@ -40,7 +40,7 @@ package red.game.witcher3.menus.common_menu
 	import scaleform.clik.managers.InputDelegate;
 	import scaleform.clik.ui.InputDetails;
 	import red.game.witcher3.utils.CommonUtils;
-	
+
 	public class MenuHub extends UIComponent
 	{
 		public static const OpenMenuCalled:String = "onOpenMenu";
@@ -56,14 +56,6 @@ package red.game.witcher3.menus.common_menu
 		// ------------------------------------------------------
 		// Open Menu Data
 		public var mcOpenMenuDataHolder:MovieClip;
-		public var mcLeftPCButton:ConditionalButton;
-		public var mcLeftGamepadButton:InputFeedbackButton;
-		public var mcRightPCButton:ConditionalButton;
-		public var mcRightGamepadButton:InputFeedbackButton;
-		public var txtTabName:TextField;
-		public var txtPrevTabName:W3TextArea;
-		public var txtNextTabName:W3TextArea;
-		public var mcSelectionTracker:W3ListSelectionTracker;
 		protected var _selectLastChild:Boolean = false;
 		protected var _allItemsList:Vector.<Object>;
 		// ===============================================================
@@ -178,6 +170,7 @@ package red.game.witcher3.menus.common_menu
 			dispatchEvent(new GameEvent(GameEvent.REGISTER, "panel.main.panelinfo.glossary", [populateGlossaryInfoDataSet] ));
 			dispatchEvent(new GameEvent(GameEvent.REGISTER, "panel.main.panelinfo.alchemy", [populateAlchemyInfoDataSet] ));
 			InputDelegate.getInstance().addEventListener(InputEvent.INPUT, handleInput, false, 10, true);
+			
 			mcTopTabList.addEventListener(ListEvent.INDEX_CHANGE, handleTopIndexChange, false, 0, true);
 			mcBotTabList.addEventListener(ListEvent.INDEX_CHANGE, handleBotIndexChange, false, 0, true);
 			
@@ -186,36 +179,10 @@ package red.game.witcher3.menus.common_menu
 			
 			setupStateMachine();
 			
-			if (mcLeftPCButton)
-			{
-				mcLeftPCButton.addEventListener(ButtonEvent.PRESS, handlePrevButtonPress, false, 0, true);
-			}
-			if (mcLeftGamepadButton)
-			{
-				mcLeftGamepadButton.setDataFromStage(NavigationCode.GAMEPAD_L1, -1);
-			}
-			if (mcRightPCButton)
-			{
-				mcRightPCButton.addEventListener(ButtonEvent.PRESS, handleNextButtonPress, false, 0, true);
-			}
-			if (mcRightGamepadButton)
-			{
-				mcRightGamepadButton.setDataFromStage(NavigationCode.GAMEPAD_R1, -1);
-			}
-
-			if (txtTabName)
-			{
-				txtTabName.text = "";
-			}
-			
 			stage.addEventListener(MouseEvent.MOUSE_MOVE, handleMouseMove, false, 100, true);
 			InputManager.getInstance().addEventListener(ControllerChangeEvent.CONTROLLER_CHANGE, handleControllerChange, false, 0, true);
-			//if (mcLeftGamepadButton) { mcLeftGamepadButton.visible = InputManager.getInstance().isGamepad(); }
-			//if (mcRightGamepadButton) { mcRightGamepadButton.visible = InputManager.getInstance().isGamepad(); }
 			//dispatchEvent(new GameEvent(GameEvent.REGISTER, "panel.main.panelinfo.numbered", [handleItemsNumberSet] ));
-			
 		}
-
 
 		protected function handleItemsHistoryDataSet( gameData:Object, index:int ):void
 		{
@@ -331,16 +298,6 @@ package red.game.witcher3.menus.common_menu
 
 		protected function setupTabContainers():void
 		{
-			addToOpenMenuContainer(mcLeftGamepadButton);
-			addToOpenMenuContainer(mcRightGamepadButton);
-			addToOpenMenuContainer(txtTabName);
-			addToOpenMenuContainer(mcSelectionTracker);
-			addToOpenMenuContainer(txtPrevTabName);
-			addToOpenMenuContainer(txtNextTabName);
-			addToOpenMenuContainer(mcLeftPCButton);
-			addToOpenMenuContainer(mcRightPCButton);
-
-
 			// #J temp disabling of text for focus test
 			txtTopMainDesc.visible = false;
 			txtTabNewDesc.visible = false;
@@ -571,12 +528,6 @@ package red.game.witcher3.menus.common_menu
 					}
 				}
 			}
-
-			if (mcSelectionTracker)
-			{
-				mcSelectionTracker.numElements = _allItemsList.length;
-				mcSelectionTracker.selectedIndex = mcTopTabList.selectedIndex;
-			}
 		}
 
 		protected function getIndexOfItem(targetObject:Object):int
@@ -586,7 +537,7 @@ package red.game.witcher3.menus.common_menu
 		
 		protected function handleControllerChange(event:ControllerChangeEvent):void
 		{
-			if (event.isGamepad)
+			if (!event.isMouse)
 			{
 				_lastMoveWasMouse = false;
 			}
@@ -846,7 +797,7 @@ package red.game.witcher3.menus.common_menu
 
 		protected function state_BotTab_begin():void
 		{
-			if (InputManager.getInstance().isGamepad() || !_lastMoveWasMouse)
+			if (!InputManager.getInstance().isMouse() || !_lastMoveWasMouse)
 			{
 				AnimateToBotTab_State();
 			}
@@ -1144,113 +1095,20 @@ package red.game.witcher3.menus.common_menu
 
 		protected function updateTabName(targetTab:MenuHubTabListItem):void
 		{
-			if (txtTabName)
+			if (false)
 			{
-				txtTabName.htmlText = targetTab.data.label;
-				txtTabName.htmlText = CommonUtils.toUpperCaseSafe(txtTabName.htmlText);
 				UpdateHubInfo(targetTab.data.name);
-				//txtTabName.validateNow();
-				
-				mcSelectionTracker.x = txtTabName.x +  txtTabName.width/2 -  mcSelectionTracker.getVisibleWidth()/2;
 
 				var currentIndex:int = getIndexOfItem(targetTab.data);
-				mcSelectionTracker.selectedIndex = currentIndex;
 
 				if (_allItemsList.length < 2 || currentIndex == -1)
 				{
-					if (mcRightGamepadButton)
-					{
-						mcRightGamepadButton.visible = false;
-					}
-
-					if (mcLeftGamepadButton)
-					{
-						mcLeftGamepadButton.visible = false;
-					}
-					
-					if (mcRightPCButton)
-					{
-						mcRightPCButton.visible = false;
-					}
-					
-					if (mcLeftPCButton)
-					{
-						mcLeftPCButton.visible = false;
-					}
-
-					if (txtNextTabName)
-					{
-						txtNextTabName.visible = false;
-					}
-
-					if (txtPrevTabName)
-					{
-						txtPrevTabName.visible = false;
-					}
 					
 				}
 				else
 				{
-					var gamepadBaseOffset:int = 15;
-					var gamepadIconWidth:int = 45;
+					var gamepadIconOffset:int = 35; // Hack, for some reason the left icon is not aligned. Presumably misaligned in the fla file...
 					
-					if (mcLeftGamepadButton)
-					{
-						mcLeftGamepadButton.visible = true;
-						//trace("GFX >>>>>>>>>>>>>>>>>>>>>>>>>>>"+ "txtTabName="+ txtTabName.width +">>>>txtNextTabName.textField.textWidth="+  txtNextTabName.textField.textWidth);
-						mcLeftGamepadButton.x = txtTabName.x + (txtTabName.width - txtTabName.textWidth )/2 - mcLeftGamepadButton.getViewWidth() -  TITLE_BTN_PADDING;
-					}
-
-					if (mcRightGamepadButton)
-					{
-						mcRightGamepadButton.visible = true;
-						mcRightGamepadButton.x = txtTabName.x + txtTabName.width/2 + txtTabName.textWidth/ 2 + mcLeftGamepadButton.getViewWidth();
-					}
-					
-					if (mcLeftPCButton)
-					{
-						mcLeftPCButton.visible = true;
-						mcLeftPCButton.x = txtTabName.x + (txtTabName.width - txtTabName.textWidth ) /2 - TITLE_BTN_PADDING;
-					}
-					if (mcRightPCButton)
-					{
-						mcRightPCButton.visible = true;
-						mcRightPCButton.x = txtTabName.x + (txtTabName.width + txtTabName.textWidth )/2 + TITLE_BTN_PADDING;
-					}
-
-					if (txtNextTabName)
-					{
-						txtNextTabName.visible = true;
-						//txtNextTabName.x = txtTabName.x + txtTabName.textField.textWidth + gamepadBaseOffset + gamepadIconWidth;
-
-						if ((currentIndex + 1) >= _allItemsList.length)
-						{
-							txtNextTabName.uppercase = true;
-							txtNextTabName.htmlText = _allItemsList[0].label;
-							
-						}
-						else
-						{
-							txtNextTabName.uppercase = true;
-							txtNextTabName.htmlText = _allItemsList[currentIndex + 1].label;
-						}
-					}
-
-					if (txtPrevTabName)
-					{
-						txtPrevTabName.visible = true;
-
-						if (currentIndex == 0)
-						{
-							txtPrevTabName.uppercase = true;
-							txtPrevTabName.htmlText = _allItemsList[_allItemsList.length - 1].label;
-						}
-						else
-						{
-							txtPrevTabName.uppercase = true;
-							txtPrevTabName.htmlText = _allItemsList[currentIndex - 1].label;
-						}
-					}
 				}
 				
 				updateNavigationInputFeedback()
@@ -1260,7 +1118,7 @@ package red.game.witcher3.menus.common_menu
 			{
 				if (!ignoreNextTabChange)
 				{
-					dispatchEvent( new Event(OpenMenuCalled) );
+					//dispatchEvent( new Event(OpenMenuCalled) );
 				}
 				else
 				{
@@ -1432,7 +1290,7 @@ package red.game.witcher3.menus.common_menu
 					mcBotTabHolder.y = botHolderStartingY - 200;
 				}
 				
-				if (selectedTopItem && selectedTopItem.data.subItems.length > 0 && (InputManager.getInstance().isGamepad() || !_lastMoveWasMouse))
+				if (selectedTopItem && selectedTopItem.data.subItems.length > 0 && (!InputManager.getInstance().isMouse() || !_lastMoveWasMouse))
 				{
 					dispatchEvent( new GameEvent( GameEvent.CALL, 'OnOpenSubPanel', [selectedTopItem.data.id] ) );
 					stateMachine.ChangeState(State_BotTab);
@@ -1444,14 +1302,14 @@ package red.game.witcher3.menus.common_menu
 			}
 		}
 
-		protected function selectPrevTabItem():void
+		private function selectPrevTabItem():void
 		{
 			var selectedParent:MenuHubTabListItem = mcTopTabList.getSelectedRenderer() as MenuHubTabListItem;
 
 			if (selectedParent)
 			{
 				// #J WARNING this code assumes there is no disabled indexes in children, sooooo DONT add sublist items that can't be opened
-				if (stateMachine.currentState == State_Hidden && mcTopTabList.dataProvider.length > 1 && (selectedParent.data.subItems.length == 0 || mcBotTabList.selectedIndex == 0))
+				if (mcTopTabList.dataProvider.length > 1 && (selectedParent.data.subItems.length == 0 || mcBotTabList.selectedIndex == 0))
 				{
 					_selectLastChild = true;
 					mcTopTabList.moveUp(true);
@@ -1463,7 +1321,7 @@ package red.game.witcher3.menus.common_menu
 			}
 		}
 
-		protected function selectNextTabItem():void
+		private function selectNextTabItem():void
 		{
 			var selectedParent:MenuHubTabListItem = mcTopTabList.getSelectedRenderer() as MenuHubTabListItem;
 
@@ -1477,6 +1335,22 @@ package red.game.witcher3.menus.common_menu
 				{
 					mcBotTabList.moveDown(true);
 				}
+			}
+		}
+
+		private function trySelectPrevTabItem():void
+		{
+			if (stateMachine.currentState == State_Hidden && rblbenabled && navigationEnabled )
+			{
+				selectPrevTabItem();
+			}
+		}
+		
+		private function trySelectNextTabItem():void
+		{
+			if (stateMachine.currentState == State_Hidden && rblbenabled && navigationEnabled )
+			{
+				selectNextTabItem();
 			}
 		}
 
@@ -1525,6 +1399,7 @@ package red.game.witcher3.menus.common_menu
 				case 'JournalTreasureHuntingMenu' :
 					ShowJournalInfo( true );
 					break;
+				case 'GlossaryMainMenu' :
 				case 'GlossaryParent' :
 				case 'GlossaryBestiaryMenu' :
 				case 'GlossaryTutorialsMenu' :
@@ -1774,7 +1649,9 @@ package red.game.witcher3.menus.common_menu
 				}
 				
 				// WASD support
-				
+
+				var isSwitch2Mouser:Boolean = InputManager.getInstance().gamepadType == EInputDeviceType.IDT_Switch2_Mouser;
+
 				switch (inputDetails.navEquivalent)
 				{
 					case NavigationCode.GAMEPAD_A:
@@ -1782,81 +1659,32 @@ package red.game.witcher3.menus.common_menu
 						{
 							handleDown();
 						}
-						break;
+					break;
 					case NavigationCode.DOWN:
 						if (allowInput && (isKeyDown || isKeyHold) && stateMachine.currentState != State_Hidden)
 						{
 							handleDown();
 						}
-						break;
+					break;
 					case NavigationCode.GAMEPAD_B:
 						if (allowInput && (isKeyDown || isKeyHold) && stateMachine.currentState != State_Hidden)
 						{
 							handleUp();
 						}
-						break;
+					break;
 					case NavigationCode.UP:
 						if (allowInput && isKeyDown && stateMachine.currentState != State_Hidden)
 						{
 							handleUp();
 						}
-						break;
-					case NavigationCode.GAMEPAD_L1:
-						if (allowInput && isKeyUp && stateMachine.currentState == State_Hidden && rblbenabled)
-						{
-							selectPrevTabItem();
-						}
-						break;
-					case NavigationCode.GAMEPAD_R1:
-						if (allowInput && isKeyUp && stateMachine.currentState == State_Hidden && rblbenabled)
-						{
-							selectNextTabItem();
-						}
-						break;
+					break;
 					default:
 						if (allowInput && inputDetails.code == KeyCode.E && (isKeyDown || isKeyHold) && stateMachine.currentState != State_Hidden)
 						{
 							handleDown();
 						}
-						else if (allowInput && isKeyUp && stateMachine.currentState == State_Hidden && rblbenabled)
-						{
-							if (inputDetails.code == KeyCode.NUMBER_1 || inputDetails.code == KeyCode.NUMPAD_1 || inputDetails.code == KeyCode.PAGE_DOWN)
-							{
-								trySelectedPrevTabItem();
-							}
-							else if (inputDetails.code == KeyCode.NUMBER_3 || inputDetails.code == KeyCode.NUMPAD_3 || inputDetails.code == KeyCode.PAGE_UP)
-							{
-								trySelectNextTabItem();
-							}
-						}
-						break;
+					break;
 				}
-			}
-		}
-		
-		protected function handlePrevButtonPress( event : ButtonEvent ) : void
-		{
-			trySelectedPrevTabItem();
-		}
-		
-		protected function handleNextButtonPress( event : ButtonEvent ) : void
-		{
-			trySelectNextTabItem();
-		}
-		
-		protected function trySelectedPrevTabItem():void
-		{
-			if (stateMachine.currentState == State_Hidden && rblbenabled && navigationEnabled )
-			{
-				selectPrevTabItem();
-			}
-		}
-		
-		protected function trySelectNextTabItem():void
-		{
-			if (stateMachine.currentState == State_Hidden && rblbenabled && navigationEnabled )
-			{
-				selectNextTabItem();
 			}
 		}
 		
@@ -1890,7 +1718,7 @@ package red.game.witcher3.menus.common_menu
 		{
 			_lastMouseOveredItem = event.currentTarget as MenuHubTabListItem;
 			
-			if (InputManager.getInstance().isGamepad() || !_lastMoveWasMouse)
+			if (!InputManager.getInstance().isMouse() || !_lastMoveWasMouse)
 			{
 				return;
 			}
@@ -1907,7 +1735,7 @@ package red.game.witcher3.menus.common_menu
 		{
 			_lastMouseOveredItem = null;
 			
-			if (InputManager.getInstance().isGamepad() || !_lastMoveWasMouse)
+			if (!InputManager.getInstance().isMouse() || !_lastMoveWasMouse)
 			{
 				return;
 			}
@@ -1927,9 +1755,9 @@ package red.game.witcher3.menus.common_menu
 			}*/
 		}
 		
-		protected function onTopTabItemClicked(event:MouseEvent):void
+		protected function onTopTabItemClicked(event:Event):void
 		{
-			if (InputManager.getInstance().isGamepad())
+			if (!InputManager.getInstance().isMouse())
 			{
 				return;
 			}
@@ -1953,12 +1781,12 @@ package red.game.witcher3.menus.common_menu
 				}
 			}
 		}
-		
-		protected function onBotTabItemMouseOver(event:MouseEvent):void
+
+		protected function onBotTabItemMouseOver(event:Event):void
 		{
 			_lastMouseOveredItem = event.currentTarget as MenuHubTabListItem;
 			
-			if (InputManager.getInstance().isGamepad() || !_lastMoveWasMouse)
+			if (!InputManager.getInstance().isMouse() || !_lastMoveWasMouse)
 			{
 				return;
 			}
@@ -1978,7 +1806,7 @@ package red.game.witcher3.menus.common_menu
 		
 		protected function onBotTabItemClicked(event:MouseEvent):void
 		{
-			if (InputManager.getInstance().isGamepad() || !_lastMoveWasMouse)
+			if (!InputManager.getInstance().isMouse() || !_lastMoveWasMouse)
 			{
 				return;
 			}

@@ -86,56 +86,38 @@ package red.game.witcher3.hud.modules.minimap2
 
 		public function UpdatePinRadiusColor()
 		{
-			if ( radius == 0 )
-			{
-				pinClip.mcRadius.mcRadiusQuest.visible   = false;
-				pinClip.mcRadius.mcRadiusRegular.visible = false;
-				pinClip.mcRadius.mcRadiusBelgard.visible = false;
-				pinClip.mcRadius.mcRadiusCoronata.visible = false;
-				pinClip.mcRadius.mcRadiusVermentino.visible = false;
-			}
-			else if ( isQuestPin )
+			pinClip.mcRadius.mcRadiusQuest.visible   = false;
+			pinClip.mcRadius.mcRadiusRegular.visible = false;
+			pinClip.mcRadius.mcRadiusBelgard.visible = false;
+			pinClip.mcRadius.mcRadiusCoronata.visible = false;
+			pinClip.mcRadius.mcRadiusVermentino.visible = false;
+			pinClip.mcRadius.mcRadiusOther.visible = false;
+			if ( isQuestPin )
 			{
 				if ( type == 'QuestBelgard' )
 				{
-					pinClip.mcRadius.mcRadiusQuest.visible   = false;
-					pinClip.mcRadius.mcRadiusRegular.visible = false;
 					pinClip.mcRadius.mcRadiusBelgard.visible = true;
-					pinClip.mcRadius.mcRadiusCoronata.visible = false;
-					pinClip.mcRadius.mcRadiusVermentino.visible = false;
 				}
 				else if ( type == 'QuestCoronata' )
 				{
-					pinClip.mcRadius.mcRadiusQuest.visible   = false;
-					pinClip.mcRadius.mcRadiusRegular.visible = false;
-					pinClip.mcRadius.mcRadiusBelgard.visible = false;
 					pinClip.mcRadius.mcRadiusCoronata.visible = true;
-					pinClip.mcRadius.mcRadiusVermentino.visible = false;
 				}
 				else if ( type == 'QuestVermentino' )
 				{
-					pinClip.mcRadius.mcRadiusQuest.visible   = false;
-					pinClip.mcRadius.mcRadiusRegular.visible = false;
-					pinClip.mcRadius.mcRadiusBelgard.visible = false;
-					pinClip.mcRadius.mcRadiusCoronata.visible = false;
 					pinClip.mcRadius.mcRadiusVermentino.visible = true;
+				}
+				else if ( type == 'QuestObjectiveOther' )
+				{
+					pinClip.mcRadius.mcRadiusOther.visible = true;
 				}
 				else
 				{
-					pinClip.mcRadius.mcRadiusQuest.visible   = true;
-					pinClip.mcRadius.mcRadiusRegular.visible = false;
-					pinClip.mcRadius.mcRadiusBelgard.visible = false;
-					pinClip.mcRadius.mcRadiusCoronata.visible = false;
-					pinClip.mcRadius.mcRadiusVermentino.visible = false;
+					pinClip.mcRadius.mcRadiusQuest.visible = true;
 				}
 			}
 			else
 			{
-				pinClip.mcRadius.mcRadiusQuest.visible   = false;
 				pinClip.mcRadius.mcRadiusRegular.visible = true;
-				pinClip.mcRadius.mcRadiusBelgard.visible = false;
-				pinClip.mcRadius.mcRadiusCoronata.visible = false;
-				pinClip.mcRadius.mcRadiusVermentino.visible = false;
 			}
 		}
 
@@ -381,7 +363,7 @@ package red.game.witcher3.hud.modules.minimap2
 					if ( isQuestPin )
 					{
 						arrowClip.mcUser.visible             = false;
-						arrowClip.mcRegularQuest.visible     = true;
+						arrowClip.mcRegularQuest.visible     = type != "QuestObjectiveOther";
 						arrowClip.mcHighlightedQuest.visible = false;
 					}
 					else

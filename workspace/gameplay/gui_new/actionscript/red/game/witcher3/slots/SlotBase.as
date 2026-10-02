@@ -43,6 +43,8 @@
 	import scaleform.clik.data.ListData;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.gfx.MouseEventEx;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
 
 	/**
 	 * Abstract class for all slots
@@ -101,7 +103,7 @@
 		protected var _dropSelection:Boolean;
 		protected var _dragSelection:Boolean;
 		protected var _isEmpty:Boolean;
-		protected var _isGamepad:Boolean;
+		protected var _isMouse:Boolean;
 		protected var _selectable:Boolean = true;
 		protected var _imageLoaded:Boolean;
 
@@ -255,7 +257,7 @@
 		
 		protected function selectingTooltipShowCheck():Boolean
 		{
-			return InputManager.getInstance().isGamepad();
+			return !InputManager.getInstance().isMouse();
 		}
 		
 		public var _unprocessedNewFlagRemoval:Boolean = false;
@@ -446,9 +448,9 @@
 				mcCantEquipIcon.visible = false
 			}
 			
-			if (isOver() && !_isGamepad)
+			if (isOver() && _isMouse)
 			{
-				SlotsTransferManager.getInstance().hideDropTargets();
+				dragManager.hideDropTargets();
 			}
 			_over = false;
 		}
@@ -621,8 +623,9 @@
 			hitArea.addEventListener(MouseEvent.MOUSE_OUT, handleMouseOut, false, 0, true);
 			hitArea.addEventListener(MouseEvent.DOUBLE_CLICK, handleMouseDoubleClick, false, 0, true);
 			hitArea.addEventListener(MouseEvent.CLICK, handleMouseClick, false, 0, true);
-			
-			_isGamepad = InputManager.getInstance().isGamepad();
+			hitArea.addEventListener(GestureEventEx.GESTURE_PRESS, handleGesturePress, false, 0, true);
+
+			_isMouse = InputManager.getInstance().isMouse();
 			InputManager.getInstance().addEventListener(ControllerChangeEvent.CONTROLLER_CHANGE, handleControllerChanged, false, 0, true);
 		}
 		
@@ -712,19 +715,23 @@
 		 * 			- Handlers -
 		 */
 		
-		
+		protected function handleGesturePress( event : GestureEvent ) : void
+		{
+
+		}
+
 		protected function handleMouseOver(event:MouseEvent):void
 		{
-			var isGamepad:Boolean = InputManager.getInstance().isGamepad();
+			var isMouse:Boolean = InputManager.getInstance().isMouse();
 			
-			//trace("GFX [SLOT handleMouseOver][", this, "]; _over: ", _over, "; _isEmpty: ", _isEmpty, "; isGamepad: ", isGamepad);
+			//trace("SlotBase::handleMouseOver [", this, "]; _over: ", _over, "; _isEmpty: ", _isEmpty, "; isMouse: ", isMouse);
 			
-			if (useContextMgr && !isGamepad)
+			if (useContextMgr && isMouse)
 			{
 				updateMouseContext();
 			}
 			
-			if (!_over && !isGamepad && selectable && !SlotsTransferManager.getInstance().isDragging())
+			if (!_over && isMouse && selectable && !SlotsTransferManager.getInstance().isDragging())
 			{
 				_over = true;
 				fireTooltipShowEvent(true);
@@ -735,9 +742,9 @@
 
 		protected function handleMouseOut(event:MouseEvent):void
 		{
-			var isGamepad:Boolean = InputManager.getInstance().isGamepad();
-			//trace("GFX [SLOT handleMouseOut][", this, "]; _over: ", _over, "; _isEmpty: ", _isEmpty, "; isGamepad: ", isGamepad);
-			if (_over && !isGamepad && selectable && !SlotsTransferManager.getInstance().isDragging())
+			var isMouse:Boolean = InputManager.getInstance().isMouse();
+			//trace("SlotBase::handleMouseOut [", this, "]; _over: ", _over, "; _isEmpty: ", _isEmpty, "; isMouse: ", isMouse);
+			if (_over && isMouse && selectable && !SlotsTransferManager.getInstance().isDragging())
 			{
 				_over = false;
 				fireTooltipHideEvent(true);
@@ -774,7 +781,7 @@
 		
 		protected function handleControllerChanged(event:ControllerChangeEvent):void
 		{
-			_isGamepad = event.isGamepad;
+			_isMouse = event.isMouse;
 			invalidateState();
 		}
 
@@ -835,7 +842,7 @@
 		protected var _tooltipRequested:Boolean;
 		protected function fireTooltipShowEvent(isMouseTooltip:Boolean = false):void
 		{
-			if ((activeSelectionEnabled || !_isGamepad) && _data && isParentEnabled())
+			if ((activeSelectionEnabled || _isMouse) && _data && isParentEnabled())
 			{
 				var displayEvent:GridEvent = new GridEvent(GridEvent.DISPLAY_TOOLTIP, true, false, index, -1, -1, null, _data as Object);
 				
@@ -934,7 +941,7 @@
 			if (_imageLoader && _imageLoaded)
 			{
 				var filterArray:Array = [];
-				var overState:Boolean = _over && !_isGamepad && !_isEmpty;
+				var overState:Boolean = _over && _isMouse && !_isEmpty;
 				if (!_dragSelection &&!_currentIdicator && overState)
 				{
 					filterArray.push(_glowFilter);
@@ -996,6 +1003,13 @@
 					mcSlotOverlays.SetEnchantment(_data.enchanted, _data.socketsCount);
 					mcSlotOverlays.SetAppliedDyeColor(_data.itemColor);
 					mcSlotOverlays.SetDyePreview(_data.isDyePreview);
+
+					if(_data.transmog)
+						mcSlotOverlays.setTransmogIcon(true, _data.transmogAnimation, _data.reset)
+					else 
+						mcSlotOverlays.setTransmogIcon(false, false, false)
+
+					mcSlotOverlays.setLockIcon(_data.hasOwnProperty("locked") ? _data.locked : false);
 					
 					mcSlotOverlays.updateIcons();
 				}
@@ -1055,7 +1069,7 @@
 				return mcStateDropTarget;
 			}
 			
-			if (_selected && _isGamepad)
+			if (_selected && !_isMouse)
 			{
 				return mcStateSelectedPassive;
 			}
@@ -1207,7 +1221,8 @@
 
 		protected function executeDefaultAction(keyCode:Number, event:InputEvent):void
 		{
-			if (!canExecuteAction()) return;
+			if (!canExecuteAction())
+				return;
 
 			//var er:Error = new Error();
 			//trace("GFX Slot [", index, "] executeDefaultAction ", _data.actionType, "; keyCode ", keyCode/*, er.getStackTrace()*/);
@@ -1225,6 +1240,9 @@
 
 				fireActionEvent(_data.actionType);
 				//trace("GFX - Executing action type: ", _data.actionType);
+
+				var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
 				switch (_data.actionType)
 				{
 					case InventoryActionType.EQUIP:
@@ -1255,8 +1273,8 @@
 						break;
 				}
 			}
-			else
-			if (keyCode == KeyCode.PAD_Y_TRIANGLE)
+			else if ((isSwitchPlatform && keyCode == KeyCode.PAD_X_SQUARE) ||		// X on switch
+					(!isSwitchPlatform && keyCode == KeyCode.PAD_Y_TRIANGLE))		// Y on platforms
 			{
 				// TODO: Check it in the WS
 				if (
@@ -1272,8 +1290,8 @@
 				}
 				fireActionEvent(InventoryActionType.DROP);
 			}
-			else
-			if (keyCode == KeyCode.PAD_X_SQUARE)
+			else if ((isSwitchPlatform && keyCode == KeyCode.PAD_Y_TRIANGLE) ||		// Y on switch
+					(!isSwitchPlatform && keyCode == KeyCode.PAD_X_SQUARE))			// X on platforms
 			{
 				fireActionEvent(InventoryActionType.SUB_ACTION, SlotActionEvent.EVENT_SECONDARY_ACTION);
 			}

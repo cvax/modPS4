@@ -74,6 +74,12 @@ package red.game.witcher3.utils
 				trace("GFX - [WARNING] Tried to change to an unknown state:", targetStateName);
 			}
 		}
+
+		public function ChangeStateNow(targetStateName:String) : void
+		{
+			ChangeState(targetStateName);
+			ForceUpdateState();
+		}
 		
 		public function ForceUpdateState() : void
 		{

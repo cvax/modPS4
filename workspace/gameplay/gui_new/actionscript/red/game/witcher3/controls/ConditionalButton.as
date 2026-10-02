@@ -1,6 +1,5 @@
 package red.game.witcher3.controls
 {
-	import red.game.witcher3.constants.PlatformType;
 	import red.game.witcher3.events.ControllerChangeEvent;
 	import red.game.witcher3.managers.InputManager;
 	import scaleform.clik.controls.Button;
@@ -52,6 +51,24 @@ package red.game.witcher3.controls
 		public function set showOnPS4( value:Boolean ):void
 		{
 			_showOnPS4 = value;
+			updateControllerVisibility();
+		}
+
+		private var _showOnSwitch2:Boolean = true;
+		[Inspectable(defaultValue="true")]
+		public function get showOnSwitch2():Boolean { return _showOnSwitch2 }
+		public function set showOnSwitch2( value:Boolean ):void
+		{
+			_showOnSwitch2 = value;
+			updateControllerVisibility();
+		}
+
+		private var _showOnSwitch2Mouser:Boolean = false;
+		[Inspectable(defaultValue="false")]
+		public function get showOnSwitch2Mouser():Boolean { return _showOnSwitch2Mouser }
+		public function set showOnSwitch2Mouser( value:Boolean ):void	
+		{ 
+			_showOnSwitch2Mouser = value;
 			updateControllerVisibility();
 		}
 		
@@ -131,13 +148,18 @@ package red.game.witcher3.controls
 		protected function updateControllerVisibility():void
 		{
 			var isGamepad:Boolean = InputManager.getInstance().isGamepad();
-			var platformType:uint = InputManager.getInstance().getPlatform();
+			var isMouse:Boolean = InputManager.getInstance().isMouse();
 			
 			if (_visiblityEnabled)
 			{			
 				if (isGamepad)
 				{
-					if (showOnGamepad)
+					// Switch 2 mouser edge case
+					if (InputManager.getInstance().isSwitchPlatform() && isMouse && showOnSwitch2Mouser && showOnMouseKeyboard)
+					{
+						super.visible = _showOnSwitch2;
+					}
+					else if (showOnGamepad)
 					{
 						if (InputManager.getInstance().isXboxPlatform())
 						{
@@ -146,6 +168,10 @@ package red.game.witcher3.controls
 						else if (InputManager.getInstance().isPsPlatform())
 						{
 							super.visible = _showOnPS4;
+						}
+						else if (InputManager.getInstance().isSwitchPlatform())
+						{
+							super.visible = _showOnSwitch2;
 						}
 						else
 						{
@@ -168,6 +194,10 @@ package red.game.witcher3.controls
 						else if (InputManager.getInstance().isPsPlatform())
 						{
 							super.visible = _showOnPS4;
+						}
+						else if (InputManager.getInstance().isSwitchPlatform())
+						{
+							super.visible = _showOnSwitch2;
 						}
 						else
 						{

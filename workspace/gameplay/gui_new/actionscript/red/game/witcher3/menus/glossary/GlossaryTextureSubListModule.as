@@ -22,7 +22,9 @@ package red.game.witcher3.menus.glossary
 			ART CLIPS
 		/ ******************************************************************************************************************/
 		
-		public var mcLoader : W3UILoader;
+		public var mcLoader 				: W3UILoader;
+		public var descriptionTextHeight	: Number;
+		public var tutorialGlossery			: Boolean = false;
 		
 		/********************************************************************************************************************
 			PRIVATE VARIABLES
@@ -65,6 +67,13 @@ package red.game.witcher3.menus.glossary
 		public function handleSetImage( value : String ) : void
 		{
 			mcLoader.source = imagePathPrefix + value;
+
+			if(tutorialGlossery)
+			{
+				mcLoader.y = 100 + descriptionTextHeight;
+				mcLoader.x = -300;
+			}
+
 			//if ( alpha != 1 )
 			//{
 				this.alpha = 0;
@@ -75,6 +84,12 @@ package red.game.witcher3.menus.glossary
 		public function setImage( value : String ) : void
 		{
 			mcLoader.source = value;
+
+			if(tutorialGlossery)
+			{
+				mcLoader.y += 100 + descriptionTextHeight;
+				mcLoader.x -= 300;
+			}
 			
 			this.alpha = 0;
 			GTweener.to( this, DATA_UPDATE_ALPHA_ANIMATION_TIME, { alpha:1 },  { ease: Exponential.easeOut } );

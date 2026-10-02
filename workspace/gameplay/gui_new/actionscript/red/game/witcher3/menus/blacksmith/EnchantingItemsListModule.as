@@ -12,6 +12,8 @@ package red.game.witcher3.menus.blacksmith
 	import scaleform.clik.data.DataProvider;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.interfaces.IListItemRenderer;
+	import flash.events.TransformGestureEvent;
+	import red.game.witcher3.utils.CommonUtils;
 	
 	/**
 	 * red.game.witcher3.menus.blacksmith.EnchantingItemsListModule
@@ -25,14 +27,18 @@ package red.game.witcher3.menus.blacksmith
 		
 		protected var _data:Array;
 		protected var _itemRendererClassName:String;
-		
+		private var _panYAccumulator : Number;
+
 		public var filterFunction:Function;
 		
 		public function EnchantingItemsListModule() 
 		{
 			dataBindingKey = "EnchantingItemsListModule";
 			mcEmptyList.visible = false;
+			_panYAccumulator = 0;
 			mcScrollingList.addEventListener(ListEvent.ITEM_CLICK, handleItemClick, false, 0, true);
+			mcScrollingList.enableTouch( true );
+			addEventListener( TransformGestureEvent.GESTURE_PAN, handleGesturePan, false, 0, true );
 		}
 		
 		// InventoryItemRendererRef
@@ -139,6 +145,15 @@ package red.game.witcher3.menus.blacksmith
 					return;
 				}
 			}
+		}
+
+		protected function handleGesturePan( event : TransformGestureEvent ) : void
+		{	
+			var rowHeight : Number = mcScrollingList.getRenderers()[0].height;
+			var result : Object = CommonUtils.stagePanToRowScroll( _panYAccumulator, rowHeight, event );
+
+			mcScrollbar.position -= result.outRowsToScroll;
+			_panYAccumulator = result.outPanYAccumulator;
 		}
 		
 	}

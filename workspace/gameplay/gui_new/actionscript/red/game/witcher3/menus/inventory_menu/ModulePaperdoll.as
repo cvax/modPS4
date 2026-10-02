@@ -177,6 +177,7 @@ package red.game.witcher3.menus.inventory_menu
 			super.handleInput(event);
 			
 			var details:InputDetails = event.details;
+			CommonUtils.fixupKeyCode( details );
 			
 			if (event.handled || details.value != InputValue.KEY_DOWN)
 			{

@@ -132,7 +132,7 @@ package red.game.witcher3.slots
 				baseComponentHeight = CardSlot.CARD_ORIGIN_HEIGHT;
 			}
 			
-			if (InputManager.getInstance().isGamepad())
+			if (!InputManager.getInstance().isMouse())
 			{
 				selectedIndex = 0;
 			}

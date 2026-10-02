@@ -15,6 +15,7 @@ package red.game.witcher3.menus.mainmenu
 	import red.core.CoreComponent;
 	import red.game.witcher3.constants.PlatformType;
 	import red.core.events.GameEvent;
+	import red.game.witcher3.controls.W3UILoader;
 
 	public class SaveSlotItemRenderer extends IconItemRenderer
 	{
@@ -38,6 +39,8 @@ package red.game.witcher3.menus.mainmenu
 		public var mcSelection: MovieClip;
 		public var mcHighlightFrame: MovieClip;
 		public var mcHitArea: MovieClip;
+		public var mcIconLoaderModio: W3UILoader;
+		public var mcIconLoaderTrophies: W3UILoader;
 		private var saveTextColor:Number;
 
 		override protected function configUI():void
@@ -53,6 +56,8 @@ package red.game.witcher3.menus.mainmenu
 			{
 				setSaveType(data.saveType);
 				setCloudStatus(data.cloudStatus);
+				setModdedStatus(data.modded);
+				setTrophyStatus(data.trophiesDisabled);
 			}
 		}
 		private function setSaveType(saveType : int) : void
@@ -127,6 +132,32 @@ package red.game.witcher3.menus.mainmenu
 				mcIconLoader.visible = showFlag;
 			}
 		}
+
+		private function setModdedStatus(modded:Boolean):void
+		{
+			if(modded)
+			{
+				mcIconLoaderModio.source = "img://icons\\modio\\modio_icon.png";
+			}
+			mcIconLoaderModio.visible = modded;
+		}
+
+		private function setTrophyStatus(trophies:Boolean):void
+		{
+			if( InputManager.getInstance().getPlatform() == PlatformType.PLATFORM_SWITCH2)
+			{
+				mcIconLoaderTrophies.visible = false;
+				return;
+			}
+
+			if(trophies)
+			{
+				mcIconLoaderTrophies.source = "img://icons\\modio\\brokentrophy_icon.png";
+			}
+			
+			mcIconLoaderTrophies.visible = trophies;
+		}
+
 		override public function set selected(value:Boolean):void
 		{
 			super.selected = value;

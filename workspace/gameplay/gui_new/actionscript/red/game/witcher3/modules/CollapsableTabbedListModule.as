@@ -36,6 +36,11 @@ package red.game.witcher3.modules
 	import scaleform.clik.ui.InputDetails;
 	import scaleform.clik.constants.NavigationCode;
 
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
+
+	import red.game.witcher3.menus.character_menu.CharacterTabbedListModuleDupe
+
 	public class CollapsableTabbedListModule extends TabbedScrollingListModule
 	{
 		protected var stateMachine:FiniteStateMachine;
@@ -71,6 +76,12 @@ package red.game.witcher3.modules
 			addToListContainer(mcTabBackground);
 			
 			stage.addEventListener(MouseEvent.MOUSE_MOVE, handleMouseMove, false, 100, true);
+			
+			//Not present in deckbuilder
+			if ( mcListContainer )
+			{
+				mcListContainer.addEventListener( GestureEventEx.GESTURE_TAP, handleContainerTap, false, 100, true );
+			}
 			
 			if (mcTabList)
 			{
@@ -121,7 +132,8 @@ package red.game.witcher3.modules
 			if (stateMachine.currentState != State_Open &&
 				((mcTabList.selectedIndex != -1 && subDataDictionary[mcTabList.selectedIndex] != null && subDataDictionary[mcTabList.selectedIndex].length > 0) ))
 			{
-				stateMachine.ChangeState(State_Open);
+				//Do not wait for the timer because there will be race conditions...
+				stateMachine.ChangeStateNow(State_Open);
 			}
 		}
 
@@ -129,7 +141,8 @@ package red.game.witcher3.modules
 		{
 			if (stateMachine.currentState != State_Open)
 			{
-				stateMachine.ChangeState(State_Open);
+				//Do not wait for the timer because there will be race conditions...
+				stateMachine.ChangeStateNow(State_Open);
 			}
 		}
 
@@ -137,15 +150,24 @@ package red.game.witcher3.modules
 		{
 			if (stateMachine.currentState != State_Colapsed)
 			{
-				stateMachine.ChangeState(State_Colapsed);
+				//Do not wait for the timer because there will be race conditions...
+				stateMachine.ChangeStateNow(State_Colapsed);
 			}
 		}
-		
+
 		// #Y skip opening animation for mouse click
 		protected var _handledItemClick:Boolean = false;
 		protected function onTabListItemClick( event:ListEvent ):void
 		{
-			_handledItemClick = true;
+			if ( event.controllerIdx == 0)
+			{
+				_handledItemClick = true;
+			}
+			else
+			{
+				close();
+			}
+
 			dispatchEvent(new Event(EVENT_MOUSE_FOCUSE));
 		}
 
@@ -154,7 +176,6 @@ package red.game.witcher3.modules
 			super.onTabListItemSelected(event);
 			
 			lastSelection = -1;
-			
 			if (!isOpen)
 			{
 				if (_handledItemClick && !_isFirstTabSelection)
@@ -283,6 +304,8 @@ package red.game.witcher3.modules
 
 			var currentDataComponent:UIComponent = getDataShowerForCurrentTab();
 
+
+			trace( "CollapsableTabbedListModule::state_Open_begin : ", lastSelection );
 			if (currentDataComponent)
 			{
 				if (currentDataComponent is SlotsListBase)
@@ -546,9 +569,17 @@ package red.game.witcher3.modules
 		protected var _lastMoveWasMouse:Boolean = false;
 		protected function handleMouseMove(event:MouseEvent):void
 		{
-			if (!_lastMoveWasMouse)
+			if(_lastMoveWasMouse)
+				return;
+				
+			_lastMoveWasMouse = true;
+			open();
+		}
+
+		protected function handleContainerTap(event:GestureEvent):void
+		{
+			if (stateMachine.currentState != State_Open)
 			{
-				_lastMoveWasMouse = true;
 				open();
 			}
 		}

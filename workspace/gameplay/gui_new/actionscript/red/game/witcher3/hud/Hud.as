@@ -46,7 +46,9 @@
 	import red.game.witcher3.hud.modules.HudModuleItemInfo;
 	import red.game.witcher3.hud.modules.HudModuleOxygenBar;
 	import red.game.witcher3.hud.modules.HudModuleDialog;
-	
+	import flash.events.TransformGestureEvent;
+	import red.core.events.TransformGestureEventEx;
+
 	public class Hud extends CoreHud
 	{
 		public var moduleManager : HudModuleManager;
@@ -72,63 +74,63 @@
 			hudModuleStateArray["JumpClimb"] = {states:[
 				{state:"Hide", 		modules:["RadialMenuModule",
 										"DialogModule","BoatHealthModule", "HorseStaminaBarModule", "HorsePanicBarModule"] },
-				{state:"Show", 		modules:["QuestsModule","Minimap2Module","OnelinersModule","ControlsFeedbackModule","BuffsModule"] },
+				{state:"Show", 		modules:["QuestsModule","Minimap2Module","OnelinersModule","ControlsFeedbackModule","BuffsModule", "LootFeedModule"] },
 				{state:"OnDemand", 	modules:["InteractionsModule","SubtitlesModule","EnemyFocusModule","BossFocusModule","CrosshairModule","DamagedItemsModule",
-											"ConsoleModule","MessageModule", "WatermarkModule","JournalUpdateModule","AreaInfoModule","CompanionModule","TimeLeftModule"] },
+											"ConsoleModule","MessageModule", "WatermarkModule","JournalUpdateModule","AreaInfoModule","CompanionModule","TimeLeftModule", "ChainHighlightModule"] },
 				{state:"OnUpdate", 	modules:["WolfHeadModule","OxygenBarModule","TimeLapseModule", "ItemInfoModule"] }
 				] } ;
 
 			hudModuleStateArray["Exploration"] = {states:[
 				{state:"Hide", 		modules:["RadialMenuModule",
 										"DialogModule","BoatHealthModule", "HorseStaminaBarModule", "HorsePanicBarModule"] },
-				{state:"Show", 		modules:["QuestsModule","Minimap2Module","OnelinersModule","ControlsFeedbackModule","BuffsModule"] },
+				{state:"Show", 		modules:["QuestsModule","Minimap2Module","OnelinersModule","ControlsFeedbackModule","BuffsModule", "LootFeedModule"] },
 				{state:"OnDemand", 	modules:["InteractionsModule","SubtitlesModule","EnemyFocusModule","BossFocusModule","CrosshairModule","DamagedItemsModule",
-											"ConsoleModule","MessageModule", "WatermarkModule","JournalUpdateModule","AreaInfoModule","CompanionModule","TimeLeftModule"] },
+											"ConsoleModule","MessageModule", "WatermarkModule","JournalUpdateModule","AreaInfoModule","CompanionModule","TimeLeftModule", "ChainHighlightModule"] },
 				{state:"OnUpdate", 	modules:["WolfHeadModule","OxygenBarModule","TimeLapseModule", "ItemInfoModule"] }
 				] } ;
 
 			hudModuleStateArray["Exploration_Replacer_Ciri"] = {states:[
 				{state:"Hide", 		modules:["RadialMenuModule",
 										"DialogModule","BoatHealthModule", "HorseStaminaBarModule", "HorsePanicBarModule"] },
-				{state:"Show", 		modules:["QuestsModule","Minimap2Module","OnelinersModule","ControlsFeedbackModule","BuffsModule"] },
+				{state:"Show", 		modules:["QuestsModule","Minimap2Module","OnelinersModule","ControlsFeedbackModule","BuffsModule", "LootFeedModule"] },
 				{state:"OnDemand", 	modules:["InteractionsModule","SubtitlesModule","EnemyFocusModule","BossFocusModule","CrosshairModule","DamagedItemsModule",
-											"ConsoleModule","MessageModule", "WatermarkModule","JournalUpdateModule","AreaInfoModule","CompanionModule","TimeLeftModule"] },
+											"ConsoleModule","MessageModule", "WatermarkModule","JournalUpdateModule","AreaInfoModule","CompanionModule","TimeLeftModule", "ChainHighlightModule"] },
 				{state:"OnUpdate", 	modules:["WolfHeadModule","OxygenBarModule","TimeLapseModule", "ItemInfoModule"] }
 				] } ;
 
 			hudModuleStateArray["ScriptedAction"] = {states:[
 				{state:"Hide", 		modules:["RadialMenuModule", "BuffsModule",
 										"DialogModule","BoatHealthModule","ControlsFeedbackModule", "HorseStaminaBarModule", "HorsePanicBarModule"] },
-				{state:"Show", 		modules:["QuestsModule","Minimap2Module","OnelinersModule"] },
+				{state:"Show", 		modules:["QuestsModule","Minimap2Module","OnelinersModule", "LootFeedModule"] },
 				{state:"OnDemand", 	modules:["InteractionsModule","SubtitlesModule","EnemyFocusModule","BossFocusModule","CrosshairModule","DamagedItemsModule",
-											"ConsoleModule","MessageModule", "WatermarkModule","JournalUpdateModule","AreaInfoModule","CompanionModule","TimeLeftModule"] },
+											"ConsoleModule","MessageModule", "WatermarkModule","JournalUpdateModule","AreaInfoModule","CompanionModule","TimeLeftModule", "ChainHighlightModule"] },
 				{state:"OnUpdate", 	modules:["WolfHeadModule","OxygenBarModule","TimeLapseModule", "ItemInfoModule"] }
 				] } ;
 
 			hudModuleStateArray["Combat"] ={ states:[
 				{state:"Hide", 		modules:["RadialMenuModule",
 										"DialogModule","BoatHealthModule","AreaInfoModule"] },
-				{state:"Show", 		modules:["Minimap2Module","ItemInfoModule","WolfHeadModule","OnelinersModule","QuestsModule","ControlsFeedbackModule","BuffsModule"] },
+				{state:"Show", 		modules:["Minimap2Module","ItemInfoModule","WolfHeadModule","OnelinersModule","QuestsModule","ControlsFeedbackModule","BuffsModule", "LootFeedModule"] },
 				{state:"OnDemand", 	modules:["InteractionsModule", "SubtitlesModule","EnemyFocusModule","BossFocusModule","CrosshairModule","DamagedItemsModule",
-											"ConsoleModule","MessageModule", "JournalUpdateModule","WatermarkModule","CompanionModule","TimeLeftModule"] },
+											"ConsoleModule","MessageModule", "JournalUpdateModule","WatermarkModule","CompanionModule","TimeLeftModule", "ChainHighlightModule"] },
 				{state:"OnUpdate", 	modules:["OxygenBarModule", "HorseStaminaBarModule","TimeLapseModule", "HorsePanicBarModule"] }
 				] };
 
 			hudModuleStateArray["CombatFists"] ={ states:[
 				{state:"Hide", 		modules:["RadialMenuModule",
 										"DialogModule","BoatHealthModule","AreaInfoModule"] },
-				{state:"Show", 		modules:["Minimap2Module","ItemInfoModule","WolfHeadModule","OnelinersModule","QuestsModule","ControlsFeedbackModule","BuffsModule"] },
+				{state:"Show", 		modules:["Minimap2Module","ItemInfoModule","WolfHeadModule","OnelinersModule","QuestsModule","ControlsFeedbackModule","BuffsModule", "LootFeedModule"] },
 				{state:"OnDemand", 	modules:["InteractionsModule", "SubtitlesModule","EnemyFocusModule","BossFocusModule","CrosshairModule","DamagedItemsModule",
-											"ConsoleModule","MessageModule", "JournalUpdateModule","WatermarkModule","CompanionModule","TimeLeftModule"] },
+											"ConsoleModule","MessageModule", "JournalUpdateModule","WatermarkModule","CompanionModule","TimeLeftModule", "ChainHighlightModule"] },
 				{state:"OnUpdate", 	modules:["OxygenBarModule", "HorseStaminaBarModule","TimeLapseModule", "HorsePanicBarModule"] }
 				] };
 
 			hudModuleStateArray["Combat_Replacer_Ciri"] ={ states:[
 				{state:"Hide", 		modules:["RadialMenuModule",
 										"DialogModule","BoatHealthModule","AreaInfoModule"] },
-				{state:"Show", 		modules:["Minimap2Module","ItemInfoModule","WolfHeadModule","OnelinersModule","QuestsModule","ControlsFeedbackModule","BuffsModule"] },
+				{state:"Show", 		modules:["Minimap2Module","ItemInfoModule","WolfHeadModule","OnelinersModule","QuestsModule","ControlsFeedbackModule","BuffsModule", "LootFeedModule"] },
 				{state:"OnDemand", 	modules:["InteractionsModule", "SubtitlesModule","EnemyFocusModule","BossFocusModule","CrosshairModule","DamagedItemsModule",
-											"ConsoleModule","MessageModule", "JournalUpdateModule","WatermarkModule","CompanionModule","TimeLeftModule"] },
+											"ConsoleModule","MessageModule", "JournalUpdateModule","WatermarkModule","CompanionModule","TimeLeftModule", "ChainHighlightModule"] },
 				{state:"OnUpdate", 	modules:["OxygenBarModule", "HorseStaminaBarModule","TimeLapseModule", "HorsePanicBarModule"] }
 				] };
 
@@ -136,15 +138,15 @@
 				{state:"Hide", 		modules:["QuestsModule","RadialMenuModule", "BuffsModule",
 										"OxygenBarModule", "BoatHealthModule", "InteractionsModule", "SubtitlesModule","CrosshairModule",
 										"EnemyFocusModule", "BossFocusModule", "ConsoleModule", "MessageModule","AreaInfoModule","OnelinersModule","DamagedItemsModule",
-										"WatermarkModule", "HorseStaminaBarModule", "HorsePanicBarModule", "Minimap2Module", "ItemInfoModule", "WolfHeadModule","CompanionModule","ControlsFeedbackModule","TimeLeftModule"] },
+										"WatermarkModule", "HorseStaminaBarModule", "HorsePanicBarModule", "Minimap2Module", "ItemInfoModule", "WolfHeadModule","CompanionModule","ControlsFeedbackModule","TimeLeftModule", "ChainHighlightModule"] },
 				{state:"OnDemand", 	modules:["JournalUpdateModule"] },
-				{state:"Show", 		modules:[ "DialogModule"] },
+				{state:"Show", 		modules:[ "DialogModule", "LootFeedModule"] },
 				{state:"OnUpdate", 		modules:[ "TimeLapseModule"] }
 				] };
 
 				hudModuleStateArray["LootPopup"] ={ states:[
 				{state:"Hide", 		modules:["InteractionsModule","RadialMenuModule","DebugFastMenuModule"/*,"ItemInfoModule"*/] },
-				{state:"Show", 		modules:[ "BuffsModule"] }
+				{state:"Show", 		modules:[ "BuffsModule", "LootFeedModule"] }
 				] };
 
 
@@ -152,61 +154,61 @@
 				{state:"Hide", 		modules:["QuestsModule", "CrosshairModule","DamagedItemsModule",
 										"OxygenBarModule", "BoatHealthModule", "InteractionsModule", "SubtitlesModule","OnelinersModule",
 										"EnemyFocusModule", "BossFocusModule", "ConsoleModule", "MessageModule", "TimeLapseModule","AreaInfoModule","CompanionModule",
-										"WatermarkModule", "HorseStaminaBarModule", "HorsePanicBarModule","Minimap2Module","WolfHeadModule","DialogModule","JournalUpdateModule","ControlsFeedbackModule","TimeLeftModule"] },
+										"WatermarkModule", "HorseStaminaBarModule", "HorsePanicBarModule","Minimap2Module","WolfHeadModule","DialogModule","JournalUpdateModule","ControlsFeedbackModule","TimeLeftModule", "ChainHighlightModule", "LootFeedModule"] },
 				{state:"Show", 		modules:[ "RadialMenuModule","BuffsModule","ItemInfoModule"] }
 				] };
 
 			hudModuleStateArray["Swimming"] ={ states:[
 				{state:"Hide", 		modules:["RadialMenuModule",
 										"DialogModule","BoatHealthModule", "OxygenBarModule", "HorseStaminaBarModule", "HorsePanicBarModule"] },
-				{state:"Show", 		modules:["QuestsModule","Minimap2Module","OnelinersModule","ControlsFeedbackModule", "BuffsModule"] },
+				{state:"Show", 		modules:["QuestsModule","Minimap2Module","OnelinersModule","ControlsFeedbackModule", "BuffsModule", "LootFeedModule"] },
 				{state:"OnDemand", 	modules:["InteractionsModule","SubtitlesModule","EnemyFocusModule","BossFocusModule","AreaInfoModule","CompanionModule",
-											"DamagedItemsModule","ConsoleModule","MessageModule", "WatermarkModule","CrosshairModule","JournalUpdateModule","TimeLeftModule"] },
+											"DamagedItemsModule","ConsoleModule","MessageModule", "WatermarkModule","CrosshairModule","JournalUpdateModule","TimeLeftModule", "ChainHighlightModule"] },
 				{state:"OnUpdate", 	modules:["WolfHeadModule","ItemInfoModule","OxygenBarModule","TimeLapseModule"] }
 				] } ;
 
 			hudModuleStateArray["Diving"] ={ states:[
 				{state:"Hide", 		modules:["RadialMenuModule",
 										"DialogModule","BoatHealthModule", "HorsePanicBarModule","OxygenBarModule", "HorseStaminaBarModule"] },
-				{state:"Show", 		modules:["QuestsModule","Minimap2Module","OnelinersModule","ControlsFeedbackModule", "BuffsModule"] },
+				{state:"Show", 		modules:["QuestsModule","Minimap2Module","OnelinersModule","ControlsFeedbackModule", "BuffsModule", "LootFeedModule"] },
 				{state:"OnDemand", 	modules:["InteractionsModule","SubtitlesModule","EnemyFocusModule","BossFocusModule","AreaInfoModule","CompanionModule",
-											"DamagedItemsModule","ConsoleModule","MessageModule", "WatermarkModule","CrosshairModule","JournalUpdateModule","TimeLeftModule"] },
+											"DamagedItemsModule","ConsoleModule","MessageModule", "WatermarkModule","CrosshairModule","JournalUpdateModule","TimeLeftModule", "ChainHighlightModule"] },
 				{state:"OnUpdate", 	modules:["WolfHeadModule","ItemInfoModule","OxygenBarModule","TimeLapseModule"] }
 				] } ;
 
 			hudModuleStateArray["Horse"] ={ states:[
 				{state:"Hide", 		modules:["RadialMenuModule",
 										"DialogModule","BoatHealthModule"] },
-				{state:"Show", 		modules:["QuestsModule","Minimap2Module","OnelinersModule","ControlsFeedbackModule", "BuffsModule"] },
+				{state:"Show", 		modules:["QuestsModule","Minimap2Module","OnelinersModule","ControlsFeedbackModule", "BuffsModule", "LootFeedModule"] },
 				{state:"OnDemand", 	modules:["InteractionsModule","SubtitlesModule","EnemyFocusModule","BossFocusModule","AreaInfoModule","CompanionModule",
-											"DamagedItemsModule","ConsoleModule","MessageModule", "WatermarkModule","CrosshairModule","JournalUpdateModule","TimeLeftModule"] },
+											"DamagedItemsModule","ConsoleModule","MessageModule", "WatermarkModule","CrosshairModule","JournalUpdateModule","TimeLeftModule", "ChainHighlightModule"] },
 				{state:"OnUpdate", 	modules:["WolfHeadModule", "HorseStaminaBarModule","ItemInfoModule","TimeLapseModule","OxygenBarModule", "HorsePanicBarModule"] }
 				] } ;
 					
 			hudModuleStateArray["Horse_Replacer_Ciri"] ={ states:[
 				{state:"Hide", 		modules:["RadialMenuModule",
 										"DialogModule","BoatHealthModule"] },
-				{state:"Show", 		modules:["QuestsModule","Minimap2Module","OnelinersModule","ControlsFeedbackModule", "BuffsModule"] },
+				{state:"Show", 		modules:["QuestsModule","Minimap2Module","OnelinersModule","ControlsFeedbackModule", "BuffsModule", "LootFeedModule"] },
 				{state:"OnDemand", 	modules:["InteractionsModule","SubtitlesModule","EnemyFocusModule","BossFocusModule","AreaInfoModule","CompanionModule",
-											"DamagedItemsModule","ConsoleModule","MessageModule", "WatermarkModule","CrosshairModule","JournalUpdateModule","TimeLeftModule"] },
+											"DamagedItemsModule","ConsoleModule","MessageModule", "WatermarkModule","CrosshairModule","JournalUpdateModule","TimeLeftModule", "ChainHighlightModule"] },
 				{state:"OnUpdate", 	modules:["WolfHeadModule", "HorseStaminaBarModule","ItemInfoModule","TimeLapseModule","OxygenBarModule", "HorsePanicBarModule"] }
 				] } ;
 
 			hudModuleStateArray["Boat"] ={ states:[
 				{state:"Hide", 		modules:["RadialMenuModule",
 										"DialogModule", "HorseStaminaBarModule", "HorsePanicBarModule"] },
-				{state:"Show", 		modules:["QuestsModule","Minimap2Module","BoatHealthModule","OnelinersModule","ControlsFeedbackModule","BuffsModule"] },
+				{state:"Show", 		modules:["QuestsModule","Minimap2Module","BoatHealthModule","OnelinersModule","ControlsFeedbackModule","BuffsModule", "LootFeedModule"] },
 				{state:"OnDemand", 	modules:["InteractionsModule","SubtitlesModule","EnemyFocusModule","BossFocusModule","AreaInfoModule","CompanionModule",
-											"DamagedItemsModule","ConsoleModule","MessageModule", "WatermarkModule","CrosshairModule","JournalUpdateModule","TimeLeftModule"] },
+											"DamagedItemsModule","ConsoleModule","MessageModule", "WatermarkModule","CrosshairModule","JournalUpdateModule","TimeLeftModule", "ChainHighlightModule"] },
 				{state:"OnUpdate", 	modules:["WolfHeadModule","ItemInfoModule","TimeLapseModule","OxygenBarModule"] }
 				] } ;
 			
 			hudModuleStateArray["BoatPassenger"] ={ states:[
 				{state:"Hide", 		modules:["RadialMenuModule", "LootPopupModule",
 										"DialogModule", "HorseStaminaBarModule", "HorsePanicBarModule"] },
-				{state:"Show", 		modules:["QuestsModule","Minimap2Module","BoatHealthModule","OnelinersModule","ControlsFeedbackModule","BuffsModule"] },
+				{state:"Show", 		modules:["QuestsModule","Minimap2Module","BoatHealthModule","OnelinersModule","ControlsFeedbackModule","BuffsModule", "LootFeedModule"] },
 				{state:"OnDemand", 	modules:["InteractionsModule","SubtitlesModule","EnemyFocusModule","BossFocusModule","AreaInfoModule","CompanionModule",
-											"DamagedItemsModule","ConsoleModule","MessageModule", "WatermarkModule","CrosshairModule","JournalUpdateModule","TimeLeftModule"] },
+											"DamagedItemsModule","ConsoleModule","MessageModule", "WatermarkModule","CrosshairModule","JournalUpdateModule","TimeLeftModule", "ChainHighlightModule"] },
 				{state:"OnUpdate", 	modules:["WolfHeadModule","ItemInfoModule","TimeLapseModule","OxygenBarModule"] }
 				] } ;
 
@@ -214,41 +216,43 @@
 				{state:"Hide", 		modules:["RadialMenuModule", "BuffsModule","CrosshairModule","OnelinersModule","DamagedItemsModule",
 											 "DialogModule", "HorseStaminaBarModule", "HorsePanicBarModule", "QuestsModule", "Minimap2Module", "BoatHealthModule","JournalUpdateModule",
 											 "InteractionsModule","SubtitlesModule","ItemInfoModule","EnemyFocusModule","BossFocusModule","AreaInfoModule","CompanionModule",
-											 "ConsoleModule","MessageModule", "TimeLapseModule","WatermarkModule","WolfHeadModule","OxygenBarModule","ControlsFeedbackModule","TimeLeftModule"] }
+											 "ConsoleModule","MessageModule", "TimeLapseModule","WatermarkModule","WolfHeadModule","OxygenBarModule","ControlsFeedbackModule","TimeLeftModule", "ChainHighlightModule", "LootFeedModule"] }
 				] } ;
-			//#B order of depth for hd modules for now 0 - 29
+			//#B order of depth for hd modules for now 0 - 32
 			moduleManager.AddEntry( "AnchorsModule",       		"hud_anchors.swf",0 );
 			moduleManager.AddEntry( "HorseStaminaBarModule",    "hud_horsestaminabar.swf",4 );
 			moduleManager.AddEntry( "HorsePanicBarModule",    	"hud_horsepanicbar.swf",5 );
-			moduleManager.AddEntry( "InteractionsModule",   	"hud_interactions.swf",20 );
+			moduleManager.AddEntry( "InteractionsModule",   	"hud_interactions.swf",21 );
 			moduleManager.AddEntry( "MessageModule",        	"hud_message.swf",6 );
-			moduleManager.AddEntry( "RadialMenuModule",     	"hud_radialmenu.swf",24 );
+			moduleManager.AddEntry( "RadialMenuModule",     	"hud_radialmenu.swf",25 );
 			moduleManager.AddEntry( "QuestsModule",         	"hud_quests.swf",7);
-			moduleManager.AddEntry( "SubtitlesModule",      	"hud_subtitles.swf",21 );
-			moduleManager.AddEntry( "ControlsFeedbackModule",  	"hud_controlsfeedback.swf",28 );
+			moduleManager.AddEntry( "SubtitlesModule",      	"hud_subtitles.swf",22 );
+			moduleManager.AddEntry( "ControlsFeedbackModule",  	"hud_controlsfeedback.swf",29 );
 			//moduleManager.AddEntry( "LootPopupModule",      	"hud_lootpopup.swf",18 ); // moved to super HUD
-			moduleManager.AddEntry( "BuffsModule",          	"hud_buffs.swf",26 );
+			moduleManager.AddEntry( "BuffsModule",          	"hud_buffs.swf",27 );
 			moduleManager.AddEntry( "PickedItemsInfoModule",	"hud_pickeditemsinfo.swf",1 ); // shuld be killed ?
 			//moduleManager.AddEntry( "WatermarkModule",      	"hud_watermark.swf",10 );
 			moduleManager.AddEntry( "WolfHeadModule",       	"hud_wolfstatbars.swf",12 );
-			moduleManager.AddEntry( "ItemInfoModule",       	"hud_iteminfo.swf",25 );
+			moduleManager.AddEntry( "ItemInfoModule",       	"hud_iteminfo.swf",26 );
 			moduleManager.AddEntry( "OxygenBarModule",      	"hud_oxygenbar.swf",13 );
-			moduleManager.AddEntry( "EnemyFocusModule",     	"hud_enemyfocus.swf",19 );
+			moduleManager.AddEntry( "EnemyFocusModule",     	"hud_enemyfocus.swf",20 );
 			moduleManager.AddEntry( "BossFocusModule",     		"hud_bossfocus.swf",15 );
-			moduleManager.AddEntry( "DialogModule",         	"hud_dialog.swf",22 );
+			moduleManager.AddEntry( "DialogModule",         	"hud_dialog.swf",23 );
 			//moduleManager.AddEntry( "DebugTextModule",         	"hud_debugtext.swf",2 );
 			moduleManager.AddEntry( "BoatHealthModule",        	"hud_boathealth.swf",8 );
 			moduleManager.AddEntry( "ConsoleModule",       		"hud_console.swf",9 );
-			moduleManager.AddEntry( "TimeLapseModule",      	"hud_timelapse.swf",27 );
-			moduleManager.AddEntry( "JournalUpdateModule",      "hud_journalupdate.swf",16 );
+			moduleManager.AddEntry( "TimeLapseModule",      	"hud_timelapse.swf",28 );
+			moduleManager.AddEntry( "JournalUpdateModule",      "hud_journalupdate.swf",33 ); //swapped with lootfeed, so quest update is on top!
 			//moduleManager.AddEntry( "AreaInfoModule",      		"hud_areainfo.swf",14 );
-			moduleManager.AddEntry( "CrosshairModule",      	"hud_crosshair.swf",17 );
+			moduleManager.AddEntry( "CrosshairModule",      	"hud_crosshair.swf",18 );
 			moduleManager.AddEntry( "OnelinersModule",      	"hud_oneliners.swf",3 );
 			moduleManager.AddEntry( "Minimap2Module",        	"hud_minimap2.swf",11 );
-			moduleManager.AddEntry( "CompanionModule",        	"hud_companion.swf",30 );
+			moduleManager.AddEntry( "CompanionModule",        	"hud_companion.swf",31 );
 			moduleManager.AddEntry( "DamagedItemsModule",      	"hud_damageditems.swf", 8 );
-			moduleManager.AddEntry( "TimeLeftModule",      		"hud_timeleft.swf", 26 );
-
+			moduleManager.AddEntry( "TimeLeftModule",      		"hud_timeleft.swf", 27 );
+			moduleManager.AddEntry( "ChainHighlightModule",      "hud_chainhighlight.swf", 17 );
+			moduleManager.AddEntry( "LootFeedModule",      "hud_lootfeed.swf", 16 );
+			
 			//SetInputContext("Combat");
 		}
 		//>------------------------------------------------------------------------------------------------------------------
@@ -275,6 +279,8 @@
 			var dummyInputDelegate:InputDelegate = InputDelegate.getInstance();
 			var dummyList:W3ScrollingList = new W3ScrollingList();
 			var dummyModuleInputFeedback:ModuleInputFeedback = new ModuleInputFeedback();
+
+			stage.addEventListener( TransformGestureEventEx.GESTURE_TWO_FINGER_SWIPE, handleGestureTwoFingerSwipe, false, 0, true );
 		}
 		//>------------------------------------------------------------------------------------------------------------------
 		//-------------------------------------------------------------------------------------------------------------------
@@ -508,6 +514,19 @@
 						}
 					}
 				}
+			}
+		}
+
+		protected function handleGestureTwoFingerSwipe( event : TransformGestureEvent ) : void
+		{	
+			switch( event.rotation )
+			{
+				case TransformGestureEventEx.GESTURE_DIRECTION_UP : 
+					dispatchEvent( new GameEvent( GameEvent.CALL, 'OnTwoFingerSwipeUp' ) );
+				break;
+				case TransformGestureEventEx.GESTURE_DIRECTION_DOWN : 
+					dispatchEvent( new GameEvent( GameEvent.CALL, 'OnTwoFingerSwipeDown' ) );
+				break;
 			}
 		}
 	}

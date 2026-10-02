@@ -6,12 +6,16 @@ package red.game.witcher3.menus.mainmenu
 {
 	import red.game.witcher3.constants.PlatformType;
 	import red.game.witcher3.managers.InputManager;
+	import red.core.CoreComponent;
 	import scaleform.clik.core.UIComponent;
 	import flash.display.MovieClip;
 	import flash.text.TextField;
+	import flash.utils.setTimeout;
 
 	public class PatchNotesInfoBlock extends UIComponent
 	{
+		private static const SAFETY_TEXT_HEIGHT_ADD : Number = 5;
+
 		public var mcTitle : TextField;
 		public var mcDescription : TextField;		
 		public var mcIcon : MovieClip;
@@ -60,6 +64,28 @@ package red.game.witcher3.menus.mainmenu
 					mcTitle.text = "[[nge_info_title_controls]]";
 					mcDescription.text = "[[nge_info_description_controls]]";
 					break;
+
+				//4.10
+
+				case "modio":
+					mcTitle.text = "[[panel_highlights_header_1]]";
+					mcDescription.text = "[[panel_highlights_body_1]]";
+					mcIcon.gotoAndStop( "mods" );
+					break;
+				case "accessibility":
+					mcTitle.text = "[[panel_highlights_header_2]]";
+					mcDescription.text = "[[panel_highlights_body_2]]";
+					break;
+				case "rendering":
+					mcTitle.text = "[[panel_highlights_header_3]]";
+					mcDescription.text = "[[panel_highlights_body_3]]";
+					mcIcon.gotoAndStop( "graphical_modes" );
+					break;
+				case "more":
+					mcTitle.text = "[[panel_highlights_header_4]]";
+					mcDescription.text = "[[panel_highlights_body_4]]";
+					break;
+
 			}
 
 			/*
@@ -92,13 +118,35 @@ package red.game.witcher3.menus.mainmenu
 			realignControls();
 		}
 
-		private function realignControls()
+		private function realignControls():void
+		{
+			//CoreComponent.isArabicAligmentMode is false every time, even on AR, the delay fixes it
+			setTimeout(posSet, 1);
+		}
+
+		private function posSet():void
 		{
 			var ICON_PADDING : Number = 10;				
-			var offset : Number = ( mcBackground.width - ( mcIcon.width + mcTitle.textWidth + ICON_PADDING) ) / 2;
+			var offset : Number = ( mcBackground.width - ( mcIcon.width + mcTitle.textWidth + ICON_PADDING + 8) ) / 2;
 
-			mcIcon.x = offset;
-			mcTitle.x = mcIcon.x + mcIcon.width + ICON_PADDING;
+			if(mcTitle.textHeight > mcTitle.height) {
+				mcTitle.height = mcTitle.textHeight + SAFETY_TEXT_HEIGHT_ADD;
+				mcDescription.y = mcTitle.y + mcTitle.height + 9.7; //9.7 is magic offset in flash
+			}
+
+			if(CoreComponent.isArabicAligmentMode)
+			{
+				offset = mcBackground.width - ( mcBackground.width - (mcTitle.textWidth - mcIcon.width + ICON_PADDING + 8) ) / 2;
+				mcIcon.x = offset;
+				mcTitle.x = mcIcon.x - mcTitle.width - ICON_PADDING;
+				mcTitle.htmlText = "<p align=\"right\">" + mcTitle.text + "</p>";
+			}
+			else
+			{
+				offset = ( mcBackground.width - ( mcIcon.width + mcTitle.textWidth + ICON_PADDING + 8) ) / 2;
+				mcIcon.x = offset;
+				mcTitle.x = mcIcon.x + mcIcon.width + ICON_PADDING;
+			}
 		}
 		
 	}

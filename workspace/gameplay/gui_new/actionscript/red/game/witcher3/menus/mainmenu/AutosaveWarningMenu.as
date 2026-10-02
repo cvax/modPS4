@@ -9,17 +9,25 @@ package red.game.witcher3.menus.mainmenu
 {
 	import com.gskinner.motion.GTween;
 	import flash.display.MovieClip;
+	import flash.events.GestureEvent;
+	import flash.events.GesturePhase;
 	import flash.events.TimerEvent;
+	import flash.events.TransformGestureEvent;
 	import flash.text.TextField;
 	import flash.utils.Timer;
+
 	import red.core.constants.KeyCode;
 	import red.core.CoreMenu;
 	import red.core.events.GameEvent;
+	import red.core.events.GestureEventEx;
 	import red.game.witcher3.controls.InputFeedbackButton;
+	import red.game.witcher3.managers.InputManager;
+
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.ui.InputDetails;
+
 
 	public class AutosaveWarningMenu extends CoreMenu
 	{
@@ -37,6 +45,8 @@ package red.game.witcher3.menus.mainmenu
 			super.configUI();
 
 			dispatchEvent( new GameEvent( GameEvent.CALL, "OnConfigUI" ) );
+
+			stage.addEventListener( GestureEventEx.GESTURE_TAP, handleInputGestureTap );
 		}
 
 		override protected function get menuName():String
@@ -53,7 +63,8 @@ package red.game.witcher3.menus.mainmenu
 		{
 			super.setPlatform(platformType);
 
-			mcSkipButton.setDataFromStage(NavigationCode.GAMEPAD_X, KeyCode.ESCAPE);
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+			mcSkipButton.setDataFromStage(isSwitchPlatform ? NavigationCode.GAMEPAD_B : NavigationCode.GAMEPAD_X, KeyCode.ESCAPE);
 			mcSkipButton.label = "[[panel_button_dialogue_skip]]";
 			mcSkipButton.clickable = false;
 		}
@@ -65,14 +76,24 @@ package red.game.witcher3.menus.mainmenu
 			{
 				var details:InputDetails = event.details;
 				var keyUp:Boolean = (details.value == InputValue.KEY_UP);
+				var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 
-				if (keyUp && details.navEquivalent == NavigationCode.GAMEPAD_X)
+				if (keyUp &&
+					((isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_B) ||		// B on switch
+					(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X)))		// X on other platforms
 				{
 					closing = true;
 					showTimer.stop();
 					hideAnimation();
 				}
 			}
+		}
+
+		protected function handleInputGestureTap(event:GestureEvent):void
+		{
+			closing = true;
+			showTimer.stop();
+			hideAnimation();
 		}
 
 		public function setAutosaveMessage(message:String):void

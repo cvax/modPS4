@@ -34,6 +34,10 @@ package red.game.witcher3.controls
 	
 	import red.game.witcher3.menus.mainmenu.IngameMenu;
 
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
+	import flash.events.MouseEvent;
+
 	//DEBUG
 	import scaleform.clik.constants.InvalidationType;
     import scaleform.clik.interfaces.IListItemRenderer;
@@ -56,10 +60,14 @@ package red.game.witcher3.controls
 
 		public var textField : TextField;
 		public static var REPOSITION		: String =	"Recalculate position of list items";
+		public static var MOUSE_IDX_TOUCH	: uint =	0xFFFFFFFF;
 
 		public var bAlwaysHandleDirectionActions : Boolean = false;
 		public var bSkipFocusCheck : Boolean = false;
 		public var bIsOptionList : Boolean = false; // For edge cases with disabled option components. I want to avoid breaking existing code in other places.
+		protected var bEnableTouch : Boolean = false;
+		protected var bEnablePressOnTap : Boolean = false;
+		protected var bEnableClickOnTap : Boolean = false;
 
 		private var _lastDir : int = 0;
 
@@ -73,7 +81,7 @@ package red.game.witcher3.controls
 		{
             super.configUI();
 			addEventListener( InputEvent.INPUT, handleInput, false, 0, true );
-        }
+		}
 
 		[Inspectable(defaultValue = 38)]
         public function get UpAction():int { return _UpAction; }
@@ -142,6 +150,30 @@ package red.game.witcher3.controls
 			}
 
 			return 0;
+		}
+
+        public function enableTouch( enable : Boolean, enablePressOnTap : Boolean = true, enableClickOnTap : Boolean = true ) : void
+		{
+			bEnableTouch = enable;
+			//Flag vars for generated events. Sometimes you need to be able to control these. (eg.: 2 tap. select, list action)
+			bEnablePressOnTap = enablePressOnTap;
+			bEnableClickOnTap = enableClickOnTap;
+
+			//Add or remove touch from already present renderers (if any)
+			if (_renderers)
+			{
+				for ( var i : int = 0; i < _renderers.length; ++i )
+				{
+					if ( bEnableTouch )
+					{
+						_renderers[i].addEventListener( GestureEventEx.GESTURE_TAP, handleItemTap, false, 0, true );
+					}
+					else
+					{
+						_renderers[i].removeEventListener( GestureEventEx.GESTURE_TAP, handleItemTap );
+					}
+				}
+			}
 		}
 
 		public function clearRenderers() : void
@@ -259,7 +291,22 @@ package red.game.witcher3.controls
 			var i:int;
 			var controlType : uint = 0;
 
-			if (bIsOptionList)
+			//#L - this is needed to fix drop down behavior since dataprovider does not have property .disabled or .type
+			if(this is W3DropDownList)
+			{
+				trace("GFX --",this,"moveUp, W3DropDownList");
+				for (i = selectedIndex - 1; i >= 0; --i)
+				{
+					renderer = getRendererAt(i) as ListItemRenderer;
+	
+					if (!renderer || renderer.enabled)
+					{
+						nextLeftIndex = i;
+						break;
+					}
+				}
+			}
+			else if (bIsOptionList)
 			{
 				for (i = selectedIndex - 1; i >= 0; --i)
 				{
@@ -300,15 +347,31 @@ package red.game.witcher3.controls
 				// Nothing.
 			}
 			else if (wrapping == WrappingMode.WRAP && allowWrap)
-			{
-				for (i = _dataProvider.length - 1; i >= 0; --i)
+			{	
+				//#L - this is needed to fix drop down behavior since dataprovider does not have property .disabled or .type
+				if(this is W3DropDownList)
 				{
-					renderer = getRendererAt(i) as ListItemRenderer;
-					controlType = dataProvider[i].type;
-					if ( ( !renderer || renderer.enabled ) && (controlType != IngameMenu.IGMActionType_Separator || controlType != IngameMenu.IGMActionType_SubtleSeparator) )
+					for (i = _dataProvider.length - 1; i >= 0; --i)
 					{
-						selectedIndex = i;
-						break;
+						renderer = getRendererAt(i) as ListItemRenderer;
+						if ( !renderer || renderer.enabled )
+						{
+							selectedIndex = i;
+							break;
+						}
+					}
+				}
+				else
+				{
+					for (i = _dataProvider.length - 1; i >= 0; --i)
+					{
+						renderer = getRendererAt(i) as ListItemRenderer;
+						controlType = dataProvider[i].type;
+						if ( ( !renderer || renderer.enabled ) && (controlType != IngameMenu.IGMActionType_Separator || controlType != IngameMenu.IGMActionType_SubtleSeparator) )
+						{
+							selectedIndex = i;
+							break;
+						}
 					}
 				}
 
@@ -349,7 +412,23 @@ package red.game.witcher3.controls
 			var i:int;
 			var controlType : uint = 0;
 
-			if (bIsOptionList)
+
+			//#L - this is needed to fix drop down behavior since dataprovider does not have property .disabled or .type
+			if(this is W3DropDownList)
+			{
+				trace("GFX --",this,"moveDown, W3DropDownList");
+				for (i = selectedIndex + 1; i < _dataProvider.length; ++i)
+				{
+					renderer = getRendererAt(i) as ListItemRenderer;
+	
+					if (!renderer || renderer.enabled)
+					{
+						nextRightIndex = i;
+						break;
+					}
+				}
+			}
+			else if (bIsOptionList)
 			{
 				for (i = selectedIndex + 1; i < _dataProvider.length; ++i)
 				{
@@ -399,15 +478,31 @@ package red.game.witcher3.controls
 				}
 				else
 				{
-					for (i = 0; i < _dataProvider.length; ++i)
-					{
-						renderer = getRendererAt(i) as ListItemRenderer;
-						controlType = dataProvider[i].type;
-
-						if ( !renderer || (renderer.enabled && (controlType != IngameMenu.IGMActionType_Separator || controlType != IngameMenu.IGMActionType_SubtleSeparator)) )
+					//#L - this is needed to fix drop down behavior since dataprovider does not have property .disabled or .type
+					if(this is W3DropDownList) {
+						for (i = 0; i < _dataProvider.length; ++i)
 						{
-							selectedIndex = i;
-							break;
+							renderer = getRendererAt(i) as ListItemRenderer;
+
+							if ( !renderer || renderer.enabled )
+							{
+								selectedIndex = i;
+								break;
+							}
+						}
+					}
+					else 
+					{
+						for (i = 0; i < _dataProvider.length; ++i)
+						{
+							renderer = getRendererAt(i) as ListItemRenderer;
+							controlType = dataProvider[i].type;
+
+							if ( !renderer || (renderer.enabled && (controlType != IngameMenu.IGMActionType_Separator || controlType != IngameMenu.IGMActionType_SubtleSeparator)) )
+							{
+								selectedIndex = i;
+								break;
+							}
 						}
 					}
 
@@ -431,6 +526,7 @@ package red.game.witcher3.controls
 
 			var details:InputDetails = event.details;
 			var keyPress:Boolean = (details.value == InputValue.KEY_DOWN || details.value == InputValue.KEY_HOLD);
+			var keyUp:Boolean = details.value == InputValue.KEY_UP; 
 
 			var i:int;
 			var oldSelection:int;
@@ -441,9 +537,13 @@ package red.game.witcher3.controls
 				renderer = null;
 			}
 
-            if (renderer != null) {
+            if (renderer != null) 
+			{
                 renderer.handleInput(event); // Since we are just passing on the event, it won't bubble, and should properly stopPropagation.
-                if (event.handled) { return; }
+                if (event.handled) 
+				{ 
+					return; 
+				}
             }
 			
 			if ((details.code == KeyCode.PAD_DIGIT_DOWN || KeyCode.PAD_DIGIT_UP || details.code == KeyCode.PAD_DIGIT_LEFT || details.code == KeyCode.PAD_DIGIT_RIGHT) &&
@@ -472,6 +572,10 @@ package red.game.witcher3.controls
 						if ( oldSelection == 1 && selectedIndex == 1 )
 							scrollPosition = 0;
 					}
+					else if(keyUp)
+					{
+						dispatchEvent(new GameEvent(GameEvent.CALL, "OnKeyUpOnW3ScrollingList", [name]));
+					}
                     break;
 
                 case DownAction:
@@ -489,6 +593,10 @@ package red.game.witcher3.controls
 							dispatchIndexChanged(selectedIndex, renderer);
 							event.handled = true;
 						}
+					}
+					else if(keyUp)
+					{
+						dispatchEvent(new GameEvent(GameEvent.CALL, "OnKeyUpOnW3ScrollingList", [name]));
 					}
                     break;
                 case KeyCode.LEFT:
@@ -595,29 +703,91 @@ package red.game.witcher3.controls
 			return tempHeight
 		}
 		
+		override protected function setupRenderer(renderer:IListItemRenderer):void 
+		{
+			//Hook into setup, and add tap listener if touch is enabled. Look at CoreList::setupRenderer/CoreList::cleanUpRenderer to get an idea.
+			super.setupRenderer(renderer);
+			if ( bEnableTouch )
+			{
+				renderer.addEventListener( GestureEventEx.GESTURE_TAP, handleItemTap, false, 0, true );
+			}
+		}
+
+		override protected function cleanUpRenderer(renderer:IListItemRenderer):void
+		{
+			super.cleanUpRenderer(renderer);
+			if ( bEnableTouch )
+			{
+				renderer.removeEventListener( GestureEventEx.GESTURE_TAP, handleItemTap );
+			}
+		}
+
+		protected function handleItemTap(event:GestureEvent):void 
+		{
+			//Handle tap, the same way Button click is handled. Copied from CoreList::handleItemClick.
+            var index:Number = (event.currentTarget as IListItemRenderer).index;
+            if (isNaN(index)) { return; }
+            if (dispatchItemEvent(event)) {
+                selectedIndex = index;
+            }
+        }
+
 	    override protected function dispatchItemEvent(event:Event):Boolean
 		{
+			var type:String;
+			var buttonIdx:uint;
+			var mouseIdx:uint;
+			var isKeyboard:Boolean;
+			var newEvent:ListEvent;
+
+			var renderer:IListItemRenderer = event.currentTarget as IListItemRenderer;
+			
 			if (selectOnOver && event.type == MouseEvent.ROLL_OVER)
 			{
-				var targetRenderer:IListItemRenderer = event.currentTarget as IListItemRenderer;
-				
-				if (targetRenderer)
+				if (renderer)
 				{
-					trySelectingIndex( targetRenderer.index );
+					trySelectingIndex( renderer.index );
 				}
 			}
 			
 			if (event.type == MouseEvent.DOUBLE_CLICK)
 			{
 				// bubble it
-				var renderer:IListItemRenderer = event.currentTarget as IListItemRenderer;
-				var newEvent:ListEvent = new ListEvent(ListEvent.ITEM_DOUBLE_CLICK, true, true, renderer.index, 0, renderer.index, renderer, dataProvider.requestItemAt(renderer.index), 0, 0, false);
+				newEvent = new ListEvent(ListEvent.ITEM_DOUBLE_CLICK, true, true, renderer.index, 0, renderer.index, renderer, dataProvider.requestItemAt(renderer.index), 0, 0, false);
             	return dispatchEvent(newEvent);
 			}
-			else
+			else if ( bEnableTouch && event.type == GestureEventEx.GESTURE_TAP )
 			{
-				return super.dispatchItemEvent(event);
+				//Convert Tap into List press and click events, Look at CoreList::dispatchItemEvent
+				trySelectingIndex( renderer.index );
+				validateNow();
+				
+				if (renderer)
+				{
+					buttonIdx = 0;
+					mouseIdx = MOUSE_IDX_TOUCH;
+					isKeyboard = false;
+
+					//For some use cases we have to be able to configure the generated list events. Like 2 tap.
+					if ( bEnablePressOnTap )
+					{
+						type = ListEvent.ITEM_PRESS;
+						newEvent = new ListEvent(type, false, true, renderer.index, 0, renderer.index, renderer, dataProvider.requestItemAt(renderer.index), mouseIdx, buttonIdx, isKeyboard);
+						dispatchEvent(newEvent);
+					}
+
+					if ( bEnableClickOnTap )
+					{
+						type = ListEvent.ITEM_CLICK; 
+						newEvent = new ListEvent(type, false, true, renderer.index, 0, renderer.index, renderer, dataProvider.requestItemAt(renderer.index), mouseIdx, buttonIdx, isKeyboard);
+						dispatchEvent(newEvent);
+					}
+					
+					return true;
+				}
 			}
+			
+			return super.dispatchItemEvent(event);
 		}
 		
 		public function trySelectingIndex( index : int )
@@ -629,14 +799,6 @@ package red.game.witcher3.controls
 		{
             if (value == _selectedIndex || value == _newSelectedIndex)
 				return;
-			
-			if (value >= 0 && value < dataProvider.length && 
-				(dataProvider[value].disabled || dataProvider[value].type == IngameMenu.IGMActionType_SubtleSeparator))
-			{
-				// [dsl] This fixes the "selection box" appearing one frame when clicking a disabled item.
-				super.selectedIndex = -1;
-				return;
-			}
 
 			// #J not ideal way to handle this but what can you do :S
 			if (this is W3DropDownList)
@@ -650,6 +812,15 @@ package red.game.witcher3.controls
 			}
 			else
 			{
+				// #L moving this here because it was crashing with dropdown behavior
+				if (value >= 0 && value < dataProvider.length && 
+					(dataProvider[value].disabled || dataProvider[value].type == IngameMenu.IGMActionType_SubtleSeparator))
+				{
+					// [dsl] This fixes the "selection box" appearing one frame when clicking a disabled item.
+					super.selectedIndex = -1;
+					return;
+				}
+
 				dispatchEvent(new GameEvent(GameEvent.CALL, "OnPlaySoundEvent", ["gui_global_highlight"]));
 			}
 			

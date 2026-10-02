@@ -141,7 +141,7 @@
 			handleFocusChanged();
 		}
 
-		protected function handleControllerChanged(event:Event):void
+		protected function handleControllerChanged(event:ControllerChangeEvent):void
 		{
 			handleFocusChanged();
 		}
@@ -150,7 +150,7 @@
 		{
 			if (_focused > 0)
 			{
-				if (mcHighlight && InputManager.getInstance().isGamepad())
+				if (mcHighlight && !InputManager.getInstance().isMouse())
 				{
 					//mcHighlight.highlighted = true;
 				}
@@ -159,7 +159,7 @@
 			}
 			else
 			{
-				if (mcHighlight && InputManager.getInstance().isGamepad()) mcHighlight.highlighted = false;
+				if (mcHighlight && !InputManager.getInstance().isMouse()) mcHighlight.highlighted = false;
 			}
 		}
 

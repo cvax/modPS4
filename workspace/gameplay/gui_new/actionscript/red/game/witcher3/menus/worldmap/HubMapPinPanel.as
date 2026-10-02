@@ -2,32 +2,35 @@
 {
 	import com.gskinner.motion.easing.Linear;
 	import flash.display.MovieClip;
-	import flash.geom.Point;
-	import flash.utils.Dictionary;
-	import red.game.witcher3.constants.CommonConstants;
-	import red.game.witcher3.utils.CommonUtils;
-	import scaleform.clik.core.UIComponent;
 	import flash.events.Event;
+	import flash.events.GestureEvent;
 	import flash.events.MouseEvent;
-	import scaleform.clik.events.InputEvent;
+	import flash.geom.Point;
+	import flash.geom.Rectangle;
+	import flash.utils.Dictionary;
+
+	import scaleform.clik.core.UIComponent;
+	import scaleform.clik.constants.InputValue;
+	import scaleform.clik.constants.NavigationCode;
+	import scaleform.clik.constants.WrappingMode;
 	import scaleform.clik.data.DataProvider;
 	import scaleform.clik.events.InputEvent;
-	import scaleform.clik.ui.InputDetails;
-	import scaleform.clik.constants.InputValue;
-	import red.core.constants.KeyCode;
-	import scaleform.clik.constants.WrappingMode;
 	import scaleform.clik.events.ListEvent;
-	import flash.geom.Rectangle;
+	import scaleform.clik.interfaces.IListItemRenderer;
+	import scaleform.clik.ui.InputDetails;
 	import scaleform.gfx.MouseEventEx;
 
+	import red.core.constants.KeyCode;
+	import red.core.events.GameEvent;
+	import red.core.events.GestureEventEx;
+	import red.game.witcher3.constants.CommonConstants;
 	import red.game.witcher3.controls.W3ScrollingList;
 	import red.game.witcher3.data.StaticMapPinData;
-	import scaleform.clik.interfaces.IListItemRenderer;
 	import red.game.witcher3.managers.InputManager;
 	import red.game.witcher3.menus.worldmap.data.CategoryData;
 	import red.game.witcher3.menus.worldmap.data.CategoryPinData;
 	import red.game.witcher3.menus.worldmap.data.CategoryPinInstanceData;
-	import red.core.events.GameEvent;
+	import red.game.witcher3.utils.CommonUtils;
 
 	public class HubMapPinPanel extends UIComponent
 	{
@@ -63,6 +66,8 @@
 		public static const USER_PIN_TRANSLATION		: String = "[[map_location_user]]";
 		
 		private const USER_PIN_PRIORITY			: int    = 1;
+
+		public var _inputEnabled : Boolean = true;
 
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -154,6 +159,7 @@
 			//mcHubMapPinCategoryList.focused = 1;
 			//mcHubMapPinCategoryList.focusable = false;
 			mcHubMapPinCategoryList.bSkipFocusCheck = true;
+			mcHubMapPinCategoryList.enableTouch( true, true, false );
 			
 			initializeCategoryPanel( true );
 			updateCategoryButtonSelection();
@@ -167,13 +173,15 @@
 			mcHubMapPinCategoryList.addEventListener(ListEvent.INDEX_CHANGE, handleIndexChanged, false, 0, true);
 			mcHubMapPinCategoryButton.mcArrowLeft.addEventListener(  MouseEvent.MOUSE_DOWN, handleCaterogyArrowLeft,	 false, 0, true );
 			mcHubMapPinCategoryButton.mcArrowRight.addEventListener( MouseEvent.MOUSE_DOWN, handleCaterogyArrowRight, false, 0, true );
+			mcHubMapPinCategoryButton.mcArrowLeft.addEventListener( GestureEventEx.GESTURE_TAP, handleCaterogyArrowLeft, false, 0, true );
+			mcHubMapPinCategoryButton.mcArrowRight.addEventListener( GestureEventEx.GESTURE_TAP, handleCaterogyArrowRight, false, 0, true );
 			
 			mcHubMapPinArrowUp.addEventListener(   MouseEvent.MOUSE_DOWN, handleArrowUp,   false, 0, true );
 			mcHubMapPinArrowDown.addEventListener( MouseEvent.MOUSE_DOWN, handleArrowDown, false, 0, true );
 
 			dispatchEvent(new GameEvent(GameEvent.REGISTER, 'worldmap.global.pins.disabled', 		[ setDisabledPins ] ) );
 		}
-		
+
 		// NGE - new "Default" category
 		// This remembers the last category you had selected
 		public function updateCurrentCategoryIndex(value : int)
@@ -191,15 +199,19 @@
 			addMandatoryContents();
 			sortContents();
 
-			
 			if ( _categories.length > 0 )
-			{								
-				category = _categories[ value ];
-
-				mcHubMapPinCategoryList.dataProvider = new DataProvider( category._pins );
-				mcHubMapPinCategoryList.validateNow(); // needed for resizeHitArea()
-				
-				updatePinsFromCategory( category, false );
+			{
+				if ( _categories[ value ] != undefined )
+				{
+					category = _categories[ value ];
+					mcHubMapPinCategoryList.dataProvider = new DataProvider( category._pins );
+					mcHubMapPinCategoryList.validateNow(); // needed for resizeHitArea()
+					updatePinsFromCategory( category, false );
+				}
+				else
+				{
+					trace( "HubMapPinPanel::selectSpecificCategoryPanel undefined category : ", value );
+				}
 			}
 			else
 			{
@@ -208,7 +220,6 @@
 			updateCategoryButton();
 			updateArrowButtons();
 			resizeHitArea();
-			
 
 			updateCategoryButton();
 			updateArrowButtons();
@@ -323,37 +334,31 @@
 			resizeHitArea();
 			if ( event.index != -1 )
 			{
-				if ( !InputManager.getInstance().isGamepad() )
+				if ( InputManager.getInstance().isMouse() )
 				{
 					centerOnPin();
 				}
 			}
 		}
 
-		public function handleCaterogyArrowLeft( event : MouseEventEx )
+		private function changeCategory( event : Event, dir : int )
 		{
-			if ( !funcIsAnimationRunning() )
+			if ( CommonUtils.isEventTapGestureOrMouseLeftClick( event ) && !funcIsAnimationRunning() )
 			{
-				if ( event.buttonIdx == MouseEventEx.LEFT_BUTTON )
-				{
-					selectPrevNextCategory( -1 );
-					// since it's mouse, deselect list
-					mcHubMapPinCategoryList.selectedIndex = -1;
-				}
+				selectPrevNextCategory( dir );
+				// since it's mouse, deselect list
+				mcHubMapPinCategoryList.selectedIndex = -1;
 			}
 		}
+
+		public function handleCaterogyArrowLeft( event : Event )
+		{			
+			changeCategory( event, -1 );
+		}
 		
-		public function handleCaterogyArrowRight( event : MouseEventEx )
+		public function handleCaterogyArrowRight( event : Event )
 		{
-			if ( !funcIsAnimationRunning() )
-			{
-				if ( event.buttonIdx == MouseEventEx.LEFT_BUTTON )
-				{
-					selectPrevNextCategory( 1 );
-					// since it's mouse, deselect list
-					mcHubMapPinCategoryList.selectedIndex = -1;
-				}
-			}
+			changeCategory( event, 1 );
 		}
 
 		public function handleArrowUp( event : MouseEventEx )
@@ -576,7 +581,7 @@
 				mcHubMapPinCategoryButton.tfCategoryName.text = CommonUtils.toUpperCaseSafe(mcHubMapPinCategoryButton.tfCategoryName.text);
 				
 			}
-			else
+			else if ( _categories[ _currentCategoryIndex ] != undefined )
 			{
 				mcHubMapPinCategoryButton.tfCategoryName.text = "[[map_category_" + _categories[ _currentCategoryIndex ]._name + "]]";
 				mcHubMapPinCategoryButton.tfCategoryName.text = CommonUtils.toUpperCaseSafe(mcHubMapPinCategoryButton.tfCategoryName.text);
@@ -587,7 +592,7 @@
 		public function updateArrowButtons()
 		{
 			var pinCount : int = 0;
-			if ( _currentCategoryIndex > -1 )
+			if ( _currentCategoryIndex > -1 && _categories[_currentCategoryIndex] != undefined )
 			{
 				pinCount = _categories[_currentCategoryIndex]._pins.length;
 			}
@@ -605,6 +610,9 @@
             var keyPress : Boolean = ( details.value == InputValue.KEY_DOWN || details.value == InputValue.KEY_HOLD );
             var keyUp : Boolean = ( details.value == InputValue.KEY_UP );
 			
+			if (!_inputEnabled)
+				return;
+
 			if ( details.code == KeyCode.W ||
 				 details.code == KeyCode.S ||
 				 details.code == KeyCode.A ||
@@ -625,8 +633,8 @@
 				resizeHitArea();
 			}
 
-			// ignore released keys except left trigger (needed for showing/hiding pins in in item renderer)
-			if ( !keyPress && details.code != KeyCode.PAD_LEFT_TRIGGER)
+			// ignore released keys except R3 (needed for showing/hiding pins in in item renderer)
+			if ( !keyPress && details.navEquivalent != NavigationCode.GAMEPAD_R3)
 			{
 				return;
 			}
@@ -771,7 +779,7 @@
 				}
 			}
 
-			if ( _currentCategoryIndex > -1 && _categories.length > 0 )
+			if ( _currentCategoryIndex > -1 && _categories.length > 0 && _categories[ _currentCategoryIndex ] != undefined )
 			{
 				var category : CategoryData = _categories[ _currentCategoryIndex ];
 
@@ -991,8 +999,8 @@
 				{
 					//trace("Minimap1 DISTANCE ", pinData.id, pinData.filteredType, "?", "?", pinData.distance );
 					currCategory = _categories[ i ] as CategoryData;
-					currPin      = __DEBUG_addPin( currCategory, USER_PIN_TYPE, USER_PIN_TRANSLATION, USER_PIN_PRIORITY );
-								   __DEBUG_addInstance( currPin, pinData.id, new Point( pinData.posX, pinData.posY ), pinData.distance );
+					currPin = __DEBUG_addPin( currCategory, USER_PIN_TYPE, USER_PIN_TRANSLATION, USER_PIN_PRIORITY );
+					__DEBUG_addInstance( currPin, pinData.id, new Point( pinData.posX, pinData.posY ), pinData.distance );
 				}
 			}
 			else
@@ -1036,22 +1044,22 @@
 				//trace("Minimap1 DISTANCE ", pinData.id, type, category, priority, pinData.distance );
 	
 	
-				currCategory     = __DEBUG_addCategory( ALL_PINS_CATEGORY );
-					currPin      = __DEBUG_addPin( currCategory, type, translation, priority );
-								   __DEBUG_addInstance( currPin, pinData.id, new Point( pinData.posX, pinData.posY ), pinData.distance );
+				currCategory = __DEBUG_addCategory( ALL_PINS_CATEGORY );
+				currPin = __DEBUG_addPin( currCategory, type, translation, priority );
+				__DEBUG_addInstance( currPin, pinData.id, new Point( pinData.posX, pinData.posY ), pinData.distance );
 				
 				if ( category )
 				{
-					currCategory     = __DEBUG_addCategory( category );
-						currPin      = __DEBUG_addPin( currCategory, type, translation, priority );
-									   __DEBUG_addInstance( currPin, pinData.id, new Point( pinData.posX, pinData.posY ), pinData.distance );
+					currCategory = __DEBUG_addCategory( category );
+					currPin = __DEBUG_addPin( currCategory, type, translation, priority );
+					__DEBUG_addInstance( currPin, pinData.id, new Point( pinData.posX, pinData.posY ), pinData.distance );
 							
 					// NGE - new "Default" category
 					if( (category == "General" || category == "Quests" || category == "NPCs" || category == "Buffs") || type == 'Entrance')
 					{
-						currCategory     = __DEBUG_addCategory( "Default" );
-						currPin     	 = __DEBUG_addPin( currCategory, type, translation, priority );
-										   __DEBUG_addInstance( currPin, pinData.id, new Point( pinData.posX, pinData.posY ), pinData.distance );
+						currCategory = __DEBUG_addCategory( "Default" );
+						currPin = __DEBUG_addPin( currCategory, type, translation, priority );
+						__DEBUG_addInstance( currPin, pinData.id, new Point( pinData.posX, pinData.posY ), pinData.distance );
 					}
 					// NGE - new "Default" category
 				}
@@ -1084,9 +1092,9 @@
 			}
 		}
 		
-		public function OnControllerChanged( isUsingGamepad )
+		public function OnControllerChanged( isUsingGamepad : Boolean, isUsingMouse : Boolean )
 		{
-			_allowShowingCategoryButtonSelection = isUsingGamepad;
+			_allowShowingCategoryButtonSelection = !isUsingMouse;
 			updateCategoryButtonSelection();
 			resizeHitArea();
 		}
@@ -1191,6 +1199,9 @@
 			'QuestAvailable'			: new PinTypeDefinition( "Quests", 213 ),
 			'QuestAvailableHoS'			: new PinTypeDefinition( "Quests", 214 ),
 			'QuestAvailableBaW'			: new PinTypeDefinition( "Quests", 215 ),
+			'QuestAvailableLy'			: new PinTypeDefinition( "Quests", 216 ),
+			'QuestObjective'			: new PinTypeDefinition( "Quests", 217 ),
+			'QuestObjectiveOther'		: new PinTypeDefinition( "Quests", 218 ),
 
 			'Entrance'					: new PinTypeDefinition( "Exploration", 301 ),
 			'NotDiscoveredPOI'			: new PinTypeDefinition( "Exploration", 302 ),

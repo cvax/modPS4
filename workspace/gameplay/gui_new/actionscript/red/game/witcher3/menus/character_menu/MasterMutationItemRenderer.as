@@ -4,6 +4,7 @@ package red.game.witcher3.menus.character_menu
 	import flash.events.DataEvent;
 	import flash.text.TextField;
 	import red.game.witcher3.constants.CommonConstants;
+	import red.game.witcher3.controls.InputFeedbackButton;
 	
 	/**
 	 * red.game.witcher3.menus.character_menu.MasterMutationItemRenderer
@@ -13,10 +14,12 @@ package red.game.witcher3.menus.character_menu
 	{
 		private const MUTATION_STATE_FRAME_OFFSET:int = 5;
 		private const TEXT_PADDING = 15;
+		private const DESC_FIXER_BACKPUSH = 16;
 		
 		public var tfState 				 : TextField;
 		public var tfAdditionalState 	 : TextField;
 		public var tfMutationDescription : TextField;
+		public var btnMutationMode : InputFeedbackButton;
 		
 		public var mcStateBackground:MovieClip;
 		public var mcLevelBackground:MovieClip;
@@ -24,8 +27,6 @@ package red.game.witcher3.menus.character_menu
 		
 		public var mcMutationBackground:MovieClip;
 		public var mcMutationAnimation:MovieClip;
-		public var mcDescriptionBackground:MovieClip;
-		public var mcTitleBackground:MovieClip;
 		
 		private var _mcColorOverlay:MovieClip;
 		private var _mcColorBackground:MovieClip;
@@ -69,8 +70,6 @@ package red.game.witcher3.menus.character_menu
 		{
 			tfState.visible = !value;
 			tfMutationDescription.visible = !value;
-			mcDescriptionBackground.visible = !value;
-			mcTitleBackground.visible = !value;
 		}
 		
 		public function setEquippedMutationData(value:Object):void
@@ -160,25 +159,11 @@ package red.game.witcher3.menus.character_menu
 					}
 				}
 				
-				if (mcTitleBackground && tfState)
-				{
-					mcTitleBackground.x = tfState.x + (tfState.width - tfState.textWidth) - TEXT_PADDING;
-					mcTitleBackground.width = tfState.textWidth + TEXT_PADDING * 2;
-				}
-				
 				if (tfMutationDescription && _equippedMutationData)
 				{
 					tfMutationDescription.htmlText = _equippedMutationData.description;
-					tfMutationDescription.y = -tfMutationDescription.textHeight / 2;
+					tfMutationDescription.y = -tfMutationDescription.textHeight / 2 - DESC_FIXER_BACKPUSH;
 					tfMutationDescription.height = tfMutationDescription.textHeight + CommonConstants.SAFE_TEXT_PADDING;
-				}
-				
-				if (mcDescriptionBackground && tfMutationDescription)
-				{
-					mcDescriptionBackground.y = tfMutationDescription.y - TEXT_PADDING;
-					mcDescriptionBackground.width = tfMutationDescription.width + TEXT_PADDING ;
-					mcDescriptionBackground.height = tfMutationDescription.textHeight + TEXT_PADDING * 2;
-					
 				}
 				
 			}

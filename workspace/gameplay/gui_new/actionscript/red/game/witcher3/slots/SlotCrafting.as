@@ -2,8 +2,11 @@ package red.game.witcher3.slots
 {
 	import flash.display.MovieClip;
 	import flash.events.Event;
+	import flash.events.GestureEvent;
 	import flash.events.MouseEvent;
+	import flash.geom.Rectangle;
 	import flash.text.TextField;
+
 	import red.core.constants.KeyCode;
 	import red.core.events.GameEvent;
 	import red.game.witcher3.constants.CommonConstants;
@@ -15,9 +18,9 @@ package red.game.witcher3.slots
 	import red.game.witcher3.interfaces.IPaperdollSlot;
 	import red.game.witcher3.managers.InputManager;
 	import red.game.witcher3.menus.common.ItemDataStub;
+
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.events.InputEvent;
-	import flash.geom.Rectangle;
 	import scaleform.gfx.MouseEventEx;
 	
 	/**
@@ -96,8 +99,11 @@ package red.game.witcher3.slots
 			{
 				return false;
 			}
+
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 			
-			if ( keyCode == KeyCode.PAD_Y_TRIANGLE )
+			if (( isSwitchPlatform && keyCode == KeyCode.PAD_X_SQUARE ) ||		// X on switch
+				( !isSwitchPlatform && keyCode == KeyCode.PAD_Y_TRIANGLE ))		// Y on other platforms
 			{
 				//#Y TEMP for this prototype will use direct call
 				dispatchEvent( new GameEvent(GameEvent.CALL, "OnBuyIngredient", [ int(data.id), Boolean( (data.reqQuantity - data.quantity) == 1) ] ) );
@@ -210,7 +216,7 @@ package red.game.witcher3.slots
 		{
 			// trace("GFX [SlotBase][", this, "] fireTooltipShowEvent, activeSelectionEnabled  ", activeSelectionEnabled, "; _mouseOverTrigger ", _mouseOverTrigger, "; isParentEnabled() ", isParentEnabled());
 			
-			if ( ( activeSelectionEnabled || ( !InputManager.getInstance().isGamepad() && _mouseOverTrigger ) ) && _data && isParentEnabled())
+			if ( ( activeSelectionEnabled || ( InputManager.getInstance().isMouse() && _mouseOverTrigger ) ) && _data && isParentEnabled())
 			{
 				_mouseOverTrigger = false;
 				removeEventListener(Event.ENTER_FRAME, pendedTooltipHide);
@@ -225,9 +231,10 @@ package red.game.witcher3.slots
 			}
 		}
 		
-		// diabled
+		// disabled
 		override protected function updateItemSize(targetObject:MovieClip, targetRect:Rectangle):void {	}
 		override protected function defaultSlotEquipAction(itemData:Object):void { }
+		override protected function handleGesturePress( event : GestureEvent ) : void { }
 	}
 
 }

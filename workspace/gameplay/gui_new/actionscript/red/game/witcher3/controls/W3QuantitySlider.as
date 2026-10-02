@@ -82,17 +82,9 @@ package red.game.witcher3.controls
 		private function updateControls():void
 		{
 			var inputMgr:InputManager = InputManager.getInstance();
-			var isGamepad:Boolean = inputMgr.isGamepad();
+			var isMouse:Boolean = inputMgr.isMouse();
 			
-			if (isGamepad)
-			{
-				btnLeft.visible = false;
-				btnRight.visible = false;
-				
-				//txtMinValue.x = track.x - txtMinValue.width - BLOCK_PADDING;
-				//txtMaxValue.x = SLIDER_WIDTH + BLOCK_PADDING;
-			}
-			else
+			if (isMouse)
 			{
 				btnLeft.visible = true;
 				btnRight.visible = true;
@@ -101,6 +93,14 @@ package red.game.witcher3.controls
 				
 				//txtMinValue.x = track.x - (btnLeft.width + txtMinValue.width + BLOCK_PADDING);
 				//txtMaxValue.x = SLIDER_WIDTH + btnRight.width + BLOCK_PADDING;
+			}
+			else
+			{
+				btnLeft.visible = false;
+				btnRight.visible = false;
+				
+				//txtMinValue.x = track.x - txtMinValue.width - BLOCK_PADDING;
+				//txtMaxValue.x = SLIDER_WIDTH + BLOCK_PADDING;
 			}
 			
 			invalidateData();

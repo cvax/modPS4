@@ -159,15 +159,17 @@ package red.game.witcher3.menus.gwint
 		private var _lastSelectedCard:CardSlot;
 		public function get selectedCardIdx():int { return _selectedCardIdx }
 		public function set selectedCardIdx(value:int):void
-		{	
+		{
+			// trace("GFX selectedCardIdx " + value);
+			
 			if (value == -1 && _lastSelectedCard == null)
 			{
 				return;
 			}
-			
+
 			if (_lastSelectedCard != null && cardSlotsList.indexOf(_lastSelectedCard) != -1)
 			{
-				if (cardSlotsList[value] == _lastSelectedCard)
+				if (value != -1 && cardSlotsList[value] == _lastSelectedCard)
 				{
 					if (!_lastSelectedCard.selected)
 					{
@@ -440,7 +442,7 @@ package red.game.witcher3.menus.gwint
 			}
 		}
 		
-		public function handleLeftClick(event:MouseEvent):void
+		public function handleTapOrLeftClick():void
 		{
 			handleActivatePressed();
 		}

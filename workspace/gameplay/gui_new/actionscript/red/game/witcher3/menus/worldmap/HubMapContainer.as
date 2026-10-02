@@ -181,7 +181,7 @@
 			y = GetRestrictedY( posY );
 		}
 		
-		private function GetRestrictedX( targetX : Number ) : Number
+		public function GetRestrictedX( targetX : Number ) : Number
 		{
 			if ( targetX > -_mapScrollMinX )
 			{
@@ -194,7 +194,7 @@
 			return targetX;
 		}
 
-		private function GetRestrictedY( targetY : Number ) : Number
+		public function GetRestrictedY( targetY : Number ) : Number
 		{
 			if ( targetY > _mapScrollMaxY )
 			{

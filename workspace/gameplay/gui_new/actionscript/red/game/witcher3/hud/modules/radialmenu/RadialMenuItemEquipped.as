@@ -14,6 +14,8 @@ package red.game.witcher3.hud.modules.radialmenu
 	import red.game.witcher3.controls.W3UILoader;
 	import red.game.witcher3.managers.InputManager;
 	import red.game.witcher3.utils.CommonUtils;
+
+	import red.game.witcher3.hud.modules.HudModuleRadialMenu;
 	
 	/**
 	 * red.game.witcher3.hud.modules.radialmenu.RadialMenuItemEquipped
@@ -23,17 +25,19 @@ package red.game.witcher3.hud.modules.radialmenu
 	{
 		public static var enableAnimationFx:Boolean = false;
 		
-		public var mcItemCounter  : RadialMenuItemCounter;
-		public var mcAmmoCounter  : MovieClip;
-		public var mcEquipped	  : MovieClip;
-		public var tfItemDescName : TextField;
+		public var mcItemCounter  			: RadialMenuItemCounter;
+		public var mcAmmoCounter  			: MovieClip;
+		public var mcEquipped	  			: MovieClip;
+		public var tfItemDescName			: TextField;
 		
-		private var _subIndex	   : int;
-		private var _subItemsCount : int;
-		private var _subListViewer : RadialMenuSubItemView;
-		private var _ammoTextField : TextField;
-		private var _data 		   : Object;
-		private var _isPocketData  : Boolean;
+		private var _subIndex	   			: int;
+		private var _subIndexRanged			: int;
+		private var _subItemsCount 			: int;
+		private var _subItemsCountRanged 	: int;
+		private var _subListViewer 			: RadialMenuSubItemView;
+		private var _ammoTextField 			: TextField;
+		private var _data 		   			: Object;
+		private var _isPocketData  			: Boolean;
 		
 		// NGE
 		private var _showChangeItemText  : Boolean;
@@ -41,7 +45,21 @@ package red.game.witcher3.hud.modules.radialmenu
 		
 		private var _baseItemData  : Object;
 		private var _alterItemData : Object;
+		private var _boltItemData : Object;
+		private var _boltIndex	  : int;
+		private var _boltCount	  : int;
 		private var _subItemsList  : Array;
+		private var _subItemsRangedList  : Array;
+
+		private var cachedLoader : W3UILoader;
+
+		private var _overrideMultiplyX : Number = 1;
+		private var _overrideMultiplyY : Number = 1;
+
+		private function SetAlterItemData(alterData : Object)
+		{
+			_alterItemData = alterData;
+		}
 		
 		public function RadialMenuItemEquipped()
 		{
@@ -58,7 +76,7 @@ package red.game.witcher3.hud.modules.radialmenu
 		public function set data(value:Object):void
 		{
 			_data = value;
-			
+
 			updateData();
 		}
 		
@@ -118,8 +136,14 @@ package red.game.witcher3.hud.modules.radialmenu
 			
 			return _subItemsList && _subItemsList.length > 1;
 		}
+
 		
-		protected function updateExternalViewer():void
+		public function isRangedSwitchable():Boolean
+		{	
+			return _data.slotName == "Crossbow" && _subItemsRangedList && _subItemsRangedList.length > 1;
+		}
+		
+		protected function updateExternalViewer( needsEquipEvent:Boolean = false ):void
 		{
 			if ( _subListViewer && _alterItemData && _isSelected )
 			{
@@ -132,13 +156,20 @@ package red.game.witcher3.hud.modules.radialmenu
 				else
 				if ( _alterItemData )
 				{
-					_subListViewer.setData( _alterItemData.name, _alterItemData.itemIconPath, _subIndex, _subItemsCount );
+					if((_alterItemData.category == "crossbow" || _alterItemData.category == "bolt") && _boltCount > 1)
+						_subListViewer.setData( _alterItemData.name, _alterItemData.itemIconPath, _boltIndex, _boltCount )
+					else
+						_subListViewer.setData( _alterItemData.name, _alterItemData.itemIconPath, _subIndex, _subItemsCount );
 					
-					if ( _alterItemData.hasOwnProperty( "id" ) )
+					if ( _alterItemData.hasOwnProperty( "id" ) && needsEquipEvent) // #LT: it is not a good idea to keep placing items back and forth when just navigating around or opening the menu...
 					{
 						dispatchEvent( new GameEvent( GameEvent.CALL, 'OnEquipBolt', [ uint( _alterItemData.id ) ] ) );
 					}
-				}
+					else if (_alterItemData.hasOwnProperty( "id" ))
+					{
+						dispatchEvent( new GameEvent( GameEvent.CALL, 'OnOnlyQuickslotEquip', [ uint( _alterItemData.id ) ] ) );
+					}
+				}	
 			}
 		}
 		
@@ -191,14 +222,20 @@ package red.game.witcher3.hud.modules.radialmenu
 						_subIndex = 1;
 					}
 					
-					_alterItemData = _subItemsList[ _subIndex - 1 ];
+					SetAlterItemData(_subItemsList[ _subIndex - 1] );
 					
 					if (_alterItemData)
 					{
 						_itemDescription = _alterItemData.description;
+						if(_alterItemData.category == "bolt")
+						{
+							_boltItemData = _alterItemData;
+							_boltCount = _subItemsCount;
+							_boltIndex = _subIndex;
+						}
 					}
 					
-					updateExternalViewer();
+					updateExternalViewer(true);
 					updateAmmo( _alterItemData, true );
 					
 					if (_data)
@@ -242,19 +279,113 @@ package red.game.witcher3.hud.modules.radialmenu
 						_subIndex = _subItemsCount;
 					}
 					
-					_alterItemData = _subItemsList[ _subIndex - 1 ];
+					SetAlterItemData(_subItemsList[_subIndex - 1]);
 					
 					if (_alterItemData)
 					{
 						_itemDescription = _alterItemData.description;
+						if(_alterItemData.category == "bolt")
+						{
+							_boltItemData = _alterItemData;
+							_boltCount = _subItemsCount;
+							_boltIndex = _subIndex;
+						}
 					}
 					
-					updateExternalViewer();
+					updateExternalViewer(true);
 					updateAmmo( _alterItemData, true );
 					
 					if (_data)
 					{
 						dispatchEvent( new GameEvent( GameEvent.CALL, 'OnActivateSlot', [ _data.slotName, true, true ] ) );  // NGE
+						mcEquipped.visible = true;
+					}
+					
+					dispatchEvent( new Event( Event.CHANGE, true ) );
+				}
+			}
+		}
+
+		public function nextSubItemRanged():void
+		{			
+			if ( _subItemsCountRanged < 1 )
+			{
+				return;
+			}
+			
+			{
+				// crossbow
+				
+				if ( _subItemsRangedList && _subItemsRangedList.length > 1 )
+				{
+					if ( _subIndexRanged < _subItemsCountRanged )
+					{
+						_subIndexRanged++;
+					}
+					else
+					{
+						_subIndexRanged = 1;
+					}
+
+					var newItem = _subItemsRangedList[ _subIndexRanged - 1 ];
+
+					if(newItem)
+					{
+						if (_boltItemData)
+							SetAlterItemData(_boltItemData);
+
+						_itemDescription = newItem.description;
+						dispatchEvent( new GameEvent( GameEvent.CALL, 'OnEquipRanged', [ uint(newItem.id) ] ) );
+					}
+
+					if (_data)
+					{
+						dispatchEvent( new GameEvent( GameEvent.CALL, 'OnActivateSlotRanged', [ _data.slotName, true, true ] ) );  // NGE
+						mcEquipped.visible = true;
+					}
+					
+					dispatchEvent( new Event( Event.CHANGE, true ) );
+				}
+			}
+		}
+		
+		public function priorSubItemRanged():void
+		{			
+			if ( _subItemsCountRanged < 1 )
+			{
+				return;
+			}
+			
+			{
+				// crossbow
+				
+				if ( _subItemsRangedList && _subItemsRangedList.length > 1 )
+				{
+					if ( _subIndexRanged > 1 )
+					{
+						_subIndexRanged--;
+					}
+					else
+					{
+						_subIndexRanged = _subItemsCountRanged;
+					}
+
+					var newItem = _subItemsRangedList[ _subIndexRanged - 1];
+
+					if(newItem)
+					{
+						if (_boltItemData && newItem.category == "crossbow")
+							SetAlterItemData(_boltItemData);
+						else 
+							SetAlterItemData(newItem);
+							
+						_itemDescription = newItem.description;
+						dispatchEvent( new GameEvent( GameEvent.CALL, 'OnEquipRanged', [ uint(newItem.id) ] ) );
+					}
+					
+					if (_data)
+					{
+						dispatchEvent( new GameEvent( GameEvent.CALL, 'OnActivateSlotRanged', [ _data.slotName, true, true ] ) );  // NGE
 						mcEquipped.visible = true;
 					}
 					
@@ -273,7 +404,7 @@ package red.game.witcher3.hud.modules.radialmenu
 				
 				var tmpBuf:Object = _alterItemData;
 				
-				_alterItemData = _baseItemData;
+				SetAlterItemData(_baseItemData);
 				_baseItemData = tmpBuf;
 				
 				setBaseDataFromObject( _baseItemData );
@@ -303,6 +434,7 @@ package red.game.witcher3.hud.modules.radialmenu
 			_baseItemData = null;
 			_alterItemData = null;
 			_subItemsList.Clear();
+			_subItemsRangedList.Clear();
 		}
 		
 		protected function updateData():void
@@ -336,6 +468,15 @@ package red.game.witcher3.hud.modules.radialmenu
 			}
 			
 			enableAnimationFx = false;
+
+			//#LT I am freaking done with this now, I am sorry that this is ugly..
+			//Hack for showing the correct button scheme when swapping ranged items
+			if(parent && parent.parent) {
+				var radialMenu : HudModuleRadialMenu = parent.parent as HudModuleRadialMenu;
+
+				if(radialMenu)
+					radialMenu.requestItemFeedbackUpdate();
+			}
 		}
 		
 		protected function updatePocketData():void
@@ -348,7 +489,6 @@ package red.game.witcher3.hud.modules.radialmenu
 			
 			
 			trace("GFX updatePocketData --- ", len);
-			
 			_subItemsList = itemsList;
 			
 			if ( len < 1 )
@@ -386,12 +526,12 @@ package red.game.witcher3.hud.modules.radialmenu
 				if ( itemsList[0].isEquipped )
 				{
 					_baseItemData = itemsList[0];
-					_alterItemData = itemsList[1];
+					SetAlterItemData(itemsList[1]);
 				}
 				else
 				{
 					_baseItemData = itemsList[1];
-					_alterItemData = itemsList[0];
+					SetAlterItemData(itemsList[0]);
 				}
 			}
 			
@@ -402,6 +542,9 @@ package red.game.witcher3.hud.modules.radialmenu
 		protected function updateCrossbowData():void
 		{
 			_subItemsList = _data.itemsList;
+			_subItemsRangedList = _data.itemsRangedList;
+
+			var i : int;
 			
 			if (_subItemsList)
 			{
@@ -410,13 +553,19 @@ package red.game.witcher3.hud.modules.radialmenu
 				
 				var actualList : Array = [];
 				
-				for ( var i:int = 0; i < _subItemsCount; i++ )
+				for ( i = 0; i < _subItemsCount; i++ )
 				{
 					var curData : Object = _subItemsList[ i ];
 					
 					if ( curData.isEquipped )
 					{
-						_alterItemData = curData;
+						if(curData.category == "bolt")
+						{
+							_boltItemData = curData; 
+							_boltCount = _subItemsCount;
+							_boltIndex = i + 1;
+						}
+						SetAlterItemData(curData)
 						_data.charges = _alterItemData.charges;
 						
 						if (_alterItemData)
@@ -436,8 +585,29 @@ package red.game.witcher3.hud.modules.radialmenu
 				
 				_subItemsList = actualList;
 			}
+
+			if (_subItemsRangedList)
+			{
+				_subIndexRanged = 1;
+				_subItemsCountRanged = _subItemsRangedList.length;
+				
+				var actualListRanged : Array = [];
+				
+				for ( i = 0; i < _subItemsCountRanged; i++ )
+				{
+					var curDataRanged : Object = _subItemsRangedList[ i ];
+					actualListRanged.push( curDataRanged );
+					
+					if ( curDataRanged.isEquipped )
+					{				
+						_subIndexRanged = i + 1;
+					}
+				}
+				
+				_subItemsRangedList = actualListRanged;
+			}
 			
-			updateExternalViewer();
+			//updateExternalViewer();
 			setBaseDataFromObject( _data, true );
 			
 			mcItemCounter.visible = false;
@@ -453,9 +623,17 @@ package red.game.witcher3.hud.modules.radialmenu
 				_iconPath = obj.itemIconPath;
 				_itemName = obj.name;
 				_itemCategory = obj.category;
+				if(obj.hasOwnProperty("multiplyX"))
+					_overrideMultiplyX = obj.multiplyX;
+				else 
+					_overrideMultiplyX = 1;
+				if(obj.hasOwnProperty("multiplyY"))
+					_overrideMultiplyY = obj.multiplyY;
+				else 
+					_overrideMultiplyY = 1;
 				_itemDescription = obj.description;
 				_radialName = obj.slotName;
-				
+
 				updateAmmo( obj, isBolt );
 			}
 			else
@@ -509,13 +687,17 @@ package red.game.witcher3.hud.modules.radialmenu
 		protected function cleanup():void
 		{
 			_subItemsCount = 0;
+			_subItemsCountRanged = 0;
 			_subIndex = 0;
+			_subIndexRanged = 0;
 			
 			_iconPath = "";
 			_itemName = "";
 			_itemCategory = "";
 			_itemDescription = "";
 			_radialName = "";
+			_overrideMultiplyX = 1;
+			_overrideMultiplyY = 1;
 			
 			mcAmmoCounter.visible = false;
 			tfItemDescName.visible = false;
@@ -577,6 +759,27 @@ package red.game.witcher3.hud.modules.radialmenu
 				curLoader.addEventListener( IOErrorEvent.IO_ERROR, onImageLoaded, false, 0, true);
 				curLoader.addEventListener( Event.COMPLETE, onImageLoaded, false, 0, true);
 				*/
+
+				cachedLoader = curLoader;
+				if ( _itemCategory == "crossbow" )
+				{
+					cachedLoader.width = 64;
+					cachedLoader.height = 128;
+					cachedLoader.x = -32;
+					cachedLoader.y = -64;
+				}
+				else
+				{
+					cachedLoader.width = 60;
+					cachedLoader.height = 60;
+					cachedLoader.x = -30;
+					cachedLoader.y = -30;
+				}
+
+				cachedLoader.width *= _overrideMultiplyX;
+				cachedLoader.height *= _overrideMultiplyY;
+				cachedLoader.x *= _overrideMultiplyX;
+				cachedLoader.y *= _overrideMultiplyY;
 			}
 		}
 		

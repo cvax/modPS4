@@ -19,6 +19,8 @@ package red.game.witcher3.slots
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.ui.InputDetails;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
 
 	public class SlotsListPaperdoll extends SlotsListBase
 	{
@@ -264,6 +266,7 @@ package red.game.witcher3.slots
 				pdRenderer.enabled = enabled;
 				(pdRenderer.getHitArea() as MovieClip).addEventListener( MouseEvent.MOUSE_DOWN, handleItemClick, false, 0, true );
 				(pdRenderer.getHitArea() as MovieClip).addEventListener( MouseEvent.MOUSE_UP, handleItemMouseUp, false, 0, true );
+				(pdRenderer.getHitArea() as MovieClip).addEventListener( GestureEventEx.GESTURE_TAP, handleItemTap, false, 0, true );
 			}
         }
 
@@ -276,6 +279,7 @@ package red.game.witcher3.slots
 				pdRenderer.owner = null;
 				(pdRenderer.getHitArea() as MovieClip).removeEventListener( MouseEvent.MOUSE_DOWN, handleItemClick );
 				(pdRenderer.getHitArea() as MovieClip).removeEventListener( MouseEvent.MOUSE_UP, handleItemMouseUp );
+				(pdRenderer.getHitArea() as MovieClip).removeEventListener( GestureEventEx.GESTURE_TAP, handleItemTap );
 			}
         }
 		

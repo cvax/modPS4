@@ -12,6 +12,8 @@ package red.game.witcher3.menus.mainmenu
 	import flash.display.MovieClip;
 	import flash.events.Event;
 	import flash.events.MouseEvent;
+	import flash.events.TouchEvent;
+	import flash.events.GestureEvent;
 	import flash.text.TextField;
 	import red.core.constants.KeyCode;
 	import red.core.CoreMenuModule;
@@ -347,6 +349,14 @@ package red.game.witcher3.menus.mainmenu
 		}
 		
 		public function onRightClick(event:MouseEvent):void
+		{
+			if (visible)
+			{
+				handleNavigateBack();
+			}
+		}
+
+		public function onTap(event:GestureEvent):void
 		{
 			if (visible)
 			{

@@ -20,6 +20,8 @@ package red.game.witcher3.modules
 	import scaleform.clik.data.DataProvider;
 	import scaleform.clik.events.ListEvent;
 	import scaleform.gfx.MouseEventEx;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
 
 	public class SimpleListModule extends CoreMenuModule
 	{
@@ -41,6 +43,8 @@ package red.game.witcher3.modules
 		public var mcGameLogo : MovieClip;
 		
 		protected var _lastMoveWasMouse:Boolean = false;
+		protected var _lastMouseOveredItem:int = -1;
+		protected var _lockedSelectionIndex:int = -1;
 
 		override protected function configUI():void
 		{
@@ -51,7 +55,7 @@ package red.game.witcher3.modules
 				txtMenuListDescripion.visible = false;
 			}
 			
-			registerMouseEvents();
+			registerMouseAndTouchEvents();
 			
 			if (mcList)
 			{
@@ -95,11 +99,11 @@ package red.game.witcher3.modules
 			}
 		}
 		
-		protected var _lockedSelectionIndex:int = -1;
 		public function get lockSelectionIndex() : int
 		{
 			return _lockedSelectionIndex;
 		}
+
 		public function set lockSelection(value:Boolean):void
 		{
 			if (value)
@@ -126,7 +130,7 @@ package red.game.witcher3.modules
 			}
 		}
 		
-		public function registerMouseEvents():void
+		public function registerMouseAndTouchEvents():void
 		{
 			registerMouseEventsForItem(mcListItem1);
 			registerMouseEventsForItem(mcListItem2);
@@ -138,32 +142,29 @@ package red.game.witcher3.modules
 			registerMouseEventsForItem(mcListItem8);
 			registerMouseEventsForItem(mcListItem9);
 			registerMouseEventsForItem(mcListItem10);
+
+			mcList.enableTouch( true );
+			mcList.addEventListener(ListEvent.ITEM_CLICK, onListItemClicked, false, 0, true );
 		}
 		
-		protected function registerMouseEventsForItem(item:W3MenuListItemRenderer):void
+		protected function registerMouseEventsForItem( item : W3MenuListItemRenderer ) : void
 		{
-			item.addEventListener(MouseEvent.CLICK, onItemClicked, false, 1, true);
 			item.addEventListener(MouseEvent.MOUSE_OVER, onItemMouseOver, false, 1, true);
 			item.addEventListener(MouseEvent.MOUSE_OUT, onItemMouseOut, false, 1, true);
 		}
 		
-		protected function onItemClicked(event:MouseEvent):void
+		protected function onListItemClicked(event:ListEvent) : void
 		{
-			onItemMouseOver(event);
+			mcList.selectedIndex = event.index;
 			
-			var superMouseEvent:MouseEventEx = event as MouseEventEx;
-			if (superMouseEvent.buttonIdx == MouseEventEx.LEFT_BUTTON)
+			var ingameMenu : IngameMenu = parent as IngameMenu;
+			if (ingameMenu)
 			{
-				var ingameMenu:IngameMenu = parent as IngameMenu;
-				if (ingameMenu)
-				{
-					ingameMenu.activateMenuListItem();
-					event.stopImmediatePropagation();
-				}
+				ingameMenu.activateMenuListItem( event.index );
+				event.stopImmediatePropagation();
 			}
 		}
-		
-		protected var _lastMouseOveredItem:int = -1;
+
 		protected function onItemMouseOver(event:MouseEvent):void
 		{
 			var currentTarget:W3MenuListItemRenderer = event.currentTarget as W3MenuListItemRenderer;

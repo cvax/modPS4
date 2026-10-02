@@ -12,6 +12,7 @@ package red.game.witcher3.menus.character_menu
 	import red.game.witcher3.controls.W3ScrollingList;
 	import red.game.witcher3.interfaces.IBaseSlot;
 	import red.game.witcher3.managers.InputFeedbackManager;
+	import red.game.witcher3.managers.InputManager;
 	import red.game.witcher3.slots.SlotBase;
 	import red.game.witcher3.slots.SlotSkillGrid;
 	import red.game.witcher3.slots.SlotsListBase;
@@ -118,7 +119,9 @@ package red.game.witcher3.menus.character_menu
 				if (currentSkill.data.level < currentSkill.data.maxLevel && currentSkill.data.updateAvailable && _pointsCount > 0)
 				{
 					var text:String = currentSkill.data.level == 0 ? "panel_character_popup_title_buy_skill" : "panel_character_popup_title_upgrade_skill";
-					_inputSymbolIDX = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_X, KeyCode.ENTER, text);
+					var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
+					_inputSymbolIDX = InputFeedbackManager.appendButton(this, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.ENTER, text);
 					
 					if (_buySkillBtnRef) 
 					{

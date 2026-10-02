@@ -10,17 +10,18 @@ package red.game.witcher3.events
 	{
 		public static const CONTROLLER_CHANGE:String = "controller_change";
 		public var isGamepad:Boolean;
-		public var platformType:uint;
+		public var isMouse:Boolean;
 		
-		public function ControllerChangeEvent(type:String, bubbles:Boolean = false, cancelable:Boolean = true, isGamepad:Boolean = false) 
+		public function ControllerChangeEvent(type:String, bubbles:Boolean = false, cancelable:Boolean = true, isGamepad:Boolean = false, isMouse:Boolean = false) 
 		{
 			super(type, bubbles, cancelable);
 			this.isGamepad = isGamepad;
+			this.isMouse = isMouse;
 		}
 		
 		override public function clone():Event 
 		{
-            return new ControllerChangeEvent(type, bubbles, cancelable, isGamepad);
+            return new ControllerChangeEvent(type, bubbles, cancelable, isGamepad, isMouse);
         }
 	}
 }

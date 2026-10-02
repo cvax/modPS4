@@ -67,16 +67,24 @@
 		public function TutorialPopupMenu()
 		{
 			_enableInputValidation = true;
-			
+
 			_areaCanvas = new Sprite();
 			addChild(_areaCanvas);
 			super();
-			
-			popupInstance.visible = false;
-			popupInstance.addEventListener(Event.RESIZE, handlePopupResized, false, 0, true);
-			
+
+			if(popupInstance)
+			{
+				popupInstance.visible = false;
+				popupInstance.addEventListener(Event.RESIZE, handlePopupResized, false, 0, true);
+				tutorialOverlay.visible = false;
+				
+				_popupContainer = new Sprite();
+				_popupContainer.addChild(popupInstance);
+				addChild(_popupContainer);
+			}
+
 			tutorialOverlay.visible = false;
-			
+
 			_popupContainer = new Sprite();
 			_popupContainer.addChild(popupInstance);
 			addChild(_popupContainer);
@@ -90,7 +98,7 @@
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'tutorial.hint.data', [createMessage]));
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'tutorial.area.highlight', [highlightAreas]));
 			InputDelegate.getInstance().addEventListener(InputEvent.INPUT, handleInput, false, 0, true);
-			
+
 			_inputMgr.enableHoldEmulation = false;
 			_inputMgr.enableInputDeviceCheck = false;
 			_inputMgr.addInputBlocker(true, "TUTORIAL_ROOT");
@@ -242,7 +250,11 @@
 			
 			trace("GFX visibleRect   -------------- ", visibleRect.x, visibleRect.y, visibleRect.width, visibleRect.height);
 			
-			popupInstance.visible = true;
+			if (!_data.fullscreen)
+			{
+				popupInstance.visible = true;
+			}
+
 			if ((isNaN(posX) || posX <= 0) && (isNaN(posY) || posY <= 0))
 			{
 				targetPosX = visibleRect.x;

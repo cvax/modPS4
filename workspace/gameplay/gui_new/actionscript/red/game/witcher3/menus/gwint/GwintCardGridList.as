@@ -15,6 +15,7 @@ package red.game.witcher3.menus.gwint
 	import scaleform.clik.controls.ScrollIndicator;
 	import scaleform.clik.events.ListEvent;
 	import scaleform.clik.interfaces.IScrollBar;
+	import flash.events.TransformGestureEvent;
 	
 	// #J Don't care how half assed this class is, it shouldn't have to exist.........!
 	
@@ -219,7 +220,7 @@ package red.game.witcher3.menus.gwint
 			// Step 3, make sure all the renderers have the right data
 			updateRendererData();
 			
-			if (InputManager.getInstance().isGamepad())
+			if (!InputManager.getInstance().isMouse())
 			{
 				selectedIndex = 0;
 			}
@@ -381,6 +382,26 @@ package red.game.witcher3.menus.gwint
 						_scrollBar.position += heightPadding;
 					}
 				}
+			}
+		}
+
+		public function enableScrollWithPan( enable : Boolean ) : void
+		{
+			if (enable)
+			{
+				addEventListener( TransformGestureEvent.GESTURE_PAN, onGesturePan, false, 0, true );
+			}
+			else
+			{
+				removeEventListener( TransformGestureEvent.GESTURE_PAN, onGesturePan );
+			}
+		}
+
+		protected function onGesturePan( event : TransformGestureEvent ) : void
+		{
+			if ( _maxOffset > 0 )
+			{
+				_scrollBar.position -= event.offsetY;
 			}
 		}
 		

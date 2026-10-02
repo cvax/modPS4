@@ -2,6 +2,8 @@
 {
 	import red.core.CoreHudModule;
 	import red.core.events.GameEvent;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
 
 	import fl.transitions.easing.Strong;
 	import flash.events.Event;
@@ -42,6 +44,8 @@
 			registerDataBinding( 'hud.quest.system.objectives',	onSystemObjectiveDataSet);
 
 			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnConfigUI' ) );
+
+			stage.addEventListener(GestureEventEx.GESTURE_TAP, handleInputGestureTap);
 		}
 
 		//-------------------------------------------------------------------------------------------------------------------
@@ -77,6 +81,14 @@
 		}
 
 		//-------------------------------------------------------------------------------------------------------------------
+
+		public function handleInputGestureTap( event : GestureEvent )
+		{
+			if (mcSystemQuestContainer && mcSystemQuestContainer.hitTestPoint(event.stageX, event.stageY))
+			{
+				dispatchEvent(new GameEvent(GameEvent.CALL, 'OnTapQuest'));
+			}
+		}
 
 		private function onSystemQuestNameSet( name:String ):void
 		{

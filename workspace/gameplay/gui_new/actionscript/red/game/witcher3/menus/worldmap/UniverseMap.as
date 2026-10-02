@@ -286,60 +286,61 @@
 			updateAreaSelection();
 		}
 		
-		public function updateAreaSelection(forceDeselect:Boolean = false):void
+		public function updateAreaSelection(forceDeselect:Boolean = false, useExternalPoint:Boolean = false, point:Point = null):Boolean
 		{
 			// TODO: Refact, make some events on over!
 			var selectedArea:UniverseArea = null;
 			var contextEvent:MapContextEvent;
 
-			{
-				var newSelectedArea : UniverseArea = mcUniverseMapContainer.GetOveredHub(GetGlobalCrosshairPos());
-				if ( currentSelectedArea != newSelectedArea )
-				{			
-					if ( currentSelectedArea )
+			var position:Point = useExternalPoint ? point : GetGlobalCrosshairPos();
+
+			var newSelectedArea : UniverseArea = mcUniverseMapContainer.GetOveredHub(position);
+			var selectionSame : Boolean = currentSelectedArea == newSelectedArea;
+			if ( currentSelectedArea != newSelectedArea )
+			{	
+				if ( currentSelectedArea )
+				{
+					currentSelectedArea.mcIcon.gotoAndStop("inactive");
+					
+					// NGE
+					if(currentSelectedArea as Hub_Custom)
 					{
-						currentSelectedArea.mcIcon.gotoAndStop("inactive");
+						var customUILoader1:UILoader = currentSelectedArea.mcIcon.getChildByName( "customUILoader" ) as UILoader;	
 						
-						// NGE
-						if(currentSelectedArea as Hub_Custom)
+						if(customUILoader1)
 						{
-							var customUILoader1:UILoader = currentSelectedArea.mcIcon.getChildByName( "customUILoader" ) as UILoader;	
-							
-							if(customUILoader1)
-							{
-								_glowFilter = new GlowFilter( GLOW_COLOR, 1.0, GLOW_BLUR, GLOW_BLUR, 0, BitmapFilterQuality.HIGH );		
-								filterArray = [];							
-								filterArray.push( _glowFilter );								
-								customUILoader1.filters = filterArray;
-							}
+							_glowFilter = new GlowFilter( GLOW_COLOR, 1.0, GLOW_BLUR, GLOW_BLUR, 0, BitmapFilterQuality.HIGH );		
+							filterArray = [];							
+							filterArray.push( _glowFilter );								
+							customUILoader1.filters = filterArray;
 						}
-						// NGE
 					}
-					if ( newSelectedArea )
+					// NGE
+				}
+				if ( newSelectedArea )
+				{
+					newSelectedArea.mcIcon.gotoAndStop("active");
+					
+					// NGE
+					if(newSelectedArea as Hub_Custom)
 					{
-						newSelectedArea.mcIcon.gotoAndStop("active");
+						var customUILoader2:UILoader = newSelectedArea.mcIcon.getChildByName( "customUILoader" ) as UILoader;
 						
-						// NGE
-						if(newSelectedArea as Hub_Custom)
+						if(customUILoader2)
 						{
-							var customUILoader2:UILoader = newSelectedArea.mcIcon.getChildByName( "customUILoader" ) as UILoader;
-							
-							if(customUILoader2)
-							{
-								_glowFilter = new GlowFilter( GLOW_COLOR, GLOW_ALPHA, GLOW_BLUR, GLOW_BLUR, GLOW_STRENGHT, BitmapFilterQuality.HIGH );
-								filterArray = [];							
-								filterArray.push( _glowFilter );							
-								customUILoader2.filters = filterArray;
-							}
+							_glowFilter = new GlowFilter( GLOW_COLOR, GLOW_ALPHA, GLOW_BLUR, GLOW_BLUR, GLOW_STRENGHT, BitmapFilterQuality.HIGH );
+							filterArray = [];							
+							filterArray.push( _glowFilter );							
+							customUILoader2.filters = filterArray;
 						}
-						// NGE
 					}
+					// NGE
 				}
 			}
 
 			if ( !forceDeselect )
 			{
-				selectedArea = mcUniverseMapContainer.GetOveredHub(GetGlobalCrosshairPos());
+				selectedArea = mcUniverseMapContainer.GetOveredHub(position);
 			}
 			
 			if ( selectedArea && ( selectedArea != currentSelectedArea ) )
@@ -387,6 +388,8 @@
 				contextEvent.active = false;
 				dispatchEvent(contextEvent);
 			}
+
+			return selectionSame;
 		}
 		
 		public function GoToHubMap( hub : UniverseArea ) : Boolean
@@ -394,19 +397,18 @@
 			if ( hub )
 			{
 				dispatchEvent( new GameEvent(GameEvent.CALL, 'OnSwitchToHubMap', [ hub.GetWorldName( false ) ] ) );
+				dispatchEvent( new GameEvent( GameEvent.CALL, 'OnPlaySoundEvent', ["gui_global_panel_open"] ));
 				return true;
 			}
 			return false;
 		}
 
-		public function GoToSelectedHubMap() : Boolean
+		public function GoToSelectedHubMap( useExternalPoint:Boolean = false, point:Point = null ) : Boolean
 		{
-			var hub : UniverseArea = mcUniverseMapContainer.GetHubMapAtPoint( GetGlobalCrosshairPos() );
-			if ( hub )
-			{
-				return GoToHubMap( hub );
-			}
-			return false;
+			var position:Point = useExternalPoint ? point : GetGlobalCrosshairPos();
+			var hub : UniverseArea = mcUniverseMapContainer.GetHubMapAtPoint( position );
+
+			return GoToHubMap( hub );
 		}
 		
 		override public function Enable( value : Boolean, force : Boolean = false )
@@ -431,12 +433,12 @@
 			}
 		}
 		
-		override public function OnControllerChanged( isGamepad : Boolean )
+		override public function OnControllerChanged( isGamepad : Boolean, isMouse : Boolean )
 		{
-			super.OnControllerChanged( isGamepad );
+			super.OnControllerChanged( isGamepad, isMouse );
 
-			mcUniverseMapCrosshair.visible = isGamepad;
-			if ( isGamepad )
+			mcUniverseMapCrosshair.visible = !isMouse;
+			if ( !isMouse )
 			{
 				mcUniverseMapCrosshair.x = 0;
 				mcUniverseMapCrosshair.y = 0;

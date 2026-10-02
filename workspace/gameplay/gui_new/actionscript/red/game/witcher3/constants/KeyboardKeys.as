@@ -13,6 +13,7 @@ package red.game.witcher3.constants
 			1: "LeftMouse",   // icon
 			2: "RightMouse",  // icon
 			3: "MiddleMouse", // icon
+			8: "[[input_device_key_name_IK_Backspace]]",
 			9 : "[[input_device_key_name_IK_Tab]]",
 			13 : "[[input_device_key_name_IK_Enter]]",
 			16 : "[[input_device_key_name_IK_Shift]]",

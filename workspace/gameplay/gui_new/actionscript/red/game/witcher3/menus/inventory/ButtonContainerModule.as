@@ -8,19 +8,20 @@
 package red.game.witcher3.menus.inventory
 {
 	import flash.events.Event;
-	import red.core.events.GameEvent;
-	import red.core.CoreComponent;
-	import red.game.witcher3.controls.W3GamepadButton;
+
+	import scaleform.clik.constants.InputValue;
+	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.core.UIComponent;
 	import scaleform.clik.events.ButtonEvent;
-	import scaleform.clik.constants.NavigationCode;
-	import red.game.witcher3.menus.common.ItemDataStub;
-	import red.game.witcher3.constants.InventoryActionType;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.ui.InputDetails;
-	import scaleform.clik.constants.InputValue;
+
+	import red.core.CoreComponent;
+	import red.core.events.GameEvent;
+	import red.game.witcher3.constants.InventoryActionType;
+	import red.game.witcher3.controls.W3GamepadButton;
 	import red.game.witcher3.events.GridEvent;
-	//import scaleform.clik.constants.NavigationCode;
+	import red.game.witcher3.menus.common.ItemDataStub;
 	
 	public class ButtonContainerModule extends UIComponent
 	{
@@ -50,14 +51,16 @@ package red.game.witcher3.menus.inventory
 			btnContext.navigationCode = NavigationCode.GAMEPAD_A;
 			_inputHandlers.push( btnContext );
 			
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+			
 			btnDrop.label = "[[panel_button_common_drop]]";
 			btnDrop.addEventListener( ButtonEvent.CLICK, handleButtonDropItem, false, 0 , true );
-			btnDrop.navigationCode = NavigationCode.GAMEPAD_Y;
+			btnDrop.navigationCode = isSwitchPlatform ? NavigationCode.GAMEPAD_X : NavigationCode.GAMEPAD_Y;
 			_inputHandlers.push( btnDrop );
 			
 			btnRepair.label = "[[panel_button_common_repair]]";
 			btnRepair.addEventListener( ButtonEvent.CLICK, handleButtonRepairItem, false, 0, true );
-			btnRepair.navigationCode = NavigationCode.GAMEPAD_X;
+			btnRepair.navigationCode = isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X;
 			_inputHandlers.push( btnRepair );
 			
 /*			btnPreview.label = "[[panel_button_inventory_preview_char]]";

@@ -19,6 +19,11 @@ package red.game.witcher3.menus.gwint
 		private var numEffectsPlaying:int = 0;
 		
 		private var weatherParent:MovieClip;
+
+		public function log(...args)
+		{
+			CardManager.log.apply(null, args);
+		}
 		
 		override protected function configUI():void 
 		{
@@ -67,10 +72,11 @@ package red.game.witcher3.menus.gwint
 			else
 			{
 				finishedCallback(cardInstance);
-				trace("GFX ---- [WARNING] ---- CardFXManager tried to play Card Deploy FX with no matching fxClass: " + cardInstance.toString());
+				log("---- [WARNING] ---- CardFXManager tried to play Card Deploy FX with no matching fxClass: " + cardInstance.toString());
 			}
 		}
 		
+		// DEPRECATED
 		public function playerCardEffectFX(cardInstance:CardInstance, finishedCallback:Function):CardFX
 		{
 			var fxClass:Class = getEffectFX(cardInstance.templateRef);
@@ -84,7 +90,27 @@ package red.game.witcher3.menus.gwint
 			else
 			{
 				finishedCallback(cardInstance);
-				trace("GFX ---- [WARNING] ---- CardFXManager tried to play Card Effect FX with no matching fxClass: " + cardInstance.toString());
+				log("---- [WARNING] ---- CardFXManager tried to play Card Effect FX with no matching fxClass: " + cardInstance.toString());
+			}
+			
+			return null;
+		}
+		
+		public function playerCardEffectFXById(cardInstance:CardInstance, finishedCallback:Function, cardEffectId:int):CardFX
+		{
+			playFXSound(cardInstance.templateRef, cardEffectId);
+			var fxClass:Class = getEffectFXById(cardEffectId);
+			var spawnedFX:CardFX;
+			
+			if (fxClass)
+			{
+				spawnedFX = spawnFX(cardInstance, finishedCallback, fxClass);
+				return spawnedFX;
+			}
+			else if(finishedCallback != null)
+			{
+				finishedCallback(cardInstance);
+				log("---- [WARNING] ---- CardFXManager tried to play Card Effect FX with no matching fxClass: " + cardInstance.toString());
 			}
 			
 			return null;
@@ -99,7 +125,7 @@ package red.game.witcher3.menus.gwint
 			else
 			{
 				finishedCallback(cardInstance);
-				trace("GFX ---- [WARNING] ---- CardFXManager tried to play Card Resurrect FX with no matching fxClass: " + cardInstance.toString());
+				log("---- [WARNING] ---- CardFXManager tried to play Card Resurrect FX with no matching fxClass: " + cardInstance.toString());
 			}
 		}
 		
@@ -111,7 +137,7 @@ package red.game.witcher3.menus.gwint
 			}
 			else
 			{
-				trace("GFX ---- [WARNING] ---- CardFXManager tried to play Card Scorch FX with no matching fxClass: " + cardInstance.toString());
+				log("---- [WARNING] ---- CardFXManager tried to play Card Scorch FX with no matching fxClass: " + cardInstance.toString());
 				finishedCallback(cardInstance);
 			}
 		}
@@ -124,7 +150,7 @@ package red.game.witcher3.menus.gwint
 			}
 			else
 			{
-				trace("GFX ---- [WARNING] ---- CardFXManager tried to play Tight Bonds FX with no matching fxClass: " + cardInstance.toString());
+				log("---- [WARNING] ---- CardFXManager tried to play Tight Bonds FX with no matching fxClass: " + cardInstance.toString());
 				finishedCallback(cardInstance);
 			}
 		}
@@ -279,8 +305,8 @@ package red.game.witcher3.menus.gwint
 		
 		public function ShowWeatherOngoing(slotID:int, value:Boolean):void
 		{
-			trace("GFX -------------------------------------------------------===================================");
-			trace("GFX - ShowWeatherOngoing called for slot: " + slotID + ", with value: " + value);
+			log("-------------------------------------------------------===================================");
+			log("- ShowWeatherOngoing called for slot: " + slotID + ", with value: " + value);
 			
 			
 			if (slotID == CardManager.CARD_LIST_LOC_MELEE)
@@ -295,7 +321,7 @@ package red.game.witcher3.menus.gwint
 					
 					if (!weatherMeleeOngoing_Active)
 					{
-						trace("GFX - calling gotoAndPlay(start)");
+						log("- calling gotoAndPlay(start)");
 						weatherMeleeOngoing_Active = true;
 						weatherMeleeP1Ongoing.gotoAndPlay("start");
 						weatherMeleeP2Ongoing.gotoAndPlay("start");
@@ -305,7 +331,7 @@ package red.game.witcher3.menus.gwint
 				{
 					if (!hidingWeatherMeleeTimer && weatherMeleeOngoing_Active)
 					{
-						trace("GFX - starting stop timer");
+						log("- starting stop timer");
 						hidingWeatherMeleeTimer = new Timer(300, 1);
 						hidingWeatherMeleeTimer.addEventListener( TimerEvent.TIMER, hiddingMeleeWeatherTimerEnded, false, 0, true );
 						hidingWeatherMeleeTimer.start();
@@ -325,7 +351,7 @@ package red.game.witcher3.menus.gwint
 					if (!weatherRangedOngoing_Active)
 					{
 						weatherRangedOngoing_Active = true;
-						trace("GFX - calling gotoAndPlay(start)");
+						log("- calling gotoAndPlay(start)");
 						weatherRangedP1Ongoing.gotoAndPlay("start");
 						weatherRangedP2Ongoing.gotoAndPlay("start");
 					}
@@ -334,7 +360,7 @@ package red.game.witcher3.menus.gwint
 				{
 					if (!hidingWeatherRangedTimer && weatherRangedOngoing_Active)
 					{
-						trace("GFX - starting stop timer");
+						log("- starting stop timer");
 						hidingWeatherRangedTimer = new Timer(300, 1);
 						hidingWeatherRangedTimer.addEventListener( TimerEvent.TIMER, hiddingRangeWeatherTimerEnded, false, 0, true );
 						hidingWeatherRangedTimer.start();
@@ -354,7 +380,7 @@ package red.game.witcher3.menus.gwint
 					if (!weatherSeigeOngoing_Active)
 					{
 						weatherSeigeOngoing_Active = true;
-						trace("GFX - calling gotoAndPlay(start)");
+						log("- calling gotoAndPlay(start)");
 						weatherSeigeP1Ongoing.gotoAndPlay("start");
 						weatherSeigeP2Ongoing.gotoAndPlay("start");
 					}
@@ -363,7 +389,7 @@ package red.game.witcher3.menus.gwint
 				{
 					if (!hidingWeatherSiegeTimer && weatherSeigeOngoing_Active)
 					{
-						trace("GFX - starting stop timer");
+						log("- starting stop timer");
 						hidingWeatherSiegeTimer = new Timer(300, 1);
 						hidingWeatherSiegeTimer.addEventListener( TimerEvent.TIMER, hiddingSiegeWeatherTimerEnded, false, 0, true );
 						hidingWeatherSiegeTimer.start();
@@ -371,7 +397,7 @@ package red.game.witcher3.menus.gwint
 				}
 			}
 			
-			trace("GFX ===================================-------------------------------------------------------");
+			log("===================================-------------------------------------------------------");
 		}
 		
 		public function hiddingMeleeWeatherTimerEnded( event : TimerEvent )
@@ -381,7 +407,7 @@ package red.game.witcher3.menus.gwint
 				weatherMeleeOngoing_Active = false;
 				weatherMeleeP1Ongoing.gotoAndPlay("ending");
 				weatherMeleeP2Ongoing.gotoAndPlay("ending");
-				trace("GFX - calling gotoAndPlay(ending) - Melee");
+				log("- calling gotoAndPlay(ending) - Melee");
 				
 				hidingWeatherMeleeTimer.stop();
 				hidingWeatherMeleeTimer = null;
@@ -395,7 +421,7 @@ package red.game.witcher3.menus.gwint
 				weatherRangedOngoing_Active = false;
 				weatherRangedP1Ongoing.gotoAndPlay("ending");
 				weatherRangedP2Ongoing.gotoAndPlay("ending");
-				trace("GFX - calling gotoAndPlay(ending) - Ranged");
+				log("- calling gotoAndPlay(ending) - Ranged");
 				
 				hidingWeatherRangedTimer.stop();
 				hidingWeatherRangedTimer = null;
@@ -409,7 +435,7 @@ package red.game.witcher3.menus.gwint
 				weatherSeigeOngoing_Active = false;
 				weatherSeigeP1Ongoing.gotoAndPlay("ending");
 				weatherSeigeP2Ongoing.gotoAndPlay("ending");
-				trace("GFX - calling gotoAndPlay(ending) - Siege");
+				log("- calling gotoAndPlay(ending) - Siege");
 				
 				hidingWeatherSiegeTimer.stop();
 				hidingWeatherSiegeTimer = null;
@@ -431,7 +457,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -451,7 +477,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -471,7 +497,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -491,7 +517,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -511,7 +537,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -531,7 +557,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -551,7 +577,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -571,7 +597,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -591,7 +617,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -611,7 +637,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -631,7 +657,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -651,7 +677,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -671,7 +697,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -691,7 +717,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -711,7 +737,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -731,7 +757,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -751,7 +777,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -771,7 +797,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -791,7 +817,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -811,7 +837,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -831,7 +857,7 @@ package red.game.witcher3.menus.gwint
 				}
 				catch (er:Error)
 				{
-					trace("GFX Can't find class definition in your library for " + value );
+					log("Can't find class definition in your library for " + value );
 				}
 			}
 		}
@@ -975,6 +1001,62 @@ package red.game.witcher3.menus.gwint
 			return null;
 		}
 		
+		public function getEffectFXById(cardEffect:int) : Class
+		{
+			switch(cardEffect)
+			{
+				case CardTemplate.CardEffect_Horn:
+					return _hornFXClassRef;
+				case CardTemplate.CardEffect_Nurse:
+					return _resurrectFXClassRef;
+				case CardTemplate.CardEffect_SummonClones:
+					return _summonClonesFXClassRef;
+				case CardTemplate.CardEffect_SameTypeMorale:
+					return _tightBondsFXClassRef;
+				case CardTemplate.CardEffect_Morph:
+					return _morphFXClassRef;
+				default:
+					return null;
+			}
+		}
+
+		public function playFXSound(cardTemplate:CardTemplate, cardEffect:int)
+		{
+			switch(cardEffect)
+			{
+				case CardTemplate.CardEffect_Horn:
+				{
+					GwintGameMenu.mSingleton.playSound("gui_gwint_horn");
+				}
+				case CardTemplate.CardEffect_Nurse:
+				{
+					GwintGameMenu.mSingleton.playSound("gui_gwint_resurrect");
+				}
+				case CardTemplate.CardEffect_SummonClones:
+				{
+					GwintGameMenu.mSingleton.playSound("gui_gwint_summon_clones");
+				}
+				case CardTemplate.CardEffect_SameTypeMorale:
+				{
+					GwintGameMenu.mSingleton.playSound("gui_gwint_morale_boost");
+				}
+				case CardTemplate.CardEffect_Morph:
+				{
+					if (cardTemplate.factionIdx == CardTemplate.FactionId_Skellige)
+					{
+						GwintGameMenu.mSingleton.playSound("gui_gwint_ske_berserker");
+					}
+					else
+					{
+						GwintGameMenu.mSingleton.playSound("gui_gwint_beserker");
+					}
+				}
+				default:
+					break;
+			}
+		}
+		
+		// this is pure SH*T ... DEPRECATED
 		protected function getEffectFX(cardTemplate:CardTemplate) : Class
 		{
 			if (cardTemplate.hasEffect(CardTemplate.CardEffect_Horn))
@@ -1014,7 +1096,6 @@ package red.game.witcher3.menus.gwint
 				}
 				return _morphFXClassRef;
 			}
-			
 			return null;
 		}
 	}

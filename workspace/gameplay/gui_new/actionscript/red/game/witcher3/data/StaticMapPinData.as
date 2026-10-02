@@ -28,6 +28,9 @@ package red.game.witcher3.data
 		public var distance:Number;
 		
 		public var hidden:Boolean;
+
+		public var questScriptName:uint;
+		public var objScriptName:uint;
 		
 		public function toString():String
 		{

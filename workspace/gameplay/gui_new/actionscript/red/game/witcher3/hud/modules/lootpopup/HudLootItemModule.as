@@ -7,6 +7,7 @@ package red.game.witcher3.hud.modules.lootpopup
 	import flash.geom.Point;
 	import flash.text.TextField;
 	import flash.utils.Timer;
+
 	import red.core.constants.KeyCode;
 	import red.core.events.GameEvent;
 	import red.game.witcher3.controls.W3GamepadButton;
@@ -17,6 +18,7 @@ package red.game.witcher3.hud.modules.lootpopup
 	import red.game.witcher3.menus.common_menu.ModuleInputFeedback;
 	import red.game.witcher3.tooltips.TooltipItem;
 	import red.game.witcher3.utils.CommonUtils;
+
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.controls.CoreList;
@@ -59,6 +61,7 @@ package red.game.witcher3.hud.modules.lootpopup
 		private const ACTION_TAKE = 0;
 		private const ACTION_TAKE_ALL = 1;
 		private const ACTION_CLOSE = 2;
+		private const ACTION_COMPARE = 3;
 		private const SCROLL_PADDING = 24;
 		
 		private var _backgroundActualWidth:Number;
@@ -121,10 +124,8 @@ package red.game.witcher3.hud.modules.lootpopup
 			visible = false;
 			
 			mcInputFeedback.directWsCall = false;
-			mcInputFeedback.appendButton(ACTION_TAKE_ALL, NavigationCode.GAMEPAD_Y, KeyCode.SPACE, "[[panel_button_common_take_all]]", false);
-			mcInputFeedback.appendButton(ACTION_TAKE, NavigationCode.GAMEPAD_A, KeyCode.E, "[[panel_button_common_take]]", false);
-			mcInputFeedback.appendButton(ACTION_CLOSE, NavigationCode.GAMEPAD_B, KeyCode.ESCAPE, "[[panel_button_common_close]]", true);
 			mcInputFeedback.addEventListener(InputFeedbackEvent.USER_ACTION, handleUserAction, false, 0, true);
+			setupFeedbackButtons();
 			
 			mcLootItemsList.bSkipFocusCheck = true;
 			//mcLootItemsList.focusable = false;
@@ -148,6 +149,26 @@ package red.game.witcher3.hud.modules.lootpopup
 			{
 				mcLootItemsList.scrollBar.addEventListener( Event.SCROLL, handleScroll, false, 1, true) ;
 			}
+		}
+
+		public function setPlatform(platformType:uint):void
+		{
+			setupFeedbackButtons();
+		}
+
+		private function setupFeedbackButtons()
+		{
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
+			mcInputFeedback.removeButton(ACTION_TAKE_ALL);
+			mcInputFeedback.removeButton(ACTION_TAKE);
+			mcInputFeedback.removeButton(ACTION_CLOSE);
+			mcInputFeedback.removeButton(ACTION_COMPARE);
+
+			mcInputFeedback.appendButton(ACTION_TAKE_ALL, isSwitchPlatform ? NavigationCode.GAMEPAD_X : NavigationCode.GAMEPAD_Y, KeyCode.SPACE, "[[panel_button_common_take_all]]", false);
+			mcInputFeedback.appendButton(ACTION_TAKE, NavigationCode.GAMEPAD_A, KeyCode.E, "[[panel_button_common_take]]", false);
+			mcInputFeedback.appendButton(ACTION_CLOSE, NavigationCode.GAMEPAD_B, KeyCode.ESCAPE, "[[panel_button_common_close]]", true);
+			mcInputFeedback.appendButton(ACTION_COMPARE, NavigationCode.GAMEPAD_L2, 0, "[[panel_common_compare]]", true);
 		}
 		
 		protected function handleMouseMove(event:MouseEvent):void
@@ -226,7 +247,7 @@ package red.game.witcher3.hud.modules.lootpopup
 		
 		protected function handleControllerChange(event:ControllerChangeEvent):void
 		{
-			if (event.isGamepad)
+			if (!event.isMouse)
 			{
 				lastMoveWasMouse = false;
 			}
@@ -253,6 +274,9 @@ package red.game.witcher3.hud.modules.lootpopup
 					break;
 				case ACTION_CLOSE:
 					handleCloseButtonClick();
+					break;
+				case ACTION_COMPARE:
+					//do nothing, it's handled by the tooltip
 					break;
 			}
 		}

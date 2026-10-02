@@ -45,19 +45,31 @@
 		protected var currentHoldInterval : Number = HOLD_INTERVAL;
 
 		protected static var _instance:InputManager;
+		protected static var _instanceID:int = 0;
+
 		public static function getInstance():InputManager
 		{
-			if (!_instance) _instance = new InputManager();
+			if (!_instance)
+			{
+				_instanceID = Math.floor(Math.random( ) * 1000) + 1;
+				trace("Initializing InputManager (" + _instanceID + ")");
+				_instance = new InputManager();
+			}
 			return _instance;
 		}
 		private var _inputBlocks:Object = { };
 		protected var _inputDelegate:InputDelegate;
 		protected var _rootStage:DisplayObjectContainer;
 		protected var _isGamepad:Boolean;
+		protected var _isMouse:Boolean;
 		protected var _gpadInputReceived:Boolean;
 		protected var _pendedGamepadInput:Boolean;
-		protected var _pressedMap:Object = { };
+		protected var _pendedMouseInput:Boolean;
+
+		protected var _holdCount:int = 0;
+		protected var _holdInfoMap:Object = { };
 		protected var _holdTimer:Timer;
+
 		protected var _ctrlChangeTimer:Timer;
 		protected var _bufMouseX:Number = 0;
 		protected var _bufMouseY:Number = 0;
@@ -76,6 +88,8 @@
 		
 		public function init(targetRoot:DisplayObjectContainer, bHoldEmulation:Boolean = true, bInputDeviceCheck:Boolean = true):void
 		{
+			trace("InputManager (" + _instanceID + ") init");
+		
 			if (_initialized)
 			{
 				return;
@@ -89,6 +103,7 @@
 			if ( ExternalInterface.available )
 			{
 				_isGamepad = true; //  ExternalInterface.call("isUsingPad"); // Initial state #Y TODO: Get from WS
+				_isMouse = false;
 			}
 			
 			_initialized = true;
@@ -141,7 +156,7 @@
 		
 		public function forceInputFeedbackUpdate():void
 		{
-			fireCtrlChangeEvent(_isGamepad, _platformType);
+			fireCtrlChangeEvent(_isGamepad, _isMouse);
 		}
 		
 		public function get gamepadType():uint
@@ -159,46 +174,43 @@
 				return EInputDeviceType.IDT_Xbox1;
 			}
 			
-			return _gamepadType
+			//trace("InputManager (" + _instanceID + ") gamepadType() return " + _gamepadType);
+			return _gamepadType;
 		}
 		
 		public function set gamepadType(value:uint):void
 		{
-			_gamepadType = value;
-			if (_gamepadType == EInputDeviceType.IDT_Steam || value == EInputDeviceType.IDT_Steam)
+			var isMouseDevice:Boolean = (value == EInputDeviceType.IDT_KeyboardMouse || value == EInputDeviceType.IDT_Switch2_Mouser);
+			var isGamePad = value != EInputDeviceType.IDT_KeyboardMouse;
+			var forceGamepadChange = false;	// For switching between Xbox/Steam Controller
+			
+			//trace("InputManager (" + _instanceID + ") setGamepadType()" + 
+			//	" _gamepadType: " + _gamepadType + " -> " + value +
+			//	" ; _isMouse: " + _isMouse + " -> " + isMouseDevice +
+			//	" ; _isGamepad: " + _isGamepad + " -> " + isGamePad);
+
+			if (_gamepadType != value || _isMouse != isMouseDevice || _isGamepad != isGamePad)
 			{
-				// update icons for steam pad
-				if (_gamepadType == EInputDeviceType.IDT_Steam)
+				if ( _isGamepad && value != EInputDeviceType.IDT_Switch2_Mouser && _gamepadType != value )
 				{
-					_lockedControlScheme = LOCKED_SCHEME_GPAD;
-					setGamepadInputType(true, true);
+					forceGamepadChange = true;
 				}
-				else
-				{
-					_lockedControlScheme = LOCKED_SCHEME_NONE; // reset
-					setGamepadInputType(_isGamepad, true);
-				}
-				
-				fireCtrlChangeEvent(_isGamepad, _platformType);
+
+				_gamepadType = value;
+				setGamepadInputType(isGamePad, isMouseDevice, forceGamepadChange);
 			}
 		}
 		
 		public function get lockedControlScheme():uint { return _lockedControlScheme }
 		public function set lockedControlScheme(value:uint):void
 		{
-			if (gamepadType == EInputDeviceType.IDT_Steam)
-			{
-				// forsed for steam
-				value = LOCKED_SCHEME_GPAD;
-			}
-			
 			switch (_lockedControlScheme)
 			{
 				case LOCKED_SCHEME_GPAD:
-					setGamepadInputType(true, true);
+					setGamepadInputType(true, false, true);
 					break;
 				case LOCKED_SCHEME_MOUSE:
-					setGamepadInputType(false, true);
+					setGamepadInputType(false, true, true);
 					break;
 			}
 			_lockedControlScheme = value;
@@ -208,7 +220,7 @@
 		public function set swapAcceptCancel(value:Boolean):void
 		{
 			_swapAcceptCancel = value;
-			fireCtrlChangeEvent(_isGamepad, _platformType);
+			fireCtrlChangeEvent(_isGamepad, _isMouse);
 		}
 		
 		public function get enableInputDeviceCheck():Boolean { return _enableInputDeviceCheck }
@@ -266,29 +278,43 @@
 		{
 			return _platformType == PlatformType.PLATFORM_PS4 || _platformType == PlatformType.PLATFORM_PS5;
 		}
+
+		public function isSwitchPlatform():Boolean
+		{
+			return _platformType == PlatformType.PLATFORM_SWITCH2;
+		}
 		
 		public function isGamepad():Boolean
 		{
-			return _isGamepad || _platformType != PlatformType.PLATFORM_PC; // #Y don't support keyboard for consoles;
+			return _isGamepad;
 		}
 
 		public function isPsGamepad():Boolean
 		{
 			return _gamepadType == EInputDeviceType.IDT_PS4 || _gamepadType == EInputDeviceType.IDT_PS5;
 		}
+
+		public function isMouse():Boolean
+		{
+			return _isMouse;
+		}
 		
 		public function setControllerType(isGamepad:Boolean):void
 		{
+			//trace("InputManager (" + _instanceID + "), setControllerType() isGamepad " + isGamepad + " != _isGamepad " + _isGamepad);
+
 			if (isGamepad != _isGamepad)
 			{
-				setGamepadInputType(isGamepad);
+				setGamepadInputType(isGamepad, _isMouse);
 			}
 		}
 		
 		public function setPlatformType(value:uint):void
 		{
+			//trace("InputManager (" + _instanceID + "), setPlatformType() value: " + value);
+
 			_platformType = value;
-			fireCtrlChangeEvent(_isGamepad, _platformType);
+			fireCtrlChangeEvent(_isGamepad, _isMouse);
 		}
 		
 		protected function updateInputListeners():void
@@ -306,57 +332,20 @@
 			}
 		}
 		
-		protected function handleHoldEvent(event:Event):void
-		{
-			if ( currentHoldInterval == HOLD_DELAY )
-			{
-				currentHoldInterval = HOLD_INTERVAL;
-			}
-			currentHoldInterval = Math.max(currentHoldInterval * HOLD_INTERVAL_SPEED_UP_SCALE, HOLD_INTERVAL_MIN);
-			
-			_holdTimer.delay = currentHoldInterval;
-			_holdTimer.reset();
-			_holdTimer.start();
-			
-			for (var curKey:String in _pressedMap)
-			{
-				var curEvent:InputEvent = _pressedMap[curKey] as InputEvent
-				var curDetails:InputDetails = curEvent.details;
-				
-				var keyCode:int = curDetails.code;
-				var navCode:String = curDetails.navEquivalent;
-				if (swapAcceptCancel)
-				{
-					if (curDetails.code == KeyCode.PAD_A_CROSS)
-					{
-						keyCode = KeyCode.PAD_B_CIRCLE;
-						navCode = NavigationCode.GAMEPAD_B;
-					}
-					else
-					if (curDetails.code == KeyCode.PAD_B_CIRCLE)
-					{
-						keyCode = KeyCode.PAD_A_CROSS;
-						navCode = NavigationCode.GAMEPAD_A;
-					}
-				}
-				var details:InputDetails = new InputDetails("key", keyCode, InputValue.KEY_HOLD, navCode, curDetails.controllerIndex, curDetails.ctrlKey, curDetails.altKey, curDetails.shiftKey, curDetails.fromJoystick);
-				_inputDelegate.dispatchEvent(new InputEvent(InputEvent.INPUT, details));
-			}
-		}
-		
 		protected function handleDelegatedInput(event:InputEvent):void
 		{
 			var details:InputDetails = event.details;
 			var isGPad:Boolean;
+			var isMouse:Boolean;
 			
-			if (_platformType == PlatformType.PLATFORM_PC)
-			{
-				isGPad = isGamepadCode(details);
-			}
-			else
-			{
-				isGPad = true;
-			}
+			isGPad = isGestureCode(details) ? _isGamepad : isGamepadCode(details) || _gamepadType == EInputDeviceType.IDT_Switch2_Mouser;
+			isMouse = this.isMouse();
+
+			//trace("InputManager (" + _instanceID + ") handleDelegatedInput()" +
+			//	" isGPad: " + isGPad +
+			//	", details.code: " + details.code +
+			//	", details.fromJoystick: " + details.fromJoystick +
+			//	", isMouse: " + isMouse);
 			
 			if (_enableHoldEmulation)
 			{
@@ -365,7 +354,7 @@
 			if (isGPad)
 			{
 				_gpadInputReceived = true;
-				setGamepadInputType(true);
+				setGamepadInputType(isGPad, isMouse);
 				return;
 			}
 			
@@ -375,50 +364,148 @@
 				_gpadInputReceived  = false;
 				return;
 			}
-			setGamepadInputType(false);
+			setGamepadInputType(isGPad, isMouse);
 		}
 
 		protected function holdProcessing(event:InputEvent):void
 		{
 			var details:InputDetails = event.details;
 			var keycode:Number = details.code;
+
 			if (details.value == InputValue.KEY_DOWN)
 			{
-				_holdTimer.delay = HOLD_DELAY;
-				currentHoldInterval = HOLD_DELAY;
-				_holdTimer.reset();
-				_holdTimer.start();
-				if (!_pressedMap[keycode])
+				if ( _holdCount == 0 )
 				{
-					_pressedMap[keycode] = event;
+					_holdTimer.delay = HOLD_DELAY;
+					_holdTimer.reset();
+					_holdTimer.start();
 				}
 
+				if ( !_holdInfoMap[keycode] )
+				{
+					++_holdCount;
+					_holdInfoMap[keycode] = {timer: getTimer(), event: event, nextFire: getTimer() + HOLD_DELAY, holdInterval : HOLD_DELAY};
+				}
+				//trace("JIFIX DOWN", keycode);
 			}
 			else if (details.value == InputValue.KEY_UP)
 			{
-				delete _pressedMap[keycode];
-				_holdTimer.stop();
-				currentHoldInterval = HOLD_DELAY;
+				if ( _holdInfoMap[keycode] )
+				{
+					--_holdCount;
+					delete _holdInfoMap[keycode];
+				}
+
+				if ( _holdCount == 0 )
+				{
+					_holdTimer.stop();
+				}
+				//trace("JIFIX UP", keycode);
 			}
+		}
+
+		protected function getSmallestDelay():Number
+		{
+			var currentTickTs : int = getTimer();
+			var smallestTime : Number = -99999;
+			for (var curKey:String in _holdInfoMap)
+			{
+				var curKeyTime : Number = _holdInfoMap[curKey].nextFire;
+				var diffTime : Number = curKeyTime - currentTickTs;
+
+				if(smallestTime == -99999 || diffTime < smallestTime)
+					smallestTime = diffTime;
+
+			}
+
+			//Make it 1ms minimum, so it does not freeze the timer if there is a lag or something
+			return Math.max(smallestTime,1);
+		}
+
+		protected function handleHoldEvent(event:Event):void
+		{			
+			var currentTickTs : int = getTimer();
+			for (var curKey:String in _holdInfoMap)
+			{
+				var curKeyTime : int = _holdInfoMap[curKey].nextFire;
+				if ( currentTickTs >= curKeyTime )
+				{
+					var curEvent:InputEvent = _holdInfoMap[curKey].event as InputEvent
+					var curDetails:InputDetails = curEvent.details;
+					
+					var keyCode:int = curDetails.code;
+					var navCode:String = curDetails.navEquivalent;
+					if (swapAcceptCancel)
+					{
+						if (curDetails.code == KeyCode.PAD_A_CROSS)
+						{
+							keyCode = KeyCode.PAD_B_CIRCLE;
+							navCode = NavigationCode.GAMEPAD_B;
+						}
+						else
+						if (curDetails.code == KeyCode.PAD_B_CIRCLE)
+						{
+							keyCode = KeyCode.PAD_A_CROSS;
+							navCode = NavigationCode.GAMEPAD_A;
+						}
+					}
+
+					var details:InputDetails = new InputDetails("key", keyCode, InputValue.KEY_HOLD, navCode, curDetails.controllerIndex, curDetails.ctrlKey, curDetails.altKey, curDetails.shiftKey, curDetails.fromJoystick);
+					var holdEvent:InputEvent = new InputEvent(InputEvent.INPUT, details)
+					_inputDelegate.dispatchEvent(holdEvent);
+					//trace("JIFIX InputManager::handleHoldEvent - FIRE : ", curKey, holdDuration(holdEvent) );
+
+					var curHoldTime : int = _holdInfoMap[curKey].timer - currentTickTs;
+					var curHoldInterval = _holdInfoMap[curKey].holdInterval;
+					_holdInfoMap[curKey].holdInterval = Math.max(curHoldInterval * HOLD_INTERVAL_SPEED_UP_SCALE, HOLD_INTERVAL_MIN)
+					_holdInfoMap[curKey].nextFire += _holdInfoMap[curKey].holdInterval;
+				}
+			}
+
+			var newDelay : Number = getSmallestDelay();
+			_holdTimer.delay = newDelay;
+			_holdTimer.reset();
+			_holdTimer.start();
+
+			//trace("JIFIX NEW DELAY RUNS IN", newDelay)
+		}
+
+		public function holdDuration( inputEvent : InputEvent ) : int
+		{
+			var keycode:Number = inputEvent.details.code;
+			if ( _holdInfoMap[keycode] )
+			{
+				var currentTs : int = getTimer();
+				return currentTs - _holdInfoMap[keycode].timer;
+			}
+
+			return -1;
 		}
 
 		protected function handleMouse(event:MouseEvent):void
 		{
+			//trace("InputManager (" + _instanceID + ") handleMouse()");
+
 			// I don't want to calculate pow on each mouse move event, so just simple axis delta check:
 			var deltaX:Number = Math.abs(event.stageX - _bufMouseX);
 			var deltaY:Number = Math.abs(event.stageY - _bufMouseY);
 			
 			if (deltaX > CHANGE_CONTROLLER_MOUSE_DELTA || deltaY > CHANGE_CONTROLLER_MOUSE_DELTA)
 			{
-				setGamepadInputType(false);
+				setGamepadInputType(_isGamepad, true);
 			}
 			_bufMouseX = event.stageX;
 			_bufMouseY = event.stageY;
 		}
 
-		protected function setGamepadInputType(pGamepadInput:Boolean, forced:Boolean = false):void
+		protected function setGamepadInputType(pGamepadInput:Boolean, pMouseInput:Boolean, forced:Boolean = false):void
 		{
-			if ((!_ctrlChangeTimer && (pGamepadInput != _isGamepad)) || (_ctrlChangeTimer && (pGamepadInput != _pendedGamepadInput)))
+			//trace("START InputManager (" + _instanceID + ") setGamepadInputType() " +
+			//	"(!_ctrlChangeTimer !" + _ctrlChangeTimer + " && (pGamepadInput " + pGamepadInput +  " != _isGamepad " + _isGamepad + " || pMouseInput " + pMouseInput + " != _isMouse " + _isMouse + ")) || " +
+			//	"(_ctrlChangeTimer " + _ctrlChangeTimer + " && (pGamepadInput " + pGamepadInput + " != _pendedGamepadInput " + _pendedGamepadInput + " || pMouseInput " + pMouseInput + " != _pendedMouseInput " + _pendedMouseInput + " ))" );
+
+			if ((!_ctrlChangeTimer && (pGamepadInput != _isGamepad || pMouseInput != _isMouse)) || 
+				(_ctrlChangeTimer && (pGamepadInput != _pendedGamepadInput || pMouseInput != _pendedMouseInput)))
 			{
 				if (_ctrlChangeTimer)
 				{
@@ -434,7 +521,10 @@
 				
 				if (CHANGE_CONTROLLER_TYPE_DELAY > 0)
 				{
+					//trace("			InputManager (" + _instanceID + ") setGamepadInputType() CHANGE_CONTROLLER_TYPE_DELAY " + CHANGE_CONTROLLER_TYPE_DELAY + " > 0");
+
 					_pendedGamepadInput = pGamepadInput;
+					_pendedMouseInput = pMouseInput;
 					_ctrlChangeTimer = new Timer(CHANGE_CONTROLLER_TYPE_DELAY, 1);
 					_ctrlChangeTimer.addEventListener(TimerEvent.TIMER, delayedFireControllerChangeEvent, false, 0, true);
 					_ctrlChangeTimer.start();
@@ -442,18 +532,27 @@
 				else
 				{
 					_isGamepad = pGamepadInput;
-					fireCtrlChangeEvent(_isGamepad, _platformType);
+					_isMouse = pMouseInput;
+					fireCtrlChangeEvent(_isGamepad, _isMouse);
 				}
+
+				//trace("			END InputManager (" + _instanceID + ") setGamepadInputType() _isGamepad: " + pGamepadInput + ", _isMouse: " + pMouseInput);
 			}
 		}
 		
 		protected function delayedFireControllerChangeEvent(event:TimerEvent):void
 		{
-			if (_pendedGamepadInput != _isGamepad)
+			//trace("InputManager (" + _instanceID + ") delayedFireControllerChangeEvent()" +
+			//	" _pendedGamepadInput: " + _pendedGamepadInput + " != " + " _isGamepad: " + _isGamepad +
+			//	"; _pendedMouseInput: " + _pendedMouseInput + " != " + " _isMouse: " + _isMouse);
+
+			if (_pendedGamepadInput != _isGamepad || _pendedMouseInput != _isMouse)
 			{
 				_isGamepad = _pendedGamepadInput;
-				fireCtrlChangeEvent(_isGamepad, _platformType)
+				_isMouse = _pendedMouseInput;
+				fireCtrlChangeEvent(_isGamepad, _isMouse)
 			}
+
 			if (_ctrlChangeTimer)
 			{
 				_ctrlChangeTimer.removeEventListener(TimerEvent.TIMER, delayedFireControllerChangeEvent);
@@ -463,11 +562,15 @@
 		}
 		
 		protected var _validatingIsGamepad:Boolean = false;
-		protected var _validatingPlatformType:uint = 0;
-		protected function fireCtrlChangeEvent(pIsGamepad:Boolean, pPlatformType:uint):void
+		protected var _validatingIsMouse:Boolean = false;
+		protected function fireCtrlChangeEvent(pIsGamepad:Boolean, pIsMouse:Boolean):void
 		{
+			//trace("InputManager (" + _instanceID + ") fireCtrlChangeEvent()" +
+			//	" _validatingIsGamepad: " + _validatingIsGamepad + " -> " + " pIsGamepad: " + pIsGamepad +
+			//	"; _validatingIsMouse: " + _validatingIsMouse + " -> " + " pIsMouse: " + pIsMouse);
+
 			_validatingIsGamepad = pIsGamepad;
-			_validatingPlatformType = pPlatformType;
+			_validatingIsMouse = pIsMouse;
 			_rootStage.removeEventListener(Event.ENTER_FRAME, validateFireCtrlChangeEvent, false);
 			_rootStage.addEventListener(Event.ENTER_FRAME, validateFireCtrlChangeEvent, false, 0, true);
 		}
@@ -476,11 +579,11 @@
 		{
 			var ctrlEvent:ControllerChangeEvent = new ControllerChangeEvent(ControllerChangeEvent.CONTROLLER_CHANGE);
 			
-			//trace("GFX --- validateFireCtrlChangeEvent; _validatingIsGamepad:  ", _validatingIsGamepad, "; _validatingPlatformType: ", _validatingPlatformType);
+			//trace("InputManager (" + _instanceID + ") validateFireCtrlChangeEvent(): _validatingIsGamepad: " + _validatingIsGamepad + "; _validatingIsMouse: " + _validatingIsMouse);
 			
 			_rootStage.removeEventListener(Event.ENTER_FRAME, validateFireCtrlChangeEvent, false);
-			ctrlEvent.isGamepad = _validatingIsGamepad || _validatingPlatformType != PlatformType.PLATFORM_PC; // #Y don't support keyboard for consoles
-			ctrlEvent.platformType = _validatingPlatformType;
+			ctrlEvent.isGamepad = _validatingIsGamepad;
+			ctrlEvent.isMouse = _validatingIsMouse;
 			dispatchEvent(ctrlEvent);
 		}
 
@@ -522,16 +625,24 @@
 			return false;
 		}
 
+		protected function isGestureCode(details:InputDetails):Boolean
+		{
+			var keycode:Number = details.code;
+			return keycode >= KeyCode.GESTURE_FIRST && keycode <= KeyCode.GESTURE_LAST;
+		}
+
 		public function reset() : void //#B
 		{
-			if ( _pressedMap )
+			//trace("JIFIX IM RESET");
+			if ( _holdInfoMap )
 			{
 				if (_holdTimer)
 				{
 					_holdTimer.reset();
 					_holdTimer.stop();
 				}
-				_pressedMap = { };
+				_holdInfoMap = { };
+				_holdCount = 0;
 			}
 		}
 	}

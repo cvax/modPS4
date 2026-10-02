@@ -29,6 +29,7 @@ package red.game.witcher3.modules
 	import red.game.witcher3.slots.SlotsListBase;
 	import red.game.witcher3.slots.SlotsListGrid;
 	import red.game.witcher3.utils.CommonUtils;
+	import red.game.witcher3.menus.character_menu.CharacterSkillsGridModule;
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.controls.ScrollBar;
 	import scaleform.clik.core.UIComponent;
@@ -39,6 +40,7 @@ package red.game.witcher3.modules
 	import com.gskinner.motion.easing.Sine;
 	import scaleform.clik.interfaces.IListItemRenderer;
 	import red.game.witcher3.utils.CommonUtils;
+	import flash.events.TransformGestureEvent;
 	
 	public class TabbedScrollingListModule extends CoreMenuModule
 	{
@@ -59,8 +61,10 @@ package red.game.witcher3.modules
 		
 		public var mcSlotList:SlotsListBase;
 		public var mcDropdownList:W3DropDownList;
+		public var mcSkillModule:CharacterSkillsGridModule;
 		
 		public var mcTabBackground:MovieClip;
+		public var mcNewTabBackground:MovieClip;
 		public var hideTabBackgroundWhenData:Boolean = false;
 		
 		public var _inputEnabled:Boolean = true;
@@ -121,7 +125,7 @@ package red.game.witcher3.modules
 			}
 			
 			InputManager.getInstance().addEventListener(ControllerChangeEvent.CONTROLLER_CHANGE, handleControllerChange, false, 0, true);
-			if (!InputManager.getInstance().isGamepad())
+			if (InputManager.getInstance().isMouse())
 			{
 				setAllowSelectionHighlight(focused != 0);
 			}
@@ -139,8 +143,12 @@ package red.game.witcher3.modules
 			{
 				_inputHandlers.push(mcSlotList);
 			}
+			else if (mcSkillModule)
+			{
+				_inputHandlers.push(mcSkillModule);
+			}
 		}
-		
+
 		protected var _subDataProvider:String = CommonConstants.INVALID_STRING_PARAM;
 		[Inspectable(defaultValue=CommonConstants.INVALID_STRING_PARAM)]
 		public function get subDataProvider():String { return _subDataProvider; }
@@ -214,7 +222,7 @@ package red.game.witcher3.modules
 			
 			if (mcSlotList)
 			{
-				mcSlotList.activeSelectionVisible = allowed || !InputManager.getInstance().isGamepad();
+				mcSlotList.activeSelectionVisible = allowed || InputManager.getInstance().isMouse();
 			}
 		}
 		
@@ -307,11 +315,16 @@ package red.game.witcher3.modules
 				mcTabList.tabEnabled = false;
 				mcTabList.tabChildren = false;
 				mcTabList.focusable = false;
-				
+
 				mcTabList.addEventListener(ListEvent.INDEX_CHANGE, onTabListItemSelected, false, 0, true);
 			}
 		}
-		
+
+		public function enableSelectTabWithTap( enable : Boolean ) : void
+		{
+			mcTabList.enableTouch( enable );
+		}
+
 		public var currentlySelectedTabIndex:int = -1;
 		protected function onTabListItemSelected( event:ListEvent ):void
 		{
@@ -333,8 +346,7 @@ package red.game.witcher3.modules
 				{
 					mcTabBackground.gotoAndStop(tablistItem.getIconData());
 				}
-				
-				if ( !noDelay && InputManager.getInstance().isGamepad() )
+				if ( !noDelay && !InputManager.getInstance().isMouse() )
 				{
 					if ( !_updateTimer )
 					{
@@ -401,8 +413,8 @@ package red.game.witcher3.modules
 				
 				if (lastUpdatedSubDataIndex != index)
 				{
+					//Hide the previous tab
 					var targetUIComponent:UIComponent = getDataShowerForTab(lastUpdatedSubDataIndex);
-					
 					if (targetUIComponent)
 					{
 						targetUIComponent.visible = false;
@@ -411,12 +423,17 @@ package red.game.witcher3.modules
 						{
 							(targetUIComponent as SlotsListBase).selectedIndex = -1;
 						}
+						else if (targetUIComponent is CharacterSkillsGridModule)
+						{
+							(targetUIComponent as CharacterSkillsGridModule).clearObjects();
+						}
 					}
 					
+					//Update the selected index
 					lastUpdatedSubDataIndex = index;
 					
+					//Show the current tab
 					targetUIComponent = getDataShowerForTab(lastUpdatedSubDataIndex);
-					
 					if (targetUIComponent is W3DropDownList)
 					{
 						(targetUIComponent as W3DropDownList).updateData(subDataDictionary[index]);
@@ -438,6 +455,16 @@ package red.game.witcher3.modules
 							(targetUIComponent as SlotsListGrid).offset = 0; // force Reset of scroll offset
 						}
 					}
+					else if (targetUIComponent is CharacterSkillsGridModule)
+					{
+						(targetUIComponent as CharacterSkillsGridModule).setDataArray(subDataDictionary[index]);
+					}
+
+					if(mcNewTabBackground)
+						mcNewTabBackground.gotoAndStop(index + 1);
+
+					if(mcSkillModule)
+						mcSkillModule.setCurrentTabIndex(index);
 					
 					if (hideTabBackgroundWhenData && mcTabBackground)
 					{
@@ -505,6 +532,10 @@ package red.game.witcher3.modules
 			{
 				return mcSlotList;
 			}
+			else if (mcSkillModule)
+			{
+				return mcSkillModule;
+			}
 			
 			return null;
 		}
@@ -513,9 +544,7 @@ package red.game.witcher3.modules
 		{
 			var tabIndex:int = data.tabIndex;
 			var dataArray:Array = data.tabData;
-			
-			trace("GFX - handleSetSubData called for tab: " + tabIndex + ", with data:" + dataArray);
-			
+
 			if (!dataArray)
 			{
 				throw new Error("GFX - handleSetSubData called with invalid parameters: " + tabIndex + ", data:" + dataArray);
@@ -535,6 +564,21 @@ package red.game.witcher3.modules
 				updateSubData(tabIndex);
 			}
 		}
+
+		public function handleSelectTabByColor(color:String):void
+		{
+			var tabIndex : int = 0;
+			switch(color)
+			{
+				case "SC_Red": tabIndex = 0; break;
+				case "SC_Blue": tabIndex = 1; break;
+				case "SC_Green": tabIndex = 2; break;
+				case "SC_Yellow": tabIndex = 3; break;
+			}
+			mcTabList.selectedIndex = tabIndex;
+			mcTabList.validateNow();
+			(mcTabList.getSelectedRenderer() as AdvancedTabListItem).setIsOpen(true);
+		}
 		
 		public function updateDataSurgicallyInCurrentTab(tabIndex:int, data:Array):void
 		{
@@ -542,9 +586,7 @@ package red.game.witcher3.modules
 			var dataIt:int;
 			var tabData:Array;
 			var foundMatchingData:Boolean;
-			
-			trace("GFX - updating tab: " + tabIndex + ", with data: " + data[0]);
-			
+	
 			if (subDataDictionary[tabIndex] != null)
 			{
 				tabData = subDataDictionary[tabIndex];
@@ -632,6 +674,10 @@ package red.game.witcher3.modules
 					if (handler is SlotsListBase)
 					{
 						(handler as SlotsListBase).handleInputNavSimple(event);
+					}
+					else if (handler is CharacterSkillsGridModule)
+					{
+						(handler as CharacterSkillsGridModule).handleInputNavSimple(event);
 					}
 					else
 					{

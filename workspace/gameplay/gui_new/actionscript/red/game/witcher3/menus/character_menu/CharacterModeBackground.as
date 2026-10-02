@@ -28,6 +28,9 @@ package red.game.witcher3.menus.character_menu
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.managers.InputDelegate;
 	import scaleform.clik.ui.InputDetails;
+	import flash.events.Event;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
 	
 	/**
 	 * ...
@@ -74,8 +77,10 @@ package red.game.witcher3.menus.character_menu
 			btnApply.setDataFromStage(NavigationCode.GAMEPAD_A, KeyCode.E);
 			btnCancel.setDataFromStage(NavigationCode.GAMEPAD_B, KeyCode.ESCAPE);
 			
-			btnApply.addEventListener(ButtonEvent.CLICK, handleApplyClick, false, 0, true);
-			btnCancel.addEventListener(ButtonEvent.CLICK, handleCancelClick, false, 0, true);
+			btnApply.addEventListener(ButtonEvent.CLICK, handleApplyClickOrTap, false, 0, true);
+			btnApply.addEventListener(GestureEventEx.GESTURE_TAP, handleApplyClickOrTap, false, 0, true);
+			btnCancel.addEventListener(ButtonEvent.CLICK, handleCancelClickOrTap, false, 0, true);
+			btnCancel.addEventListener(GestureEventEx.GESTURE_TAP, handleCancelClickOrTap, false, 0, true);
 		}
 		
 		public function setCaption(capation:String):void
@@ -141,13 +146,17 @@ package red.game.witcher3.menus.character_menu
 			}
 		}
 		
-		private function handleApplyClick(event:ButtonEvent):void
+		private function handleApplyClickOrTap(event:Event):void
 		{
+			trace("CharacterModeBackground::handleApplyClickOrTap");
+
 			userApply();
 		}
 		
-		private function handleCancelClick(event:ButtonEvent):void
+		private function handleCancelClickOrTap(event:Event):void
 		{
+			trace("CharacterModeBackground::handleCancelClickOrTap");
+
 			userCancel();
 		}
 		

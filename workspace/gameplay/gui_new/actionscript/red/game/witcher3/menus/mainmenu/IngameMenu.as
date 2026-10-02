@@ -9,19 +9,30 @@ package red.game.witcher3.menus.mainmenu
 {
 	import com.gskinner.motion.easing.Exponential;
 	import com.gskinner.motion.GTweener;
+
 	import flash.display.DisplayObject;
 	import flash.display.MovieClip;
 	import flash.events.Event;
-	import flash.events.KeyboardEvent;
+	import flash.events.KeyboardEvent; 
 	import flash.events.MouseEvent;
+	import flash.events.TouchEvent;
+	import flash.events.GesturePhase;
+	import flash.events.TransformGestureEvent;
+	import flash.events.GestureEvent;
 	import flash.events.TimerEvent;
 	import flash.text.TextField;
 	import flash.text.TextFormat;
+	import flash.text.TextFormatAlign;
 	import flash.utils.ByteArray;
 	import flash.utils.Timer;
-	import red.core.constants.KeyCode;
+
 	import red.core.CoreMenu;
 	import red.core.CoreComponent;
+	import red.core.constants.KeyCode;
+	import red.core.events.GameEvent;
+	import red.core.events.GestureEventEx;
+	import red.game.witcher3.constants.AspectRatio;
+	import red.game.witcher3.constants.EInputDeviceType;
 	import red.game.witcher3.constants.PlatformType;
 	import red.game.witcher3.controls.BaseListItem;
 	import red.game.witcher3.controls.ConditionalCloseButton;
@@ -31,8 +42,18 @@ package red.game.witcher3.menus.mainmenu
 	import red.game.witcher3.controls.W3UILoader;
 	import red.game.witcher3.managers.InputManager;
 	import red.game.witcher3.menus.common_menu.ModuleInputFeedback;
+	import red.game.witcher3.menus.common_menu.MenuHubTabListItem;
+	import red.game.witcher3.menus.mainmenu.PatchNotesInfoBlock;
+	import red.game.witcher3.menus.mainmenu.PatchNotesPopup;
+	import red.game.witcher3.menus.mainmenu.SwitchFeaturesPopUp;
+	import red.game.witcher3.menus.modmenu.ModImageLoadHandler;
+	import red.game.witcher3.menus.modmenu.ModImageData;
+	import red.game.witcher3.menus.overlay.ModVerificationPopup;
+	import red.game.witcher3.menus.overlay.CheckboxListPopup;
+	import red.game.witcher3.menus.overlay.W3LicenseAgreementPopup;
 	import red.game.witcher3.modules.SimpleListModule;
 	import red.game.witcher3.utils.CommonUtils;
+
 	import scaleform.clik.data.DataProvider;
 	import scaleform.clik.events.ButtonEvent;
 	import scaleform.clik.events.InputEvent;
@@ -40,16 +61,9 @@ package red.game.witcher3.menus.mainmenu
 	import scaleform.clik.ui.InputDetails;
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
+	import scaleform.clik.controls.ListItemRenderer;
+	import scaleform.clik.interfaces.IListItemRenderer;
 	import scaleform.gfx.MouseEventEx;
-	import red.game.witcher3.constants.AspectRatio;
-
-	import red.game.witcher3.menus.mainmenu.PatchNotesInfoBlock;
-	import red.game.witcher3.menus.mainmenu.PatchNotesPopup;
-	
-	
-
-	import red.core.events.GameEvent;
-	import flash.text.TextFormatAlign;
 
 	public class IngameMenu extends CoreMenu
 	{
@@ -85,15 +99,15 @@ package red.game.witcher3.menus.mainmenu
 		public static const IGMActionType_InstalledDLC		: uint = 27;
 		public static const IGMActionType_Button			: uint = 28;
 		public static const IGMActionType_ToggleRender		: uint = 29;
-		public static const IGMActionType_Gog				: uint = 30;
-		public static const IGMActionType_TelemetryConsent	: uint = 31;
 		public static const IGMActionType_ListWithCondition : uint = 32;
 		public static const IGMActionType_Stepper			: uint = 33;
 		public static const IGMActionType_ToggleStepper		: uint = 34;
 		public static const IGMActionType_Separator			: uint = 35;
 		public static const IGMActionType_SubtleSeparator   : uint = 36;
+
+		public static const IGMActionType_PurchaseEP3   	: uint = 43;
  
-		
+
 		public static const IGMActionType_Options		: uint = 100;
 		// }
 		
@@ -127,8 +141,10 @@ package red.game.witcher3.menus.mainmenu
 		public var mcCustomDialogGOTY : MovieClip;
 		public var mcCustomDialogGOTY_NGE : MovieClip;
 		public var mcCustomDialogGalaxySignIn : MovieClip;
-		public var mcRewardsTable : MovieClip;
-		public var mcCustomDialogTelemetry : MovieClip;
+		public var mcCustomDialogMod : MovieClip;
+		public var mcCustomDialogMarketing : CheckboxListPopup;
+		public var mcCustomDialogLicenseAgreement : W3LicenseAgreementPopup;
+		public var mcCustomDialogReminder : MovieClip;
 		public var mcTermsOfUseDialog : MovieClip;
 		public var mcErrorDialog : MovieClip;
 		public var mcCloudSavesModalDialog : MovieClip;
@@ -141,7 +157,9 @@ package red.game.witcher3.menus.mainmenu
 		public var mcSaveSlotListModule : SaveSlotListModule;
 		public var mcKeyBindModule : KeyBindsOptionModule;
 		public var mcInstalledDLCModule : InstalledDLCModule;
-		public var mcExpansionIcons : MovieClip;
+		public var mcLoadIndicator : MovieClip;
+
+		public var mcModdedTooltip : TooltipModded;
 		
 		public var _lastRequestedUrl : String;
 		
@@ -155,8 +173,6 @@ package red.game.witcher3.menus.mainmenu
 		public var mcCloudSaveButton : InputFeedbackButton;
 		public var brCloudSaveBorder : DisplayObject;
 		public var isCloudUserSignedIn : Boolean = false;
-		
-		protected var expansionIconsEnabled:Boolean = false;
 		
 		public var mcAnchor_MODULE_Tooltip : MovieClip;
 		
@@ -184,15 +200,31 @@ package red.game.witcher3.menus.mainmenu
 		private var _panelMode : Boolean = false; // This means the menu was opened just for access to panel. Close it all when panel closes
 		
 		private var _inPanel : Boolean = false;
+		
+		private var popupQueue : Array = [];
+
+		private var _reminderIsPlatformPC : Boolean;
+
+		public var switchFeaturesPopUp : SwitchFeaturesPopUp
+		public var mcSwitchHoldMode : W3TextArea;
+
+		public var mcMyRewardsPanel : MyRewardsPanel;
+		public var mcAccountButtonPanel : AccountButtonPanel;
+		public var mcUserNamePanel : MainMenuUserNamePanel;
+
+		var cachedBalladTooltipVis : Boolean = false;
+		var cachedBalladTooltipText : String = "";
+		static const BALLAD_TOOLTIP_TEXT_MARGIN : Number = 12;
+		static const BALLAD_TOOLTIP_FRAME_EXTRA : Number = 6;
+
 		public function set inPanel(value:Boolean):void
 		{
+			trace( "IngameMenu::inPanel : ", value );
+
 			_inPanel = value;
-			
-			if (value && mcExpansionIcons != null)
-			{
-				mcExpansionIcons.visible = false;
-			}
-			
+
+			if ( mcAccountButtonPanel ) mcAccountButtonPanel.visible = _isMainMenu && !_inPanel;
+			if ( mcUserNamePanel ) mcUserNamePanel.setIsInPanel( _inPanel );
 			
 			if (menuListModule)
 			{
@@ -215,18 +247,30 @@ package red.game.witcher3.menus.mainmenu
 			previousContainers = new Vector.<Object>();
 			previousSelections = new Vector.<int>();
 			upToCloseEnabled = false;
-			mcExpansionIcons.visible = false;
 			
 			mcInputFeedbackModule.clickable = false;
 			mcInputFeedbackModule.showBackground = true;
 			
 			mcInputBackground = mcInputFeedbackModule["mcInputBackground"] as MovieClip;
 			
-			stage.addEventListener(MouseEvent.CLICK, onStageClicked, false, 1, true);
+			stage.addEventListener( MouseEvent.CLICK, onStageClicked, false, 1, true );
+			stage.addEventListener( GestureEvent.GESTURE_TWO_FINGER_TAP, handleGestureTwoFingerTap, false, 0, true );
 			
 			mcBlackBackground.visibilityChangeCallback = onBackgroundVisibilityChanged;
 		}
-		
+	
+		public function handleGestureTwoFingerTap( event : GestureEvent ) : void 
+		{
+			if ( handleNavigateBack() )
+			{
+				
+			}
+			else if ( !_isMainMenu )
+			{
+				hideAnimation();
+			}
+		}
+
 		public function onBackgroundVisibilityChanged( value : Boolean ) : void
 		{
 			mcInputFeedbackModule.showBackground = !value;
@@ -263,7 +307,7 @@ package red.game.witcher3.menus.mainmenu
 		override protected function configUI():void
 		{
 			super.configUI();
-			
+
 			inPanel = false;
 			
 			_contextMgr.defaultAnchor = mcAnchor_MODULE_Tooltip;
@@ -275,7 +319,7 @@ package red.game.witcher3.menus.mainmenu
 			{
 				txtUserName.text = "";
 			}
-			
+
 			if (txtVersion)
 			{
 				txtVersion.text = "";
@@ -295,6 +339,24 @@ package red.game.witcher3.menus.mainmenu
 			{
 				closeCustomDialog( 3, false );
 			}
+			if (mcCustomDialogMod)
+			{
+				mcCustomDialogMod.visible = false;
+			}
+			if (mcCustomDialogMarketing)
+			{
+				mcCustomDialogMarketing.visible = false;
+			}
+
+			if(mcCustomDialogLicenseAgreement)
+			{
+				mcCustomDialogLicenseAgreement.visible = false;
+			}
+
+			if(mcCustomDialogReminder)
+			{
+				mcCustomDialogReminder.visible = false;
+			}
 		
 			if (mcCustomDialogGOTY)
 			{
@@ -308,11 +370,6 @@ package red.game.witcher3.menus.mainmenu
 			
 			closeGalaxySignInDialog();
 			
-			if (mcCustomDialogTelemetry)
-			{
-				mcCustomDialogTelemetry.visible = false;
-			}
-			
 			if (mcErrorDialog)
 			{
 				mcErrorDialog.visible = false;
@@ -323,16 +380,16 @@ package red.game.witcher3.menus.mainmenu
 				mcCloudSavesModalDialog.visible = false;
 			}
 			
-			if (mcRewardsTable) 
-			{
-				mcRewardsTable.visible = false;
-			}
-			
 			if (mcTermsOfUseDialog) 
 			{
 				mcTermsOfUseDialog.visible = false;
 			}
-			
+
+			if ( mcMyRewardsPanel )
+			{
+				mcMyRewardsPanel.visible = false;
+			}
+
 			_lastRequestedUrl = "Requested. Please wait";
 			
 			focused = 1;
@@ -361,6 +418,7 @@ package red.game.witcher3.menus.mainmenu
 			if (mcCloseBtn)
 			{
 				mcCloseBtn.addEventListener(ButtonEvent.PRESS, handleClosePressed, false, 0, true);
+				mcCloseBtn.showOnSwitch2Mouser = true;
 			}
 			
 			if (mcGammaModule)
@@ -403,6 +461,22 @@ package red.game.witcher3.menus.mainmenu
 				mcSaveSlotListModule.addEventListener( OnOptionPanelClosed, handlePanelClosed, false, 0, true);
 				mcSaveSlotListModule.mcScrollingList.addEventListener(ListEvent.INDEX_CHANGE, onSaveSlotSelected, false, 0, true);
 			}
+
+			if(mcLoadIndicator)
+			{
+				mcLoadIndicator.visible = false;
+			}
+
+			if(mcSwitchHoldMode)
+			{
+				mcSwitchHoldMode.visible = false;
+			}
+
+			if ( mcAccountButtonPanel )
+			{
+				mcAccountButtonPanel.addEventListener( MouseEvent.CLICK, handleAccountButtonClickOrTap, false, 0, true );
+				mcAccountButtonPanel.addEventListener( GestureEventEx.GESTURE_TAP, handleAccountButtonClickOrTap, false, 0, true );
+			}
 			
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.entries", [handleEntriesSet] ) );
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.addloading", [handleAddLoadingOption] ) );
@@ -413,49 +487,41 @@ package red.game.witcher3.menus.mainmenu
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.newGamePlusSlots", [handleReceivedNewGamePlusSlots] ) );
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.uirescale", [handleSetUIRescale] ) );
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.options.entries", [handleOptionsSet] ) );
-			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.optionValueChanges", [handleOptionValuesUpdated] ) );
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.optionPresetChange", [handleOptionPresetChanged] ) );
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.keybindValues", [handleKeybindValuesSet] ) );
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.installedDLCs", [handleInstalledDLCsSet] ) );
 			
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.bigMessage1", [prepareBigMessageEp1] ) );
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.bigMessage2", [prepareBigMessageEp2] ) );
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.bigMessage3", [prepareBigMessageGOTY] ) );
+			
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.bigMessage4", [prepareBigMessageGalaxySignIn] ) );
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.bigMessageMod", [prepareBigMessageMod] ) );
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.MarketingWindow", [setMarketingWindow] ) );
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.LicenseAgreementWindow", [setLicenseAgreementWindow] ) );
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.ReminderWindow", [setRedReminderWindow] ) );
+			
 						
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.framerateModeTooltip", [handleSetFramrateModeTooltip] ) );
 			
-			dispatchEvent( new GameEvent (GameEvent.REGISTER, "ingamemenu.TelemetryModalWindow", [setDataTelemetryModalWindow]));
 			dispatchEvent (new GameEvent (GameEvent.REGISTER, "ingamemenu.ErrorHandleWindow", [setErrorHandlingWindow]));
-			dispatchEvent (new GameEvent (GameEvent.REGISTER, "ingamemenu.RewardsTableWindow", [setGalaxyRewardsWindow]));
 			dispatchEvent (new GameEvent (GameEvent.REGISTER, "ingamemenu.AccountsTermsOfUseWindow", [setTermsOfUseWindow]));
 			dispatchEvent (new GameEvent (GameEvent.REGISTER, "ingamemenu.gogCloudState", [setGogCloudState]));
+
+			dispatchEvent (new GameEvent (GameEvent.REGISTER, "ingamemenu.myrewardspanel", [showMyRewardsPanel]));
 
 			dispatchEvent( new GameEvent( GameEvent.CALL, "OnConfigUI" ) );
 			
 			mcInputFeedbackModule.appendButton(ACTION_USE, NavigationCode.GAMEPAD_A, KeyCode.E, "[[panel_button_common_select]]", false);
 			mcInputFeedbackModule.appendButton(ACTION_SCROLL, NavigationCode.GAMEPAD_L3, -1, "[[panel_button_common_navigation]]", true);
-
+			
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, "ingamemenu.switchPopUp", [prepareSwtichPopUp] ) );
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'panel.switch.setup', [callSwitchFeatureFillData]));
 		}
-		
-		public function setExpansionText(ep1Text:String, ep2Text:String):void
+
+		public function callSwitchFeatureFillData(nameList:Array):void 
 		{
-			if (mcExpansionIcons)
-			{
-				mcExpansionIcons.visible = true;
-				expansionIconsEnabled = true;
-				
-				var txtEp1:TextField = mcExpansionIcons.getChildByName("txtEp1") as TextField;
-				if (txtEp1 != null)
-				{
-					txtEp1.htmlText = ep1Text;
-				}
-				
-				var txtEp2:TextField = mcExpansionIcons.getChildByName("txtEp2") as TextField;
-				if (txtEp2 != null)
-				{
-					txtEp2.htmlText = ep2Text;
-				}
-			}
+			switchFeaturesPopUp.fillDataSwitchFeatureTabs(nameList);
 		}
 		
 		override public function setPlatform(platformType:uint):void
@@ -468,23 +534,14 @@ package red.game.witcher3.menus.mainmenu
 			
 			_isPlatformXBox = _inputMgr.isXboxPlatform();
 			_isPlatformPlayStation = _inputMgr.isPsPlatform();
-			
+
 			if (_isMainMenu && _platform == PlatformType.PLATFORM_XBOX1 )
 			{
 				mcInputFeedbackModule.appendButton(ACTION_Y, NavigationCode.GAMEPAD_Y, -1, "[[panel_button_common_choose_profile]]", true);
 			}
 
-			ctn = mcCustomDialogGOTY_NGE.getChildByName( "content") as PatchNotesPopup;
-			if ( !_isPlatformXBox && !_isPlatformPlayStation )
-			{
-				ctn.gotoAndStop( 2 );
-			}
-			else
-			{
-				ctn.gotoAndStop( 1 );
-			}
-			
-			ctn.SetupData();
+			ctn = mcCustomDialogGOTY_NGE.getChildByName( "content") as PatchNotesPopup;			
+			ctn.SetupData_41();
 		}
 		
 		public function setIgnoreInput(value:Boolean):void
@@ -497,6 +554,35 @@ package red.game.witcher3.menus.mainmenu
 			_hardwareCursorOn = value;
 		}
 		
+		private function addToPopupQueue(popup:MovieClip) : void
+		{
+			//if(_currentDialogIndex == -1)
+			//	popup.visible = true;
+
+			trace("GFX -- Emplacing into", popupQueue.length, "length list", popup.name);
+
+			if(popupQueue.length == 0)
+			{
+				popupQueue.push(popup);
+				popup.visible = true;
+			}
+			else {
+				popupQueue.push(popup);
+				popup.visible = false;
+			}
+		}
+
+		private function showNextPopup():void
+		{
+			if(popupQueue.length > 0)
+			{
+				popupQueue.splice(0, 1);
+
+				if(popupQueue.length > 0)
+					popupQueue[0].visible = true;
+			}
+		}
+
 		private function getCustomDialogByIndex( index : int ) : MovieClip
 		{
 			switch ( index )
@@ -506,9 +592,11 @@ package red.game.witcher3.menus.mainmenu
 					return getChildByName( "mcCustomDialogEp" + index ) as MovieClip;
 				case 3:
 					if( _platform == PlatformType.PLATFORM_PC ||
+						_platform == PlatformType.PLATFORM_PC_GDK ||
 						_platform == PlatformType.PLATFORM_PS5 ||
 						_platform == PlatformType.PLATFORM_XB_SCARLETT_LOCKHART ||
-						_platform == PlatformType.PLATFORM_XB_SCARLETT_ANACONDA )
+						_platform == PlatformType.PLATFORM_XB_SCARLETT_ANACONDA ||
+						_platform == PlatformType.PLATFORM_SWITCH2 )
 					{
 						return getChildByName( "mcCustomDialogGOTY_NGE" ) as MovieClip;
 					}
@@ -517,7 +605,15 @@ package red.game.witcher3.menus.mainmenu
 						return getChildByName( "mcCustomDialogGOTY" ) as MovieClip;
 					}
 				case 4: 
-					return getChildByName ("mcCustomDialogGalaxySignIn") as MovieClip;				
+					return getChildByName ("mcCustomDialogGalaxySignIn") as MovieClip;
+				case 5: 
+					return getChildByName ("mcCustomDialogMod") as MovieClip;	
+				case 6:
+					return getChildByName("mcCustomDialogMarketing") as MovieClip;	
+				case 7:
+					return getChildByName("mcCustomDialogLicenseAgreement") as MovieClip;
+				case 8:
+					return getChildByName("mcCustomDialogReminder") as MovieClip;
 			}
 			return null;
 		}
@@ -529,6 +625,11 @@ package red.game.witcher3.menus.mainmenu
 				txtFrameRateMode.text = data.text;
 		}
 		
+		public function prepareSwtichPopUp(data:Object)
+		{
+			switchFeaturesPopUp.openSwitchFeaturePopUpMenu();
+		}
+
 		public function prepareBigMessageEp1(data:Object)
 		{
 			prepareBigMessage(data);
@@ -556,7 +657,7 @@ package red.game.witcher3.menus.mainmenu
 				return false;
 			}
 			
-			customDialog.visible = true;
+			addToPopupQueue(customDialog);
 				
 			setMessageTextValue(customDialog, "tfTitle1", data.tfTitle1, true );
 			setMessageTextValue(customDialog, "tfTitle2", data.tfTitle2, true);
@@ -597,7 +698,7 @@ package red.game.witcher3.menus.mainmenu
 			setMessageTextValue(customDialog, "tfContent", data.tfContent, false );
 			setMessageTextValue(customDialog, "tfTitleEnd", data.tfTitleEnd, true );
 			
-			customDialog.visible = true;
+			addToPopupQueue(customDialog);
 
 			if ( _queuedDialogIndices )
 			{
@@ -605,6 +706,35 @@ package red.game.witcher3.menus.mainmenu
 			}
 			
 			showNextCustomDialog();
+			
+			return true;
+		}
+
+		public function prepareBigMessageMod(data:Object):Boolean
+		{
+			if ( !data )
+			{
+				return false;
+			}
+			var customDialog : MovieClip = getCustomDialogByIndex( 5 );
+			if ( !customDialog )
+			{
+				return false;
+			}
+			var modVerifWindow : ModVerificationPopup = customDialog as ModVerificationPopup;
+			if(modVerifWindow)
+			{
+				modVerifWindow.data = data;
+			}
+			
+			addToPopupQueue(customDialog);
+
+			/*if ( _queuedDialogIndices )
+			{
+				_queuedDialogIndices[ _queuedDialogIndices.length ] = data.index;
+			}
+			
+			showNextCustomDialog();*/
 			
 			return true;
 		}
@@ -626,6 +756,7 @@ package red.game.witcher3.menus.mainmenu
 			setMessageTextValue(customDialog, "tfTitleSignIn", data.tfTitleSignIn, false );
 			setMessageTextValue(customDialog, "tfContentSignInTopA", data.tfContentSignInTopA, false );
 			setMessageTextValue(customDialog, "tfContentSignInTopB", data.tfContentSignInTopB, false );
+			setMessageTextValue(customDialog, "tfContentSignInTopC", data.tfContentSignInTopC, false );
 			setMessageTextValue(customDialog, "tfContentSignIn2", data.tfContentSignIn2, false );
 			setMessageTextValue(customDialog, "tfContentSignIn3", data.tfContentSignIn3, false );
 			setMessageTextValue(customDialog, "tfLink1", data.tfLink1, false);
@@ -689,6 +820,14 @@ package red.game.witcher3.menus.mainmenu
 				}
 				mcCustomDialogGalaxySignIn.visible = false;
 			}
+			if(mcCustomDialogReminder)
+			{
+				if(mcCustomDialogReminder.visible)
+				{	
+					showNextPopup();
+					mcCustomDialogReminder.visible = false;
+				}
+			}
 		}
 		
 		public function ShowCloudModal(value :String)
@@ -742,29 +881,30 @@ package red.game.witcher3.menus.mainmenu
 			}
 				
 			// sign out
-			if(_platform != PlatformType.PLATFORM_PC){
-				var unlinkButton : InputFeedbackButton = mcCloudSavesModalDialog.getChildByName("mcSignOutButton") as InputFeedbackButton;
-				if (!unlinkButton)	{
-					return;
-				}
-				unlinkButton.visible = true;
-				unlinkButton.clickable = true;
-				unlinkButton.label = "[[ui_gog_button_signout]]";
-				unlinkButton.setDataFromStage(NavigationCode.GAMEPAD_X, KeyCode.Q);
-				unlinkButton.addEventListener(ButtonEvent.PRESS,feedbackRewardsWindow,false,0,false);
-				unlinkButton.validateNow();
+			var unlinkButton : InputFeedbackButton = mcCloudSavesModalDialog.getChildByName("mcSignOutButton") as InputFeedbackButton;
+			if (!unlinkButton)	{
+				return;
 			}
+
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+			unlinkButton.visible = true;
+			unlinkButton.clickable = true;
+			unlinkButton.label = "[[ui_gog_button_signout]]";
+			unlinkButton.setDataFromStage(isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.Q);
+			unlinkButton.addEventListener(ButtonEvent.PRESS,handleMyRewardsSignOut,false,0,false);
+			unlinkButton.validateNow();
 			
 			// accept
 			var tryButton : InputFeedbackButton = mcCloudSavesModalDialog.getChildByName("mcAcceptButton") as InputFeedbackButton;
 			if (!tryButton)	{
 				return;
 			}
+
 			tryButton.visible = true;
 			tryButton.clickable = true;
 			tryButton.label = "[[panel_common_accept]]";
 			tryButton.setDataFromStage(NavigationCode.GAMEPAD_A, KeyCode.ENTER);
-			tryButton.addEventListener(ButtonEvent.PRESS,feedbackRewardsWindow,false,0,false);
+			tryButton.addEventListener(ButtonEvent.PRESS,handleMyRewardsAccept,false,0,false);
 			tryButton.validateNow();
 			// Center accept button on PC since the sign out button is removed.
 			if(_platform == PlatformType.PLATFORM_PC){
@@ -781,7 +921,7 @@ package red.game.witcher3.menus.mainmenu
 			}
 			
 			// ready
-			mcCloudSavesModalDialog.visible = true;
+			addToPopupQueue(mcCloudSavesModalDialog);
 		}
 		
 		public function GalaxyQRSignInCancel()
@@ -790,28 +930,38 @@ package red.game.witcher3.menus.mainmenu
 			dispatchEvent( new GameEvent( GameEvent.CALL, "OnGalaxyQRSignInCancel" ) );
 		}
 		
-		public function QRCodeReadyToLoad(value :String)
+		private function LoadQR(clip:MovieClip)
 		{
-			if (_lastRequestedUrl != value)	{
-				_lastRequestedUrl = value;
-			}
-			if (!mcCustomDialogGalaxySignIn) {
-				return;
-			}
-			
-			var QrCodeLoader:W3UILoader = mcCustomDialogGalaxySignIn.getChildByName("mcQrCodeLoader") as W3UILoader;
+			var QrCodeLoader:W3UILoader = clip.getChildByName("mcQrCodeLoader") as W3UILoader;
 			if (QrCodeLoader) {
 				QrCodeLoader.source = "qrcode.qrcode";
 				QrCodeLoader.visible = true;
 				QrCodeLoader.validateNow();
 			}
 			
-			var tfUrl:TextField = mcCustomDialogGalaxySignIn.getChildByName("tfLink1") as TextField;
-			tfUrl.addEventListener( MouseEvent.CLICK, handleTfUrl, false, 0, true );
-			if (tfUrl.htmlText != _lastRequestedUrl) {
-				tfUrl.htmlText = _lastRequestedUrl;
+			if(clip.getChildByName("tfLink1")) {
+				var tfUrl:TextField = clip.getChildByName("tfLink1") as TextField;
+				tfUrl.addEventListener( MouseEvent.CLICK, handleTfUrl, false, 0, true );
+				if (tfUrl.htmlText != _lastRequestedUrl) {
+					tfUrl.htmlText = _lastRequestedUrl;
+				}
+			}
+		}
+		
+		public function QRCodeReadyToLoad(value :String)
+		{
+			if (_lastRequestedUrl != value)	{
+				_lastRequestedUrl = value;
+			}
+
+			if (mcCustomDialogGalaxySignIn) {
+				LoadQR(mcCustomDialogGalaxySignIn);
 			}
 			
+			if(mcCustomDialogReminder)
+			{
+				LoadQR(mcCustomDialogReminder.mcQRPanel)
+			}
 		}
 		
 		protected function handleTfUrl()
@@ -819,53 +969,95 @@ package red.game.witcher3.menus.mainmenu
 			dispatchEvent( new GameEvent( GameEvent.CALL, "OnVisitSignInPage" ) );
 		}
 		
-		
-		
-		public function setDataTelemetryModalWindow(data:Object):Boolean
+		public function setMarketingWindow(data:Object):Boolean
 		{
-			if (!data || !mcCustomDialogTelemetry)
+			if ( !data )
 			{
-				_consentPopupWasShown = false;
 				return false;
 			}
-			mcCustomDialogTelemetry.visible = true;
-			setMessageTextValue(mcCustomDialogTelemetry, "tfTelemetryTitle", data.tfTelemetryTitle, false, "", true);
-			setMessageTextValue(mcCustomDialogTelemetry, "tfTelemetryContent", data.tfTelemetryContent, false, "", true);
-			setMessageTextValue(mcCustomDialogTelemetry, "tfTelemetryContent2", data.tfTelemetryContent2, false);
-			setMessageTextValue(mcCustomDialogTelemetry, "tfTelemetryFooter", data.tfTelemetryFooter, false, "", true);
-			setMessageTextValue(mcCustomDialogTelemetry, "tfTelemetryFooter2", data.tfTelemetryFooter2, false, "", true);
-			
-			// get buttons
-			var acceptButton:InputFeedbackButton = mcCustomDialogTelemetry.getChildByName("mcAcceptButton") as InputFeedbackButton;
-			var cancelButton:InputFeedbackButton = mcCustomDialogTelemetry.getChildByName("mcCancelButton") as InputFeedbackButton;
-			if (!acceptButton || !cancelButton)	{
-				_consentPopupWasShown = false;
+			var customDialog : MovieClip = getCustomDialogByIndex( 6 );
+			if ( !customDialog )
+			{
 				return false;
 			}
-
-			// setup accept
-			acceptButton.visible = true;
-			acceptButton.clickable = true;
-			acceptButton.label = "[[ui_gog_tel_consent_yes]]";
-			acceptButton.setShiftForGamepad(15, 0);
-			acceptButton.setDataFromStage(NavigationCode.GAMEPAD_A, KeyCode.ENTER);
-			acceptButton.addEventListener(ButtonEvent.PRESS, feedbackTelemetryDialogAccept, false, 0, true);
-			acceptButton.validateNow();
-			
-			// setup cancel
-			cancelButton.visible = true;
-			cancelButton.clickable = true;
-			cancelButton.label = "[[ui_gog_tel_consent_no]]";
-			cancelButton.setShiftForGamepad(29, 4);
-			cancelButton.setDataFromStage(NavigationCode.GAMEPAD_B, KeyCode.ESCAPE);
-			cancelButton.addEventListener(ButtonEvent.PRESS, feedbackTelemetryDialogCancel, false, 0, true);
-			cancelButton.validateNow();
-			
-			_consentPopupWasShown = true;
-			dispatchEvent(new GameEvent( GameEvent.CALL, 'OnConsentPopupWasShown', [ _consentPopupWasShown ] ));
+			var marketingWindow : CheckboxListPopup = customDialog as CheckboxListPopup;
+			if(marketingWindow)
+			{
+				marketingWindow.data = data;
+			}
+			addToPopupQueue(customDialog);
 			
 			return true;
+		}
+
+		public function setLicenseAgreementWindow(data:Object):Boolean
+		{
+			if ( !data )
+			{
+				return false;
+			}
+			var customDialog : MovieClip = getCustomDialogByIndex( 7 );
+			if ( !customDialog )
+			{
+				return false;
+			}
+			var laWindow : W3LicenseAgreementPopup = customDialog as W3LicenseAgreementPopup;
+			if(laWindow)
+			{
+				laWindow.data = data;
+				laWindow.btnAccept.addEventListener(ButtonEvent.PRESS, onLAButtonAcceptClicked, false, 0, true);
+				laWindow.btnDecline.addEventListener(ButtonEvent.PRESS, onLAButtonDeclineClicked, false, 0, true);
+			}
+			addToPopupQueue(customDialog);
 			
+			return true;
+		}
+
+		public function setRedReminderWindow(data:Object):Boolean
+		{
+			if ( !data )
+			{
+				return false;
+			}
+			var customDialog : MovieClip = getCustomDialogByIndex( 8 );
+			if ( !customDialog )
+			{
+				return false;
+			}
+			if(customDialog)
+			{
+				var title : String = CommonUtils.toUpperCaseSafe( data.TextTitle);
+				setMessageTextValue(customDialog, "txtTitle", title, false, "", true);
+				setMessageTextValue(customDialog, "txtMessage", data.TextContent, false, "", true);
+				setMessageTextValue(customDialog, "txtPcLoginInfo", data.TextLoginInfo, false, "", true);
+				setMessageTextValue(customDialog.mcQRPanel, "txtSignin", data.TextSignIn, false, "", true);
+
+				_reminderIsPlatformPC = data.isPlatformPC;
+
+				customDialog.mcQRPanel.visible = !data.isPlatformPC;
+				customDialog.txtPcLoginInfo.visible = data.isPlatformPC;
+
+				customDialog.x = (1920 - customDialog.mcBackground.width)/2;
+				customDialog.y = (1080 - customDialog.mcBackground.height)/2;
+
+				var okButton = customDialog.getChildByName("btnOkay");
+
+				okButton.visible = true; //<--required to scroll down!
+				okButton.clickable = true;
+				okButton.label = "[[panel_common_cancel]]";
+				okButton.setDataFromStage(NavigationCode.GAMEPAD_B, KeyCode.ESCAPE);
+				okButton.addEventListener(ButtonEvent.PRESS, onReminderOkClicked, false, 0, false);
+				okButton.validateNow();
+
+				var QrCodeLoader:W3UILoader = customDialog.mcQRPanel.getChildByName("mcQrCodeLoader") as W3UILoader;
+				if (QrCodeLoader) {
+					QrCodeLoader.visible = false;
+					QrCodeLoader.source = "";
+				}
+			}
+			addToPopupQueue(customDialog);
+			
+			return true;
 		}
 		
 		private function feedbackViewTerms(event : ButtonEvent):void
@@ -886,35 +1078,42 @@ package red.game.witcher3.menus.mainmenu
 				termsBorder.visible = false;
 			}
 			termsButton.visible = false;
-			return;
 			
 			// in case we need that
-			termsButton.visible = true;
-			termsButton.clickable = true;
-			termsButton.label = "[[ui_gog_button_terms]]";
-			termsButton.setDataFromStage(NavigationCode.GAMEPAD_Y, KeyCode.T);
-			termsButton.addEventListener(ButtonEvent.PRESS,feedbackViewTerms,false,0,false);
-			termsButton.validateNow();
+			// termsButton.visible = true;
+			// termsButton.clickable = true;
+			// termsButton.label = "[[ui_gog_button_terms]]";
+			// termsButton.setDataFromStage(NavigationCode.GAMEPAD_Y, KeyCode.T);
+			// termsButton.addEventListener(ButtonEvent.PRESS,feedbackViewTerms,false,0,false);
+			// termsButton.validateNow();
 			
 		}
 
-		private function feedbackTelemetryDialogAccept(event : ButtonEvent):void
+		private function onLAButtonAcceptClicked(event : ButtonEvent):void
 		{
-			if (mcCustomDialogTelemetry)
+			if(mcCustomDialogLicenseAgreement.hasScrolledDownFully())
 			{
-				mcCustomDialogTelemetry.visible = false;
-				_telemetryConsent = true;
-				dispatchEvent(new GameEvent( GameEvent.CALL, 'OnTelemetryConsentChanged', [ _telemetryConsent ] ));	
+				mcCustomDialogLicenseAgreement.visible = false;
+				mcCustomDialogLicenseAgreement.tryAcceptFromOutside();
+				showNextPopup();
 			}
 		}
-		
-		private function feedbackTelemetryDialogCancel(event : ButtonEvent):void
+
+		private function onLAButtonDeclineClicked(event : ButtonEvent):void
 		{
-			if (mcCustomDialogTelemetry)
+			if(mcCustomDialogLicenseAgreement.hasScrolledDownFully())
 			{
-				mcCustomDialogTelemetry.visible = false;
-				_telemetryConsent = false;
-				dispatchEvent(new GameEvent( GameEvent.CALL, 'OnTelemetryConsentChanged', [ _telemetryConsent ] ));	
+				
+			}
+		}
+
+		private function onReminderOkClicked(event : ButtonEvent):void
+		{
+			if(mcCustomDialogReminder.visible)
+			{
+				dispatchEvent(new GameEvent( GameEvent.CALL, 'OnGalaxyQRSignInCancel' ));	
+				showNextPopup();
+				mcCustomDialogReminder.visible = false;
 			}
 		}
 		
@@ -927,7 +1126,7 @@ package red.game.witcher3.menus.mainmenu
 			
 			closeGalaxySignInDialog();
 			
-			mcErrorDialog.visible = true;
+			addToPopupQueue(mcErrorDialog);
 			
 			setMessageTextValue(mcErrorDialog, "tfTitleError", data.tfTitleError, false);
 			setMessageTextValue(mcErrorDialog, "tfDescription", data.tfDescription, false);
@@ -938,10 +1137,11 @@ package red.game.witcher3.menus.mainmenu
 				return false;
 			}
 			
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 			tryButton.visible = true;
 			tryButton.clickable = true;
 			tryButton.label = "[[ui_gog_error_close_button]]";
-			tryButton.setDataFromStage(NavigationCode.GAMEPAD_X, KeyCode.ENTER);
+			tryButton.setDataFromStage(isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.ENTER);
 			tryButton.addEventListener(ButtonEvent.PRESS,feedbackErrorHandling,false,0,false);
 			tryButton.validateNow();
 		}
@@ -954,11 +1154,8 @@ package red.game.witcher3.menus.mainmenu
 			}
 		}
 		
-		private function feedbackRewardsWindow(event : ButtonEvent):void
+		private function handleMyRewardsAccept(event : ButtonEvent):void
 		{
-			if (mcRewardsTable) {
-				mcRewardsTable.visible = false;
-			}
 			if (mcCloudSavesModalDialog) {
 				mcCloudSavesModalDialog.visible = false;
 			}
@@ -967,133 +1164,21 @@ package red.game.witcher3.menus.mainmenu
 			if (mcInputFeedbackModule) {
 				mcInputFeedbackModule.setVisibility(true);
 			}
+
+			showNextPopup();
 		}
 
-		private function setRewardCellContents(cellName:String, vis:Boolean, title:String, desc:String ):void
+		private function handleMyRewardsSignOut(event : ButtonEvent):void
 		{
-			var targetTextField:TextField;
-			
-			// two texts
-			targetTextField = mcRewardsTable.getChildByName("tf" + cellName + "desc") as TextField;
-			if (targetTextField) {
-				targetTextField.visible = vis;
-				if (vis) {
-					if(CoreComponent.isArabicAligmentMode)
-						targetTextField.htmlText =  "<p align=\"right\">" + "[[ui_gog_reward_" + desc + "]]" + "</p>";
-					else
-						targetTextField.htmlText =  "<p align=\"left\">" + "[[ui_gog_reward_" + desc + "]]" + "</p>";
-				}
-			}
-			targetTextField = mcRewardsTable.getChildByName("tf" + cellName + "title") as TextField;
-			if (targetTextField) {
-				targetTextField.visible = vis;
-				if (vis) {
-					var format:TextFormat = new TextFormat();
-					
-					if(CoreComponent.isArabicAligmentMode)
-					{
-						targetTextField.htmlText = "<p align=\"right\">" + "[[ui_gog_reward_" + title + "]]" + "</p>";
-						format.font = "$NormalFont";
-					}
-					else
-					{
-						targetTextField.htmlText = "<p align=\"left\">" + "[[ui_gog_reward_" + title + "]]" + "</p>";
-						format.font = "$BoldFont";
-					}
-					
-					targetTextField.setTextFormat(format);
-				}
-			}
+			dispatchEvent( new GameEvent( GameEvent.CALL, "OnGalaxyUnlinkAccounts" ) );
 
-			// icon
-			var IconLoader : W3UILoader = mcRewardsTable.getChildByName("mc" + cellName + "loader") as W3UILoader;
-			if (IconLoader) {
-				IconLoader.visible = vis;
-				if (vis) {
-					IconLoader.source = "img://icons/inventory/armors/gog_rwd_" + title + ".png";
-				}
-			}
-			
-			// background
-			var targetBack : DisplayObject = mcRewardsTable.getChildByName("tf" + cellName + "back") as DisplayObject;
-			if (targetBack) {
-				targetBack.visible = vis;
-			}
-		}
-		
-		public function setGalaxyRewardsWindow(data:Object)
-		{
-			if (!data || !mcRewardsTable)
-			{
-				return false;
-			}
-			mcRewardsTable.visible = true;
-			
-			// headers
-			setMessageTextValue(mcRewardsTable, "tfTitleRewards", data.tfTitleRewards, true);
-			setMessageTextValue(mcRewardsTable, "tfTitleLink", data.tfTitleLink, false);
-			setMessageTextValue(mcRewardsTable, "tfTopDescription", data.tfTopDescription, false);
-			setMessageTextValue(mcRewardsTable, "tfRoachDescription", data.tfRoachDescription, false);
-
-			// cells
-			setRewardCellContents("Cell_1_1", data.bCell_1_1on, data.tfCell_1_1title, data.tfCell_1_1desc);
-			setRewardCellContents("Cell_1_2", data.bCell_1_2on, data.tfCell_1_2title, data.tfCell_1_2desc);
-			setRewardCellContents("Cell_2_1", data.bCell_2_1on, data.tfCell_2_1title, data.tfCell_2_1desc);
-			setRewardCellContents("Cell_2_2", data.bCell_2_2on, data.tfCell_2_2title, data.tfCell_2_2desc);
-			setRewardCellContents("Cell_3_1", data.bCell_3_1on, data.tfCell_3_1title, data.tfCell_3_1desc);
-			setRewardCellContents("Cell_3_2", data.bCell_3_2on, data.tfCell_3_2title, data.tfCell_3_2desc);
-			setRewardCellContents("Cell_4_1", data.bCell_4_1on, data.tfCell_4_1title, data.tfCell_4_1desc);
-			setRewardCellContents("Cell_4_2", data.bCell_4_2on, data.tfCell_4_2title, data.tfCell_4_2desc);
-			setRewardCellContents("Cell_5_1", data.bCell_5_1on, data.tfCell_5_1title, data.tfCell_5_1desc);
-			setRewardCellContents("Cell_5_2", data.bCell_5_2on, data.tfCell_5_2title, data.tfCell_5_2desc);
-			
-			// OK button
-			var tryButton : InputFeedbackButton = mcRewardsTable.getChildByName("mcTryButton") as InputFeedbackButton;
-			if (!tryButton)	{
-				return false;
-			}
-			tryButton.visible = true;
-			tryButton.clickable = true;
-			tryButton.label = "[[panel_common_accept]]";
-			tryButton.x = 1276;
-			tryButton.setShiftForGamepad(20, 0);
-			tryButton.setDataFromStage(NavigationCode.GAMEPAD_A, KeyCode.ENTER);
-			tryButton.addEventListener(ButtonEvent.PRESS,feedbackRewardsWindow,false,0,false);
-			tryButton.validateNow();
-			
-			// Unlink
-			if(_platform != PlatformType.PLATFORM_PC){
-				var unlinkButton : InputFeedbackButton = mcRewardsTable.getChildByName("mcUnlinkButton") as InputFeedbackButton;
-				if (!unlinkButton)	{
-					return false;
-				}
-				unlinkButton.visible = true;
-				unlinkButton.clickable = true;
-				unlinkButton.label = "[[ui_gog_button_signout]]";
-				unlinkButton.setDataFromStage(NavigationCode.GAMEPAD_X, KeyCode.Q);
-				unlinkButton.addEventListener(ButtonEvent.PRESS,feedbackRewardsWindow,false,0,false);
-				unlinkButton.validateNow();
-			}
-			
-			// Terms
-			setupTermsButton(mcRewardsTable);
-
-			// nav buttons overlap with botton ones
-			hideNavButtonsMainMenu();
-			
-			// misalignments of borders
-			var acceptBorder : DisplayObject= mcRewardsTable.getChildByName("brTryBorder") as DisplayObject;
-			if (acceptBorder) {
-				acceptBorder.visible = false;
-			}
-			var unlinkBorder : DisplayObject= mcRewardsTable.getChildByName("brUnlinkBorder") as DisplayObject;
-			if (unlinkBorder) {
-				unlinkBorder.visible = false;
-			}
+			handleMyRewardsAccept(null);
 		}
 		
 		private function hideNavButtonsMainMenu():void
 		{
+			trace("IngameMenu::hideNavButtonsMainMenu");
+
 			// hide extra hints
 			if (mcInputFeedbackModule) {
 				_hidNavButtUse     = mcInputFeedbackModule.removeButton(ACTION_USE, true);
@@ -1104,7 +1189,6 @@ package red.game.witcher3.menus.mainmenu
 				mcInputFeedbackModule.removeButton(ACTION_X, true);
 				mcInputFeedbackModule.removeButton(ACTION_CLOSE, true);
 			}
-
 		}
 
 		private function showNavButtonsMainMenu():void
@@ -1117,21 +1201,14 @@ package red.game.witcher3.menus.mainmenu
 				mcInputFeedbackModule.appendButton(ACTION_SCROLL, NavigationCode.GAMEPAD_L3, -1, "[[panel_button_common_navigation]]", true);
 			}
 			if (_hidNavButtProfile) {
-				mcInputFeedbackModule.appendButton(ACTION_Y, NavigationCode.GAMEPAD_Y, -1, "[[panel_button_common_choose_profile]]", true);
+				var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+				mcInputFeedbackModule.appendButton(ACTION_Y, isSwitchPlatform ? NavigationCode.GAMEPAD_X : NavigationCode.GAMEPAD_Y, -1, "[[panel_button_common_choose_profile]]", true);
 			}
 		}
 
-		private function showNavButtonsSaves():void
+		public function showMainMenuButtonPanel( show : Boolean ) : void
 		{
-			if (_hidNavButtUse) {
-				mcInputFeedbackModule.appendButton(ACTION_USE, NavigationCode.GAMEPAD_A, KeyCode.E, "[[panel_button_common_select]]", true);
-			}
-			if (_hidNavButtStick) {
-				mcInputFeedbackModule.appendButton(ACTION_SCROLL, NavigationCode.GAMEPAD_L3, -1, "[[panel_button_common_navigation]]", true);
-			}
-			if (_hidNavButtProfile) {
-				mcInputFeedbackModule.appendButton(ACTION_Y, NavigationCode.GAMEPAD_Y, -1, "[[panel_button_common_choose_profile]]", true);
-			}
+			mcInputFeedbackModule.visible = show;
 		}
 		
 		private function feedbackTermsOfUse(event : ButtonEvent):void
@@ -1139,6 +1216,7 @@ package red.game.witcher3.menus.mainmenu
 			if (mcTermsOfUseDialog)
 			{
 				mcTermsOfUseDialog.visible = false;
+				showNextPopup();
 			}
 		}
 
@@ -1167,7 +1245,7 @@ package red.game.witcher3.menus.mainmenu
 			// main contents
 			setMessageTextValue(mcTermsOfUseDialog, "tfTitleTerms", "[[ui_gog_terms_use_title]]", false);
 			setMessageTextValue(mcTermsOfUseDialog, "tfTermsBigText", chooseTermsOfUseText(), false, "", true);
-			mcTermsOfUseDialog.visible = true;
+			addToPopupQueue(mcTermsOfUseDialog);
 
 			// single button
 			acceptButton.visible = true;
@@ -1198,12 +1276,11 @@ package red.game.witcher3.menus.mainmenu
 		
 		private function feedbackErrorHandling(event : ButtonEvent):void
 		{
-			
 			if (mcErrorDialog)
 			{
 				mcErrorDialog.visible = false;
+				showNextPopup();
 			}
-			
 		}
 
 		private function showNextCustomDialog()
@@ -1225,6 +1302,11 @@ package red.game.witcher3.menus.mainmenu
 			{
 				showBigMessage( customDialog );
 			}
+		}
+		
+		public function setOunceGamepadType( onceType : int ):void
+		{
+			updateSwitchHoldMode(onceType);
 		}
 		
 		private function showBigMessage( customDialog : MovieClip )
@@ -1333,9 +1415,7 @@ package red.game.witcher3.menus.mainmenu
 		{
 			var targetTextField:TextField;
 			var mcParent:MovieClip;
-			
-				
-			
+
 			if (parentName == "")
 			{
 				
@@ -1381,24 +1461,26 @@ package red.game.witcher3.menus.mainmenu
 		protected function showBigMessageFinished1( event : ButtonEvent ) : void
 		{
 			closeCustomDialog( 1 );
+			showNextPopup();
 		}
 
 		protected function showBigMessageFinished2( event : ButtonEvent ) : void
 		{
 			closeCustomDialog( 2 );
+			showNextPopup();
 		}
 		
 		protected function showBigMessageFinished3( event : ButtonEvent ) : void
 		{
 			closeCustomDialog( 3 );
+			showNextPopup();
 		}
 		
 		protected function showBigMessageFinished4( event : ButtonEvent ) : void
 		{
 			GalaxyQRSignInCancel();
 		}
-		
-		
+
 		private var _fontLoadTimer:Timer;
 		private var _fontLoadDelay:Number = 1000;
 		public function updateInputFeedback():void
@@ -1407,6 +1489,12 @@ package red.game.witcher3.menus.mainmenu
 			{
 				mcInputFeedbackModule.buttonsContainer.visible = false;
 			}
+
+			if ( mcUserNamePanel )
+			{
+				mcUserNamePanel.HACK_languageUpdateStart();
+			}
+
 			if (!_fontLoadTimer)
 			{
 				_fontLoadTimer = new Timer(_fontLoadDelay);
@@ -1424,10 +1512,21 @@ package red.game.witcher3.menus.mainmenu
 				_fontLoadTimer.removeEventListener(TimerEvent.TIMER, delayedUpdateInputFeedback, false);
 				_fontLoadTimer = null;
 			}
+
 			if (mcInputFeedbackModule)
 			{
 				mcInputFeedbackModule.refreshButtonList();
 				mcInputFeedbackModule.buttonsContainer.visible = true;
+			}
+
+			if ( mcUserNamePanel )
+			{
+				mcUserNamePanel.HACK_languageUpdateEnd();
+			}
+
+			if ( mcMyRewardsPanel )
+			{
+				mcMyRewardsPanel.HACK_languageUpdateEnd();
 			}
 		}
 		
@@ -1464,7 +1563,7 @@ package red.game.witcher3.menus.mainmenu
 			GTweener.to(this, SHOW_ANIM_DURATION, { alpha:1 },  { ease: Exponential.easeOut, onComplete:handleShowAnimComplete } );
 		}
 		
-		override protected function hideAnimation():void
+		override public function hideAnimation():void
 		{
 			if (!_hideAnimationPlaying)
 			{
@@ -1490,7 +1589,7 @@ package red.game.witcher3.menus.mainmenu
 				txtUserName.text = name;
 			}
 		}
-		
+
 		public function setVersion(version:String):void
 		{
 			if (txtVersion)
@@ -1586,9 +1685,19 @@ package red.game.witcher3.menus.mainmenu
 			menuListModule.setListData( data, selectionIndex );
 		}
 		
-		public function activateMenuListItem():void
+		public function activateMenuListItem( index:int = -1 ):void
 		{
-			var renderer : BaseListItem =  menuListModule.mcList.getRendererAt(menuListModule.mcList.selectedIndex) as BaseListItem;
+			if ( index == -1 )
+			{
+				index = menuListModule.mcList.selectedIndex;
+			}
+
+			var firstIndex:int = 0;
+			if(menuListModule.mcList.getRenderers() && menuListModule.mcList.getRenderers().length > 0) //#LT fix for when we have more data objects than renderers
+			{
+				firstIndex = menuListModule.mcList.getRenderers()[0].index;
+			}
+			var renderer : BaseListItem =  menuListModule.mcList.getRendererAt( index - firstIndex ) as BaseListItem;
 			if (!renderer || !renderer.data)
 			{
 				return;
@@ -1597,7 +1706,11 @@ package red.game.witcher3.menus.mainmenu
 			if ( ( mcCustomDialogEp1 != null && mcCustomDialogEp1.visible ) ||
 			     ( mcCustomDialogEp2 != null && mcCustomDialogEp2.visible ) ||
 				 ( mcCustomDialogGOTY != null && mcCustomDialogGOTY.visible ) ||
-				 ( mcCustomDialogGalaxySignIn != null && mcCustomDialogGalaxySignIn.visible) )
+				 ( mcCustomDialogGalaxySignIn != null && mcCustomDialogGalaxySignIn.visible) ||
+				 ( mcCustomDialogMod != null && mcCustomDialogMod.visible ) ||
+				 ( mcCustomDialogMarketing != null && mcCustomDialogMarketing.visible) ||
+				 ( mcCustomDialogLicenseAgreement != null && mcCustomDialogLicenseAgreement.visible ) ||
+				 ( mcCustomDialogReminder != null && mcCustomDialogReminder.visible) )
 			{
 				return;
 			}
@@ -1622,6 +1735,7 @@ package red.game.witcher3.menus.mainmenu
 				handleNavigateBack();
 				if (type == IGMActionType_Back)
 				{
+					showBardsBalladTooltip(false);
 					dispatchEvent( new GameEvent( GameEvent.CALL, 'OnItemActivated', [type, tag] ) );
 					return;
 				}
@@ -1634,7 +1748,7 @@ package red.game.witcher3.menus.mainmenu
 		}
 		
 		override protected function handleInputNavigate(event:InputEvent):void
-		{			
+		{
 			if (!visible || _ignoreInput )
 			{
 				event.handled = true;
@@ -1644,22 +1758,49 @@ package red.game.witcher3.menus.mainmenu
 			var details:InputDetails = event.details;
             var keyUp:Boolean = (details.value == InputValue.KEY_UP);
 			var keyDown:Boolean = (details.value == InputValue.KEY_DOWN);
-			
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+			var isSwitch2Mouser : Boolean = InputManager.getInstance().gamepadType == EInputDeviceType.IDT_Switch2_Mouser;
+
+			if(switchFeaturesPopUp != null && switchFeaturesPopUp.isSwitchFeaturesPopUpOpen)
+			{
+				if(keyUp && ((details.code == KeyCode.RIGHT) || (!isSwitch2Mouser && details.navEquivalent == NavigationCode.GAMEPAD_R1)))
+				{
+					switchFeaturesPopUp.openNextSwitchFeatureTab();
+					event.handled = true;
+					return;
+				}
+				else if(keyUp && ((details.code == KeyCode.LEFT) || (!isSwitch2Mouser && details.navEquivalent == NavigationCode.GAMEPAD_L1)))
+				{
+					switchFeaturesPopUp.openPreviousSwitchFeatureTab();
+					event.handled = true;
+					return;
+				}
+				else if(keyUp && (details.code == KeyCode.ESCAPE || details.navEquivalent == NavigationCode.GAMEPAD_B))
+				{
+					switchFeaturesPopUp.closeSwitchFeaturePopUpMenu();
+					event.handled = true;
+					return;
+				}
+				return;
+			}
+
 			if (mcCustomDialogEp1 != null && mcCustomDialogEp1.visible)
 			{
 				if (keyUp && (details.navEquivalent == NavigationCode.GAMEPAD_A || details.code == KeyCode.SPACE || details.code == KeyCode.E))
 				{
 					closeCustomDialog( 1 );
+					showNextPopup();
 				}
-				
 				event.handled = true;
 				return;
 			}
+
 			if (mcCustomDialogEp2 != null && mcCustomDialogEp2.visible)
 			{
 				if (keyUp && (details.navEquivalent == NavigationCode.GAMEPAD_A || details.code == KeyCode.SPACE || details.code == KeyCode.E))
 				{
 					closeCustomDialog( 2 );
+					showNextPopup();
 				}
 				
 				event.handled = true;
@@ -1672,6 +1813,7 @@ package red.game.witcher3.menus.mainmenu
 				if (keyUp && (details.navEquivalent == NavigationCode.GAMEPAD_A || details.code == KeyCode.SPACE || details.code == KeyCode.E  || details.code == KeyCode.ESCAPE ))
 				{
 					closeCustomDialog( 3 );
+					showNextPopup();
 				}
 				
 				event.handled = true;
@@ -1680,9 +1822,13 @@ package red.game.witcher3.menus.mainmenu
 			
 			if (mcErrorDialog != null && mcErrorDialog.visible)
 			{
-				if (keyUp && (details.navEquivalent == NavigationCode.GAMEPAD_X || details.code == KeyCode.ENTER))
+				if (keyUp &&
+					(details.code == KeyCode.ENTER ||
+					(isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y) ||		// Y on switch
+					(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X)))		// X on other platforms
 				{
 					mcErrorDialog.visible = false;
+					showNextPopup();
 				}
 				event.handled = true;
 				return;
@@ -1690,9 +1836,13 @@ package red.game.witcher3.menus.mainmenu
 			
 			if (mcTermsOfUseDialog != null && mcTermsOfUseDialog.visible)
 			{
-				if (keyUp && (details.navEquivalent == NavigationCode.GAMEPAD_X || details.code == KeyCode.ENTER))
+				if (keyUp &&
+					(details.code == KeyCode.ENTER ||
+					(isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y) ||		// Y on switch
+					(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X)))		// X on other platforms
 				{
 					mcTermsOfUseDialog.visible = false;
+					showNextPopup();
 				}
 				event.handled = true;
 				return;
@@ -1704,53 +1854,98 @@ package red.game.witcher3.menus.mainmenu
 				{
 					GalaxyQRSignInCancel();
 				}
-				if (keyUp && (details.navEquivalent == NavigationCode.GAMEPAD_Y || details.code == KeyCode.T))
+
+				if (keyUp &&
+					((isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X) || // X on switch
+					(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y) || // Y on other platforms
+					details.code == KeyCode.T))
 				{
 					setTermsOfUseWindow(null);
 				}
 				event.handled = true;
 				return;
 			}
-			
-			if (mcCustomDialogTelemetry != null && mcCustomDialogTelemetry.visible)
+
+						
+			if (mcCustomDialogMarketing != null && mcCustomDialogMarketing.visible)
 			{
-				if (keyUp && (details.navEquivalent == NavigationCode.GAMEPAD_B || details.code == KeyCode.ESCAPE))
+				if (keyUp &&
+					(details.navEquivalent == NavigationCode.GAMEPAD_B ||
+					 details.code == KeyCode.ENTER ||
+					 details.code == KeyCode.ESCAPE ||
+					 details.navEquivalent == NavigationCode.GAMEPAD_A ||
+					 details.code == KeyCode.F ||
+					(isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X) ||	// X on switch
+					(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y)))	// Y on other platforms
 				{
-					mcCustomDialogTelemetry.visible = false;
-					_telemetryConsent = false;
-					dispatchEvent(new GameEvent( GameEvent.CALL, 'OnTelemetryConsentChanged', [ _telemetryConsent ] ));	
+					if(details.code != KeyCode.SPACE || details.navEquivalent != NavigationCode.GAMEPAD_A) 
+					{
+						//#LT Note: event dispatching is handled internally in the BasePopup, and then the recommended action is taken in WS
+						//#LT that is not true, it may happen that the event dispatching is not handled, so triggering it twice
+						dispatchEvent( new GameEvent( GameEvent.CALL, 'OnInputHandled', [details.navEquivalent, (uint)(details.code), 0] ) ); //actionId is not properly readable from here, but should not matter either
+						mcCustomDialogMarketing.visible = false;
+						showNextPopup();
+					}
 				}
-				
-				if (keyUp && (details.navEquivalent == NavigationCode.GAMEPAD_A || details.code == KeyCode.E ))
-				{
-					mcCustomDialogTelemetry.visible = false;
-					_telemetryConsent = true;
-					dispatchEvent(new GameEvent( GameEvent.CALL, 'OnTelemetryConsentChanged', [ _telemetryConsent ] ));
-				}
-				
 				event.handled = true;
-				return;	
+				return;
+			}
+
+			if (mcCustomDialogLicenseAgreement != null && mcCustomDialogLicenseAgreement.visible)
+			{
+				if (keyUp && mcCustomDialogLicenseAgreement.hasScrolledDownFully()
+				&& (details.code == KeyCode.ENTER || details.navEquivalent == NavigationCode.GAMEPAD_A))
+				{
+					//#LT Note: event dispatching is handled internally in the BasePopup, and then the recommended action is taken in WS
+					mcCustomDialogLicenseAgreement.visible = false;
+					mcCustomDialogLicenseAgreement.tryAcceptFromOutside();
+					showNextPopup();
+				}
+				else if (keyUp && mcCustomDialogLicenseAgreement.hasScrolledDownFully()
+				&& (details.navEquivalent == NavigationCode.GAMEPAD_B || details.code == KeyCode.ESCAPE))
+				{
+					//#LT: maybe do something?? shake screen, reinitalize this window, whatever?
+				}
+				event.handled = true;
+				return;
+			}
+
+			if (mcCustomDialogReminder != null && mcCustomDialogReminder.visible)
+			{
+				if (keyUp && (details.code == KeyCode.ESCAPE || details.navEquivalent == NavigationCode.GAMEPAD_B))
+				{
+					GalaxyQRSignInCancel();
+					showNextPopup();
+				}
+				event.handled = true;
+				return;
+			}
+
+			if (mcCustomDialogMod != null && mcCustomDialogMod.visible)
+			{
+				if (keyUp &&
+					(details.navEquivalent == NavigationCode.GAMEPAD_B ||
+					details.code == KeyCode.SPACE ||
+					details.code == KeyCode.ESCAPE ||
+					details.navEquivalent == NavigationCode.GAMEPAD_A ||
+					details.code == KeyCode.E))
+				{
+					// This is super stupid, does this condition do anything at all??
+					if(details.code != KeyCode.SPACE || (details.navEquivalent != NavigationCode.GAMEPAD_A && details.navEquivalent != NavigationCode.GAMEPAD_X)) 
+					{
+						//#LT Note: event dispatching is handled internally in the BasePopup, and then the recommended action is taken in WS
+						mcCustomDialogMod.visible = false;
+						showNextPopup();
+					}
+				}
+				event.handled = true;
+				return;
 			}
 			
-			if (mcRewardsTable != null && mcRewardsTable.visible)
+			if ( mcMyRewardsPanel != null && mcMyRewardsPanel.visible )
 			{
-				if (keyUp && (details.navEquivalent == NavigationCode.GAMEPAD_A || details.code == KeyCode.ENTER))
-				{
-					mcRewardsTable.visible = false;
-				}
-				if (keyUp && (details.navEquivalent == NavigationCode.GAMEPAD_Y || details.code == KeyCode.T))
-				{
-					setTermsOfUseWindow(null);
-				}
-				if (keyUp && (details.navEquivalent == NavigationCode.GAMEPAD_X || details.code == KeyCode.Q) && _platform != PlatformType.PLATFORM_PC)
-				{
-					mcRewardsTable.visible = false;
-					dispatchEvent( new GameEvent( GameEvent.CALL, "OnGalaxyUnlinkAccounts" ) );
-				}
-				if (!mcRewardsTable.visible) 
-				{
-					showNavButtonsMainMenu();
-				}
+				mcMyRewardsPanel.handleInputNavigate(event);
+
 				event.handled = true;
 				return;
 			}
@@ -1761,8 +1956,13 @@ package red.game.witcher3.menus.mainmenu
 				{
 					mcCloudSavesModalDialog.visible = false;
 					mcInputFeedbackModule.setVisibility(true);
+					showNextPopup();
 				}
-				if (keyUp && (details.navEquivalent == NavigationCode.GAMEPAD_X || details.code == KeyCode.Q) && _platform != PlatformType.PLATFORM_PC)
+
+				if (keyUp &&
+					(details.code == KeyCode.Q ||
+					(isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y) ||		// Y on switch
+					(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X)))		// X on other platforms
 				{
 					mcCloudSavesModalDialog.visible = false;
 					dispatchEvent( new GameEvent( GameEvent.CALL, "OnGalaxyUnlinkAccounts" ) );
@@ -1798,38 +1998,41 @@ package red.game.witcher3.menus.mainmenu
 								event.handled = true;
 								activateMenuListItem();
 							}
-							break;
+						break;
 						case NavigationCode.GAMEPAD_B :
+							if (!inPanel && details.code)
 							{
-								if (!inPanel && details.code)
+								if (handleNavigateBack())
 								{
-									if (handleNavigateBack())
-									{
-										event.handled = true;
-									}
-									else if (!_isMainMenu)
-									{
-										hideAnimation();
-										event.handled = true;
-										event.stopImmediatePropagation();
-									}
+									event.handled = true;
+								}
+								else if (!_isMainMenu)
+								{
+									hideAnimation();
+									event.handled = true;
+									event.stopImmediatePropagation();
 								}
 							}
-							break;
+						break;
 						case NavigationCode.GAMEPAD_Y:
+							if( _platform == PlatformType.PLATFORM_XBOX1 && _isMainMenu )
 							{
-								if( _platform == PlatformType.PLATFORM_XBOX1 && _isMainMenu )
-								{
-									dispatchEvent( new GameEvent( GameEvent.CALL, 'OnProfileChange', [] ) );
-								}
+								dispatchEvent( new GameEvent( GameEvent.CALL, 'OnProfileChange', [] ) );
 							}
-							break;
+						break;
 					}
 				}
 			}
 			
 			if (!inPanel)
 			{
+				if ( mcAccountButtonPanel && mcAccountButtonPanel.visible && mcAccountButtonPanel.handleInputNavigate( event ) )
+				{
+					trace( "IngameMenu::handleInputNavigate mcAccountButtonPanel handled event : ", inPanel, event );
+					handleAccountButtonClickOrTap();
+				}
+
+				//Menu navigation
 				menuListModule.mcList.handleInput(event);
 			}
 			else
@@ -1843,8 +2046,38 @@ package red.game.witcher3.menus.mainmenu
 				mcUIRescaleModule.handleInputNavigate(event);
 				mcInstalledDLCModule.handleInputNavigate(event);
 			}
+		}		
+
+		public function updateSwitchHoldMode( currentmode : int)
+		{
+			if(mcSwitchHoldMode)
+			{
+				switch(currentmode)
+				{
+					// OunceGamepadStyle_FullKey = 1 pro contorller
+					case 1:
+						mcSwitchHoldMode.htmlText = "[[menu_panel_console_playstyle_procontroller]]";
+						mcSwitchHoldMode.gotoAndStop(10);
+						break;
+					// OunceGamepadStyle_Handheld = 2
+					case 2:
+						mcSwitchHoldMode.htmlText = "[[menu_panel_console_playstyle_handheld]]";
+						mcSwitchHoldMode.gotoAndStop(1);
+						break;
+					// OunceGamepadStyle_JoyDual = 3 DualGrip
+					case 3:
+						mcSwitchHoldMode.htmlText = "[[menu_panel_console_playstyle_dualgrip]]";
+						mcSwitchHoldMode.gotoAndStop(5);
+						break;
+					// OunceGamepadStyle_Mouser = 4
+					case 4:
+						mcSwitchHoldMode.htmlText = "[[menu_panel_console_playstyle_mousesensor]]";
+						mcSwitchHoldMode.gotoAndStop(15);
+						break;
+				}
+			}
 		}
-		
+
 		protected function handleOptionsSet(data:Array):void
 		{
 			var i:int;
@@ -1862,11 +2095,6 @@ package red.game.witcher3.menus.mainmenu
 			}
 			
 			refreshRootData();
-			
-			if (expansionIconsEnabled && mcExpansionIcons != null)
-			{
-				mcExpansionIcons.visible = false;
-			}
 			
 			inPanel = false;
 			previousEntries.push(menuListModule.mcList.dataProvider);
@@ -1892,11 +2120,14 @@ package red.game.witcher3.menus.mainmenu
 			{
 				if (inPanel)
 				{
-					handleNavigateBack();
+					handleNavigateBack(); 
 				}
 				
 				storeCurrentMenuState(renderer.data, false);
-				setListData(new DataProvider(renderer.data.subElements), renderer.data.id == "NewGame" ? 1 : 0);
+				if(renderer.data.subElements && renderer.data.subElements.length > 0 && renderer.data.subElements[0].id == "mainmenu_BardsBallad")
+					setListData(new DataProvider(renderer.data.subElements), 1);
+				else
+					setListData(new DataProvider(renderer.data.subElements), (renderer.data.id == "NewGame") ? 1 : 0);
 				
 				mcInputFeedbackModule.appendButton(ACTION_USE, NavigationCode.GAMEPAD_A, KeyCode.E, "[[panel_button_common_select]]", true);
 				mcInputFeedbackModule.appendButton(ACTION_CLOSE, NavigationCode.GAMEPAD_B, -1, "[[panel_mainmenu_back]]", true);
@@ -1926,32 +2157,24 @@ package red.game.witcher3.menus.mainmenu
 				break;
 			case IGMActionType_Options:
 				// This system is an optimization to NOT send all the options data since most of the time the user may never enter this menu and it is quite costly performance wise
+				if ( _platform == PlatformType.PLATFORM_SWITCH2 )
+				{
+					if (mcSwitchHoldMode)
+					{
+						mcSwitchHoldMode.visible = true;
+					}
+				}
 				if (!l_data.subElements || l_data.subElements.length == 0)
 				{
 					return false;
-				}
-				
-				break;
-			case IGMActionType_Gog:
-				/*if (mcInputFeedbackModule) 
-				{
-					mcInputFeedbackModule.removeButton(ACTION_USE, true);
-					mcInputFeedbackModule.removeButton(ACTION_CLOSE, true);
-					mcInputFeedbackModule.removeButton(ACTION_SCROLL, true);
-				}
-				*/
-								
-				return false;	
-				
-			case IGMActionType_TelemetryConsent:
-				mcInputFeedbackModule.appendButton(ACTION_USE, NavigationCode.GAMEPAD_A, KeyCode.E, "[[panel_button_common_select]]", true);
-				mcInputFeedbackModule.appendButton(ACTION_CLOSE, NavigationCode.GAMEPAD_B, -1, "[[panel_mainmenu_back]]", true);
-				if (mcBlackBackground) { mcBlackBackground.backgroundVisible = false; }
-				
-				return false;	
+				}		
+				break;				
 			case IGMActionType_MenuHolder:
 				storeCurrentMenuState(l_data, false);
-				setListData(new DataProvider(l_data.subElements), l_data.id == "NewGame" ? 1 : 0);
+				if(l_data.subElements && l_data.subElements.length > 0 && l_data.subElements[0].id == "mainmenu_BardsBallad")
+					setListData(new DataProvider(l_data.subElements), 1);
+				else
+					setListData(new DataProvider(l_data.subElements), (l_data.id == "NewGame") ? 1 : 0);
 				
 				mcInputFeedbackModule.appendButton(ACTION_USE, NavigationCode.GAMEPAD_A, KeyCode.E, "[[panel_button_common_select]]", true);
 				mcInputFeedbackModule.appendButton(ACTION_CLOSE, NavigationCode.GAMEPAD_B, -1, "[[panel_mainmenu_back]]", true);
@@ -1978,6 +2201,8 @@ package red.game.witcher3.menus.mainmenu
 				else
 				{
 					storeCurrentMenuState(l_data, true);
+
+					showBardsBalladTooltip(l_data.id == "option_accessibility");
 					
 					dispatchEvent( new GameEvent( GameEvent.CALL, 'OnItemActivated', [l_data.type, l_data.tag] ) );
 					
@@ -2028,12 +2253,7 @@ package red.game.witcher3.menus.mainmenu
 		}
 		
 		protected function storeCurrentMenuState(l_data:Object, param_inPanel:Boolean):void
-		{
-			if (expansionIconsEnabled && mcExpansionIcons != null)
-			{
-				mcExpansionIcons.visible = false;
-			}
-			
+		{		
 			inPanel = param_inPanel;
 			previousEntries.push(menuListModule.mcList.dataProvider);
 			previousContainers.push(l_data);
@@ -2096,8 +2316,8 @@ package red.game.witcher3.menus.mainmenu
 				dispatchEvent(new GameEvent( GameEvent.CALL, 'OnOptionPanelNavigateBack') );
 			}
 			
-			if(menuListModule){menuListModule.visible		= true;}
-			if (mcInputBackground) { mcInputBackground.visible 	= true; }
+			if (menuListModule) { menuListModule.visible = true; }
+			if (mcInputBackground) { mcInputBackground.visible = true; }
 			
 			if (mcOptionListModule) { mcOptionListModule.hide(); }
 			if (mcSaveSlotListModule) { mcSaveSlotListModule.hide(); }
@@ -2107,6 +2327,7 @@ package red.game.witcher3.menus.mainmenu
 			if (mcInstalledDLCModule) { mcInstalledDLCModule.hide(); }
 			if (mcHelpModule) { mcHelpModule.hide(); }
 			if (mcUIRescaleModule) { mcUIRescaleModule.hide(); }
+			//if (switchFeaturesPopUp) { switchFeaturesPopUp.closeSwitchFeaturePopUpMenu(); }
 			
 			SetCloudSaveVisibility(false);
 			
@@ -2115,11 +2336,6 @@ package red.game.witcher3.menus.mainmenu
 				//hideAnimation();
 				stage.visible = false;
 				closeMenu();
-				
-				if (expansionIconsEnabled && mcExpansionIcons != null && previousContainers.length == 0)
-				{
-					mcExpansionIcons.visible = true;
-				}
 				
 				return true;
 			}
@@ -2148,6 +2364,11 @@ package red.game.witcher3.menus.mainmenu
 				}
 				else
 				{
+					if ( _platform == PlatformType.PLATFORM_SWITCH2 && mcSwitchHoldMode )
+					{
+						mcSwitchHoldMode.visible = false;
+					}
+
 					menuListModule.titleText = "";
 					if (mcBlackBackground) { mcBlackBackground.backgroundVisible = false; }
 					if (!_isMainMenu)
@@ -2170,11 +2391,6 @@ package red.game.witcher3.menus.mainmenu
 				//{
 					if (mcBlackBackground) { mcBlackBackground.backgroundVisible = false; }
 				//}
-				
-				if (expansionIconsEnabled && mcExpansionIcons != null && previousContainers.length == 0)
-				{
-					mcExpansionIcons.visible = true;
-				}
 				
 				return true;
 			}
@@ -2253,6 +2469,14 @@ package red.game.witcher3.menus.mainmenu
 		
 		public function setIsMainMenu(value:Boolean):void
 		{
+			trace( "IngameMenu::setIsMainMenu : ", value );
+
+			if ( mcAccountButtonPanel ) mcAccountButtonPanel.visible = value;
+			if ( mcUserNamePanel )
+			{
+				mcUserNamePanel.setIsMainMenu( value );
+			} 
+
 			_isMainMenu = value;
 			if (!_isMainMenu)
 			{
@@ -2267,7 +2491,7 @@ package red.game.witcher3.menus.mainmenu
 				mcInputFeedbackModule.removeButton(ACTION_CLOSE);
 			}
 		}
-		
+
 		protected function handlePanelClosed(event:Event):void
 		{
 			handleNavigateBack();
@@ -2309,9 +2533,10 @@ package red.game.witcher3.menus.mainmenu
 				mcInputFeedbackModule.appendButton(ACTION_CLOSE, NavigationCode.GAMEPAD_B, -1, "[[panel_mainmenu_back]]", true);
 				if (data[0].id != "EMPTY" && data[0].cloudStatus != CST_CLOUD)
 				{
-					mcInputFeedbackModule.appendButton(ACTION_X, NavigationCode.GAMEPAD_X, KeyCode.DELETE, getDeleteSaveString(), true);
+					var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+					mcInputFeedbackModule.appendButton(ACTION_X, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.DELETE, getDeleteSaveString(), true);
 				}
-				SetCloudSaveVisibility( isCloudUserSignedIn );
+				SetCloudSaveVisibility( true );
 			}
 			else
 			{
@@ -2342,13 +2567,14 @@ package red.game.witcher3.menus.mainmenu
 				mcInputFeedbackModule.appendButton(ACTION_CLOSE, NavigationCode.GAMEPAD_B, -1, "[[panel_mainmenu_back]]", true);
 				if (data.length > 1 && data[0].id != "EMPTY" && data[0].cloudStatus != CST_CLOUD)
 				{
-					mcInputFeedbackModule.appendButton(ACTION_X, NavigationCode.GAMEPAD_X, KeyCode.DELETE, getDeleteSaveString(), true);
+					var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+					mcInputFeedbackModule.appendButton(ACTION_X, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.DELETE, getDeleteSaveString(), true);
 				}
 				else
 				{
 					mcInputFeedbackModule.removeButton(ACTION_X, true);
 				}
-				SetCloudSaveVisibility( isCloudUserSignedIn );
+				SetCloudSaveVisibility( true );
 			}
 			else
 			{
@@ -2444,7 +2670,8 @@ package red.game.witcher3.menus.mainmenu
 					}
 					else if (mcSaveSlotListModule.slotMode != SaveSlotListModule.SLOT_MODE_NEWGAME_PLUS)
 					{
-						mcInputFeedbackModule.appendButton(ACTION_X, NavigationCode.GAMEPAD_X, KeyCode.DELETE, getDeleteSaveString(), true);
+						var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+						mcInputFeedbackModule.appendButton(ACTION_X, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.DELETE, getDeleteSaveString(), true);
 					}
 				}
 			}
@@ -2461,6 +2688,11 @@ package red.game.witcher3.menus.mainmenu
 		{
 			mcSaveSlotListModule.onLoadingScreenshotComplete();	
 		}
+
+		public function onSetModioBorderVisibility(value:Boolean):void
+		{
+			mcSaveSlotListModule.onSetModioBorderVisibility(value);
+		}
 		
 		public function setGameLogoLanguage(  language : String ) : void
 		{
@@ -2469,27 +2701,10 @@ package red.game.witcher3.menus.mainmenu
 				menuListModule.setGameLogoLanguage( language );
 			}
 			
-			if ( mcExpansionIcons )
-			{
-				var heartsOfStoneImage:MovieClip = mcExpansionIcons.getChildByName("HeartsOfStoneImg") as MovieClip;
-				
-				if (heartsOfStoneImage)
-				{
-					heartsOfStoneImage.gotoAndStop(language);
-				}
-				
-				var bloodAndWineImage:MovieClip = mcExpansionIcons.getChildByName("BloodAndWineImg") as MovieClip;
-				
-				if (bloodAndWineImage)
-				{
-					bloodAndWineImage.gotoAndStop(language);
-				}
-			}
-			
 			if (mcCustomDialogEp1)
 			{
 				var heartsOfStoneImagePopup:MovieClip = mcCustomDialogEp1.getChildByName("HeartsOfStoneImg") as MovieClip;
-				if (heartsOfStoneImage)
+				if (heartsOfStoneImagePopup)
 				{
 					heartsOfStoneImagePopup.gotoAndStop(language);
 				}
@@ -2537,7 +2752,7 @@ package red.game.witcher3.menus.mainmenu
 			}
 		}
 		
-		protected function handleOptionValuesUpdated(optionsToUpdate:Object):void
+		protected function handleOptionPresetChanged(optionsToUpdate:Object):void
 		{
 			var optionsRoot:Object;
 			var targetOptionParent:Object;
@@ -2724,6 +2939,122 @@ package red.game.witcher3.menus.mainmenu
 				case AspectRatio.ASPECT_RATIO_UNDEFINED:
 					break;
 			}
+		}
+
+		public function showModdedTooltip( item:W3MenuListItemRenderer, show:Boolean )
+		{
+			if(show) {
+				mcModdedTooltip.visible = true;
+				mcModdedTooltip.x = menuListModule.x + item.x + item.width - 109; //<-- there is some offset from somewhere
+				mcModdedTooltip.y = menuListModule.y + item.y + (item.height - mcModdedTooltip.height) / 2 - 4;
+			}
+			else
+				mcModdedTooltip.visible = false;
+		}
+
+		public function /*WS*/ showModioLoadIndicator( value: Boolean )
+		{
+			mcLoadIndicator.visible = value;
+		}
+
+		private var logoLoadHandler			:	ModImageLoadHandler;
+		public function callLogoLoad(loader:W3UILoader, modid:String, resolution:String = ModImageData.ORIGINAL)
+		{
+			trace("GFX ############ callLogoLoad");
+			if(!logoLoadHandler) {
+				logoLoadHandler = new ModImageLoadHandler();
+				addChild(logoLoadHandler);
+			}
+
+			logoLoadHandler.addLoader(loader, modid, -1, resolution);
+		}
+
+		public function /*WitcherScript*/ handleImageLoaded(modid:String, resolution:String, caller:String, path:String, galleryIndex:int = -1 )
+		{
+			path = "img://" + path + ".modimg";
+
+			if(caller == "logo") 
+			{
+				logoLoadHandler.onImageLoaded(modid, resolution, path);
+			}
+		}
+
+		public function showBardsBalladTooltip(show:Boolean):void
+		{
+			cachedBalladTooltipVis = show;
+			if(cachedBalladTooltipText.length == 0)
+				show = false;
+			mcOptionListModule.tooltip.visible = show;
+		}
+
+		public function /*WS*/ updateBardsBalladText(newText:String):void
+		{
+			cachedBalladTooltipText = newText;
+			if (CoreComponent.isArabicAligmentMode)
+			{
+				mcOptionListModule.tooltip.textField.htmlText = "<p align=\"right\">" + newText + "</p>";
+			}
+			else
+			{
+				mcOptionListModule.tooltip.textField.htmlText = newText;
+			}
+
+			//Resizing
+			mcOptionListModule.tooltip.mcFrame.height = mcOptionListModule.tooltip.textField.textHeight + BALLAD_TOOLTIP_TEXT_MARGIN * 2 + BALLAD_TOOLTIP_FRAME_EXTRA;
+			mcOptionListModule.tooltip.textField.y = BALLAD_TOOLTIP_TEXT_MARGIN - 10; //originally placed 10 pixels below the frame start;
+
+			showBardsBalladTooltip(cachedBalladTooltipVis);
+		}
+
+		public function showMyRewardsPanel( unlockedIds : Array ) : void
+		{
+			trace("IngameMenu::showMyRewardsPanel");
+
+			showMainMenuButtonPanel( false );
+
+			mcMyRewardsPanel.visible = true;
+			mcMyRewardsPanel.setData( unlockedIds );
+			mcMyRewardsPanel.addEventListener( MyRewardsPanel.EVENT_RESULT_CLOSE, handleMyRewardsResultAccept, false, 0, true );
+			mcMyRewardsPanel.addEventListener( MyRewardsPanel.EVENT_RESULT_LOGOUT, handleMyRewardsResultLogOut, false, 0, true );
+		}
+
+		public function closeMyRewardsPanel( ) : void
+		{
+			trace("IngameMenu::closeMyRewardsPanel");
+
+			mcMyRewardsPanel.removeEventListener( MyRewardsPanel.EVENT_RESULT_CLOSE, handleMyRewardsResultAccept, false );
+			mcMyRewardsPanel.removeEventListener( MyRewardsPanel.EVENT_RESULT_LOGOUT, handleMyRewardsResultLogOut, false );
+			mcMyRewardsPanel.visible = false;
+
+			showMainMenuButtonPanel( true );
+		}
+
+		private function handleMyRewardsResultLogOut( ) : void
+		{
+			trace("IngameMenu::handleMyRewardsResultLogOut");
+
+			dispatchEvent( new GameEvent( GameEvent.CALL, "OnGalaxyUnlinkAccounts" ) );
+			closeMyRewardsPanel( );
+		}
+
+		private function handleMyRewardsResultAccept( ) : void
+		{
+			trace("IngameMenu::handleMyRewardsResultAccept");
+
+			closeMyRewardsPanel( );
+		}
+
+		private function handleAccountButtonClickOrTap( event : Event = null ) : void
+		{
+			trace( "IngameMenu::handleAccountButtonClickOrTap : ", event );
+
+			dispatchEvent( new GameEvent( GameEvent.CALL, "OnRedAccountButtonActivated" ) );
+		}
+
+		public function /*WitcherScript*/ showTelemetryDataRequestPopup( qrBufferId : String, description : String, url : String ) : void
+		{
+			trace( "IngameMenu::showTelemetryDataRequestPopup : ", url );
+			mcOptionListModule.showTelemetryDataRequestPopup( qrBufferId, description, url );
 		}
 	}
 }

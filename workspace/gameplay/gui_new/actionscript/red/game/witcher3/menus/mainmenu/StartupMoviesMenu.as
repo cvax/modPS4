@@ -8,18 +8,24 @@
 package red.game.witcher3.menus.mainmenu
 {
 	import flash.display.MovieClip;
+	import flash.events.GestureEvent;
+	import flash.events.GesturePhase;
+	import flash.events.TransformGestureEvent;
 	import flash.text.TextField;
+
+	import red.core.CoreMenu;
+	import red.core.constants.KeyCode;
+	import red.core.events.GameEvent;
+	import red.core.events.GestureEventEx;
 	import red.game.witcher3.controls.InputFeedbackButton;
 	import red.game.witcher3.controls.W3UILoader;
+	import red.game.witcher3.data.KeyBindingData;
+	import red.game.witcher3.managers.InputManager;
+
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.ui.InputDetails;
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
-	import red.core.constants.KeyCode;
-
-	import red.core.CoreMenu;
-	import red.core.events.GameEvent;
-	import red.game.witcher3.data.KeyBindingData;
 
 	public class StartupMoviesMenu extends CoreMenu
 	{
@@ -40,9 +46,7 @@ package red.game.witcher3.menus.mainmenu
 
 		override protected function get menuName():String
 		{
-			// Both these menus use same fla. Just uncomment the correct one before exporting
 			return "StartupMoviesMenu";
-			//return "RecapMoviesMenu";
 		}
 
 		override protected function configUI():void
@@ -50,6 +54,7 @@ package red.game.witcher3.menus.mainmenu
 			super.configUI();
 			upToCloseEnabled = false;
 			stage.addEventListener( InputEvent.INPUT, handleInput, false, 0, true );
+			stage.addEventListener( GestureEventEx.GESTURE_TAP, handleInputGestureTap );
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'startup.movies.buttons.setup', [handleSetupButtons]));
 			dispatchEvent( new GameEvent( GameEvent.CALL, "OnConfigUI" ) );
 			
@@ -70,6 +75,9 @@ package red.game.witcher3.menus.mainmenu
 			{
 				btnSkip.clickable = false;
 				btnSkip.visible = true;
+
+				// var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+				// Keybinding data is coming from mainStartupMoviesMenu.ws !!
 				btnSkip.setDataFromStage(keyBindingData.gamepad_navEquivalent, keyBindingData.keyboard_keyCode, keyBindingData.gamepad_keyCode);
 				btnSkip.label = keyBindingData.label;
 			}
@@ -95,17 +103,20 @@ package red.game.witcher3.menus.mainmenu
 			{
 				var details:InputDetails = event.details;
 				var keyPress:Boolean = (details.value == InputValue.KEY_DOWN || details.value == InputValue.KEY_HOLD);
+				var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 
 				if (keyPress && !event.handled )
 				{
 					switch(details.navEquivalent)
 					{
-						case NavigationCode.GAMEPAD_B :
-							event.handled = true;
-							return;
 						case NavigationCode.GAMEPAD_X :
-							event.handled = true;
-							dispatchEvent( new GameEvent( GameEvent.CALL, 'OnSkipMovie' ) );
+						case NavigationCode.GAMEPAD_B :
+							if ((isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_B) ||		// B on switch
+								(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X))		// X on other platforms
+							{
+								event.handled = true;
+								dispatchEvent( new GameEvent( GameEvent.CALL, 'OnSkipMovie' ) );
+							}
 							break;
 					}
 				}
@@ -123,6 +134,11 @@ package red.game.witcher3.menus.mainmenu
 				}
 			}
 			event.handled = true;
+		}
+
+		protected function handleInputGestureTap(event:GestureEvent):void
+		{
+			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnSkipMovie' ) );
 		}
 
 		override protected function handleInputNavigate(event:InputEvent):void { }

@@ -172,6 +172,10 @@
 					case KeyCode.E:
 						_btnInteraction.setDataFromStage(NavigationCode.GAMEPAD_A, valuePC);
 						break;
+					//show hold button on horse looting for clear communication - hack
+					case KeyCode.PAD_LEFT_THUMB:
+						_btnInteraction.setDataFromStage(NavigationCode.GAMEPAD_LSTICK_HOLD, valuePC);
+						break;
 					default:
 						_btnInteraction.setDataFromStage("", valuePC, value );
 						break;

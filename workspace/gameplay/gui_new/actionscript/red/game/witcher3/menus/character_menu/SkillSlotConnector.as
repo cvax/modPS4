@@ -22,13 +22,13 @@ package red.game.witcher3.menus.character_menu
 		{
 			_currentColor = "SC_None";
 		}
-		
+
 		public function get currentColor():String { return _currentColor };
 		public function set currentColor(value:String):void
 		{
+			trace("GFX -----------------------------------",this.name,"  from color: " + _currentColor + ", to color: " + value);
 			if (value != _currentColor)
 			{
-				trace("GFX -----------------------------------  from color: " + _currentColor + ", to color: " + value);
 				
 				gotoAndPlay(LABEL_START);
 				

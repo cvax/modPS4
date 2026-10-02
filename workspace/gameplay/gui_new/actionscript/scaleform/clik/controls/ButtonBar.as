@@ -323,6 +323,11 @@ package scaleform.clik.controls
                 return null;
             }
         }
+
+        /** Unbind input events from ButtonBar */
+        public function unbindInputs():void {
+            removeEventListener(InputEvent.INPUT, handleInput, false);
+        }
         
         /** @private */
         override public function handleInput(event:InputEvent):void {

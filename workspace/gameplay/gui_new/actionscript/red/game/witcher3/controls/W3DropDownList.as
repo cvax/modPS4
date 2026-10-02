@@ -24,6 +24,7 @@
 	import scaleform.clik.events.ListEvent;
 	import scaleform.clik.interfaces.IListItemRenderer;
 	import scaleform.clik.ui.InputDetails;
+	import flash.events.TransformGestureEvent;
 	
 	public class W3DropDownList extends W3ScrollingList
 	{
@@ -40,7 +41,7 @@
 		protected var _handleKeyUpInput			: Boolean;
 		protected var m_currentListHeight		: Number = 0;
 		protected var m_defaultPosition			: Number;
-		protected var m_lastScrollPosition		: uint		=	 	0;
+		protected var m_lastScrollPosition		: uint = 0;
 		public var mcMask						: MovieClip;
 		public var mcEmptyListFeedback			: MovieClip;
 		private var lastSelectedColumn			: uint = 0;
@@ -48,7 +49,8 @@
 		public var restoreSelectionByTag		: Boolean = false;
 		public var updateSurgicallyOnDataSet	: Boolean = false;
 		protected var dataSetOnce				: Boolean = false;
-
+		protected var scrollTweener:GTween;
+		
 		public function W3DropDownList()
 		{
 			super();
@@ -64,7 +66,6 @@
 			CreateMask();
 			stage.addEventListener(MouseEvent.MOUSE_WHEEL, onScroll, false, 0, true);
 			m_defaultPosition = y;
-
 			addEventListener(ListEvent.INDEX_CHANGE, handleSelectChange, false, 0 , true );
 		}
 		
@@ -168,6 +169,20 @@
 		{
 			_activeSelectionEnabled = value;
 			updateActiveSelectionEnabled();
+		}
+
+		override public function enableTouch( enable : Boolean, enablePressOnTap : Boolean = true, enableClickOnTap : Boolean = true  ) : void
+		{
+			super.enableTouch( enable, enablePressOnTap, enableClickOnTap );
+
+			if ( bEnableTouch )
+			{
+				stage.addEventListener( TransformGestureEvent.GESTURE_PAN, handlePanGesture, false, 0, true );
+			}
+			else
+			{
+				stage.removeEventListener( TransformGestureEvent.GESTURE_PAN, handlePanGesture );
+			}
 		}
 
 		protected function updateActiveSelectionEnabled():void
@@ -471,13 +486,12 @@
 			}
 			
 			var renderers : Vector.<IListItemRenderer> = new Vector.<IListItemRenderer>();
-			var tempRenderer : W3DropdownMenuListItem;
+			var listItem : W3DropdownMenuListItem;
 			var i : int;
 
 			_usingExternalRenderers = true;
 			dataProvider = new DataProvider(Categories);
 			renderers = new Vector.<IListItemRenderer>();
-			//trace("!!!!!!!!!! DROPDOWN updateData" + dropdownData.length);
 
 			if (dropdownData.length != Categories.length) // #J made the hack below a little safer while analyzing code
 			{
@@ -487,21 +501,23 @@
 			{
 				for ( i = 0; i < dropdownData.length; i++ ) // #B a little bit haxy but it works ok, improvements need a lot of investigation @FIXME BIDON
 				{
-					tempRenderer = createRenderer( i ) as W3DropdownMenuListItem;
+					listItem = createRenderer( i ) as W3DropdownMenuListItem;
 
-					trace("GFX - Created Temp renderer:", tempRenderer);
+					trace( "W3DropDownList::updateData - created list item : ", listItem );
 
-					addChild(tempRenderer);
-					setupRenderer(tempRenderer);
-					tempRenderer.y = tempRenderer.height * i;
-					tempRenderer.enabled = true;
-					tempRenderer.label = Categories[i];
-					tempRenderer.setData(dropdownData[i]);
-					tempRenderer.setDropdownData(dropdownData[i]);
-					tempRenderer.handleKeyUpInput = _handleKeyUpInput;
-					tempRenderer.validateNow();
+					addChild(listItem);
+					setupRenderer(listItem);
+					listItem.y = listItem.height * i;
+					listItem.enabled = true;
+					listItem.enableTouch = bEnableTouch;
+					listItem.label = Categories[i];
+					listItem.setData(dropdownData[i]);
+					listItem.setDropdownData(dropdownData[i]);
+					listItem.handleKeyUpInput = _handleKeyUpInput;
+					listItem.validateNow();
+
 					//tempRenderer.addEventListener(ListEvent.INDEX_CHANGE, handleSelectChangeInternal, false, 0 , true );
-					renderers.push(tempRenderer);
+					renderers.push(listItem);
 				}
 			}
 			itemRendererList = renderers;
@@ -766,6 +782,11 @@
 				}
 			}
 
+			if (selectedIndex == -1)
+			{
+				return;
+			}
+
 			// #J called on selected category every time any selection change occurs to make sure its state is properly updated.
 			var currentRenderer = _renderers[selectedIndex] as W3DropdownMenuListItem;
 
@@ -974,6 +995,17 @@
 			m_lastScrollPosition = scrollBar.position;
 		}
 
+		protected function handlePanGesture( event : TransformGestureEvent ) : void
+		{
+			if ( bEnableTouch && hitTestPoint(event.stageX, event.stageY, false) )
+			{
+				if ( m_currentListHeight > listHeight )
+				{
+					_scrollBar.position -= event.offsetY;
+				}
+			}
+		}
+
 		protected function onScroll( event : MouseEvent ) : void
 		{
 			//if (!mcMask || mcMask.hitTestPoint(event.stageX, event.stageY))
@@ -993,8 +1025,7 @@
 			}
 			//trace("onScroll _scrollBar.position " + _scrollBar.position);
 		}
-
-		protected var scrollTweener:GTween;
+		
 		override protected function handleScroll( event:Event ):void
 		{
 			var l_delta : int = _scrollBar.position - m_lastScrollPosition;

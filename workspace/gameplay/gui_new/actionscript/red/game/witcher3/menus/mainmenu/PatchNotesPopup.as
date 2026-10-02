@@ -48,5 +48,17 @@ package red.game.witcher3.menus.mainmenu
 			mcInfoModule6.setData( "controls" );			
 		}
 
+		public function SetupData_41()
+		{
+			trace(" mcInfoModule1   ", mcInfoModule1);
+			trace(" mcInfoModule2   ", mcInfoModule2);
+
+			
+			mcInfoModule1.setData( "modio" );
+			mcInfoModule2.setData( "accessibility" );
+			mcInfoModule3.setData( "rendering" );
+			mcInfoModule4.setData( "more" );		
+		}
+
 	}
 }

@@ -12,6 +12,8 @@ package red.game.witcher3.menus.inventory_menu
 	import red.game.witcher3.slots.SlotBase;
 	import red.game.witcher3.slots.SlotPaperdoll;
 	import red.game.witcher3.slots.SlotsListPaperdoll;
+	import red.game.witcher3.slots.SlotsListBase;
+	import red.game.witcher3.slots.SlotInventoryGrid;
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.events.InputEvent;
@@ -42,11 +44,22 @@ package red.game.witcher3.menus.inventory_menu
 			stage.addEventListener(InputEvent.INPUT, handleInput, false, 0, true);
 			
 			mcPaperdoll.addEventListener(ListEvent.INDEX_CHANGE, handleSlotChanged, false, 0 , true);
-			//mcPaperdoll.
+			mcPaperdoll.enableTouch(true);
+			mcPaperdoll.addEventListener( SlotsListBase.EVENT_SELECTED_TAPPED, onSlotItemTappedTwice, false, 0, true );
 			
 			if (!Extensions.isScaleform)
 			{
 				initDebugMode();
+			}
+		}
+
+		private function onSlotItemTappedTwice( event : Event ) : void
+		{
+			var selected : SlotInventoryGrid = event.target.getSelectedRenderer() as SlotInventoryGrid;
+			//Since we disabled focus handling (mcPaperdoll.focusable = false) We have to check if we are in focus manually.
+			if ( hasFocus && selected )
+			{
+				selected.tryExecuteAssignedAction();
 			}
 		}
 		

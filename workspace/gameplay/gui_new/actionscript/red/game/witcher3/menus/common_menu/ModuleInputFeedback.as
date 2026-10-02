@@ -4,16 +4,21 @@ package red.game.witcher3.menus.common_menu
 	import flash.display.MovieClip;
 	import flash.display.Sprite;
 	import flash.events.MouseEvent;
+	import flash.events.GesturePhase;
+	import flash.events.GestureEvent;
 	import flash.geom.Rectangle;
 	import flash.utils.Dictionary;
 	import flash.utils.getDefinitionByName;
 	import red.core.constants.KeyCode;
 	import red.core.events.GameEvent;
+	import red.core.events.GestureEventEx;
+	import red.core.events.TransformGestureEventEx;
 	import red.game.witcher3.controls.InputFeedbackButton;
 	import red.game.witcher3.data.KeyBindingData;
 	import red.game.witcher3.events.ControllerChangeEvent;
 	import red.game.witcher3.events.InputFeedbackEvent;
 	import red.game.witcher3.managers.InputManager;
+	import red.game.witcher3.utils.CommonUtils;
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.core.UIComponent;
@@ -39,6 +44,7 @@ package red.game.witcher3.menus.common_menu
 		protected var _buttonsList:Vector.<InputFeedbackButton>;
 		protected var _data:Array;
 		protected var _isGamepad:Boolean;
+		protected var _isMouse:Boolean;
 		protected var _isAcceptCancelSwapped:Boolean;
 		protected var _platform:uint;
 		protected var _commonButtons:Array;
@@ -58,6 +64,8 @@ package red.game.witcher3.menus.common_menu
 		public var filterKeyCodeFunction:Function;
 		public var filterNavCodeFunction:Function;
 		public var mcInputBackground:MovieClip;
+
+		protected var onlyHoldGamepadKeys:Vector.<Object> = new Vector.<Object>();
 		
 		public function ModuleInputFeedback()
 		{
@@ -88,6 +96,11 @@ package red.game.witcher3.menus.common_menu
 			{
 				_hotkeyMap[originKey] = [additionalKey];
 			}
+		}
+
+		public function clearHotkeys():void
+		{
+			_hotkeyMap = new Object();
 		}
 		
 		public function setVisibility(value:Boolean):void
@@ -163,7 +176,7 @@ package red.game.witcher3.menus.common_menu
 		public function handleSetupButtons(gameData:Object):void
 		{
 			_data = gameData as Array;
-			populateData(false);
+			populateData();
 		}
 		
 		public function appendButton(actionId:int, gpadCode:String, kbCode:int, label:String, update:Boolean = false, contextId:int = -1):void
@@ -191,6 +204,8 @@ package red.game.witcher3.menus.common_menu
 					var curButton:InputFeedbackButton = getButtonByData(curBinding);
 					if (curButton)
 					{
+						curButton.addEventListener( GestureEventEx.GESTURE_TAP, handleButtonGesture );
+						curButton.addEventListener( GestureEventEx.GESTURE_PRESS, handleButtonGesture );
 						curButton.setData(newButton, InputManager.getInstance().isGamepad() );
 						tryApplyButtonColor(curButton);
 						curButton.validateNow();
@@ -205,10 +220,137 @@ package red.game.witcher3.menus.common_menu
 			if (!isExist)
 			{
 				_commonButtons.push(newButton);
-				createButton(newButton);
 				needUpdate = true;
 			}
 			
+			if (update)
+			{
+				repositionButtons();
+				
+				if (needUpdate)
+				{
+					populateData();
+				}
+			}
+		}
+
+		public function appendHoldButton(actionId:int, gpadCode:String, kbCode:int, label:String, update:Boolean = false, duration:Number = 0.5, contextId:int = -1):void
+		{
+			var newButton  : KeyBindingData = new KeyBindingData();
+			var isExist	   : Boolean;
+			var needUpdate : Boolean;
+			var len 	   : int = _commonButtons.length;
+			
+			newButton.actionId = actionId;
+			newButton.level = 0;
+			newButton.gamepad_navEquivalent = gpadCode;
+			newButton.keyboard_keyCode = kbCode;
+			newButton.label = label;
+			newButton.contextId = contextId;
+			newButton.hasHoldPrefix = true;
+			newButton.holdDuration = duration;
+			
+			for (var i = 0; i < len; i++)
+			{
+				var curBinding:KeyBindingData = _commonButtons[i];
+				if (curBinding.actionId == actionId && (curBinding.contextId == contextId || contextId == -1))
+				{
+					_commonButtons[i] = newButton;
+					
+					var buttonsCount:int = _buttonsList.length;
+					var curButton:InputFeedbackButton = getButtonByData(curBinding);
+					if (curButton)
+					{
+						curButton.addEventListener( GestureEventEx.GESTURE_TAP, handleButtonGesture );
+						curButton.addEventListener( GestureEventEx.GESTURE_PRESS, handleButtonGesture );
+						curButton.setData(newButton, InputManager.getInstance().isGamepad() );
+						tryApplyButtonColor(curButton);
+						curButton.validateNow();
+					}
+					
+					needUpdate = false;
+					isExist = true;
+					break;
+				}
+			}
+			
+			if (!isExist)
+			{
+				_commonButtons.push(newButton);
+				needUpdate = true;
+			}
+			
+			if (update)
+			{
+				repositionButtons();
+				
+				if (needUpdate)
+				{
+					populateData();
+				}
+			}
+		}
+
+		public function hasButton(actionId:int, contextId:int = -1):Boolean
+		{
+			var len:int = _commonButtons.length;
+			var needUpdate:Boolean = false;
+			
+			for (var i:int = 0; i < len; i++)
+			{
+				var curBinding:KeyBindingData = _commonButtons[i];
+				
+				if (curBinding.actionId == actionId && (curBinding.contextId == contextId || contextId == -1))
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
+		public function setButtonOnlyHoldOnGamepad(actionId:int, contextId:int = -1, update:Boolean = false):void
+		{
+			var len:int = _commonButtons.length;
+			var needUpdate:Boolean = false;
+			
+			for (var i:int = 0; i < len; i++)
+			{
+				var curBinding:KeyBindingData = _commonButtons[i];
+				
+				if (curBinding.actionId == actionId && (curBinding.contextId == contextId || contextId == -1))
+				{
+					onlyHoldGamepadKeys.push({actionId: actionId, contextId: contextId});
+					break;
+				}
+			}
+
+			if (update)
+			{
+				repositionButtons();
+				
+				if (needUpdate)
+				{
+					populateData();
+				}
+			}
+		}
+
+		public function removeButtonOnlyHoldOnGamepad(actionId:int, contextId:int = -1, update:Boolean = false):void
+		{
+			var len:int = onlyHoldGamepadKeys.length;
+			var needUpdate:Boolean = false;
+			
+			for (var i:int = len - 1; i >= 0; i--)
+			{
+				var curBinding:Object = onlyHoldGamepadKeys[i];
+				
+				if (curBinding.actionId == actionId && (curBinding.contextId == contextId || contextId == -1))
+				{
+					onlyHoldGamepadKeys.splice(i, 1);
+					break;
+				}
+			}
+
 			if (update)
 			{
 				repositionButtons();
@@ -242,6 +384,8 @@ package red.game.witcher3.menus.common_menu
 						if (curButton && curButton.getBindingData().actionId == actionId)
 						{
 							curButton.removeEventListener( MouseEvent.CLICK, handleButtonClick);
+							curButton.removeEventListener( GestureEventEx.GESTURE_TAP, handleButtonGesture);
+							curButton.removeEventListener( GestureEventEx.GESTURE_PRESS, handleButtonGesture );
 							_canvas.removeChild(curButton);
 							_buttonsList.splice(j, 1);
 							needUpdate = true;
@@ -347,15 +491,15 @@ package red.game.witcher3.menus.common_menu
 			_gpadSortMap.push(NavigationCode.GAMEPAD_L2);
 			_gpadSortMap.push(NavigationCode.GAMEPAD_R3);
 			_gpadSortMap.push(NavigationCode.GAMEPAD_L3);
-			_gpadSortMap.push(NavigationCode.GAMEPAD_LSTICK_HOLD);
 			_gpadSortMap.push(NavigationCode.GAMEPAD_RSTICK_HOLD);
 			_gpadSortMap.push(NavigationCode.GAMEPAD_RSTICK_SCROLL);
 			_gpadSortMap.push(NavigationCode.GAMEPAD_RSTICK_TAB);
+			_gpadSortMap.push(NavigationCode.GAMEPAD_LSTICK_HOLD);
 			_gpadSortMap.push(NavigationCode.GAMEPAD_LSTICK_SCROLL);
 			_gpadSortMap.push(NavigationCode.GAMEPAD_LSTICK_TAB);
 			_gpadSortMap.push(NavigationCode.DPAD_DOWN);
-			_gpadSortMap.push(NavigationCode.DPAD_LEFT);
 			_gpadSortMap.push(NavigationCode.DPAD_RIGHT);
+			_gpadSortMap.push(NavigationCode.DPAD_LEFT);
 			_gpadSortMap.push(NavigationCode.DPAD_UP);
 			_gpadSortMap.push(NavigationCode.GAMEPAD_Y);
 			_gpadSortMap.push(NavigationCode.GAMEPAD_X);
@@ -384,7 +528,9 @@ package red.game.witcher3.menus.common_menu
 				var dataArray:Array = _data as Array;
 				var finalList:Array;
 				
+				_platform = InputManager.getInstance().getPlatform();
 				_isGamepad = InputManager.getInstance().isGamepad();
+				_isMouse = InputManager.getInstance().isMouse();
 				finalList = prepareButtonsList(dataArray, _commonButtons, _isGamepad);
 				
 				if (_isGamepad)
@@ -430,11 +576,28 @@ package red.game.witcher3.menus.common_menu
 		protected function respawnButtons(dataList:Array):void
 		{
 			var len:int = dataList.length;
+			var _isGamepad : Boolean = InputManager.getInstance().isGamepad();
 			for (var i:int = 0; i < len; i++)
 			{
 				var curData:KeyBindingData = dataList[i] as KeyBindingData;
-				createButton(curData);
+
+				if(_isGamepad && curData.gamepad_navEquivalent == "-1") continue;
+				else if (!_isGamepad && curData.keyboard_keyCode == -1) continue;
+
+				var btn:InputFeedbackButton = createButton(curData);
+
+				for(var j:int = 0; j < onlyHoldGamepadKeys.length; j++)
+				{
+					var gpData : Object = onlyHoldGamepadKeys[j];
+					if(curData.actionId == gpData.actionId && (curData.contextId == gpData.contextId || gpData.contextId == -1)) 
+					{
+						
+						btn.setHoldOnlyOnGamepad(true, _isGamepad);
+					}
+				}
 			}
+
+			repositionButtons();
 		}
 		
 		// update existing buttons list
@@ -470,6 +633,8 @@ package red.game.witcher3.menus.common_menu
 				if (curButton && !updatedButtons[curButton])
 				{
 					curButton.removeEventListener( MouseEvent.CLICK, handleButtonClick);
+					curButton.removeEventListener( GestureEventEx.GESTURE_TAP, handleButtonGesture);
+					curButton.removeEventListener( GestureEventEx.GESTURE_PRESS, handleButtonGesture );
 					_canvas.removeChild(curButton);
 					_buttonsList.splice(j, 1);
 					
@@ -488,6 +653,8 @@ package red.game.witcher3.menus.common_menu
 			mcButton.setData(targetData, _isGamepad);
 			mcButton.lowercaseLabels = _lowercaseLabels;
 			mcButton.addEventListener( MouseEvent.CLICK, handleButtonClick, false, 10, true);
+			mcButton.addEventListener( GestureEventEx.GESTURE_TAP, handleButtonGesture);
+			mcButton.addEventListener( GestureEventEx.GESTURE_PRESS, handleButtonGesture );
 			
 			if (targetData.disabled)
 			{
@@ -625,7 +792,7 @@ package red.game.witcher3.menus.common_menu
 
 		protected function handleControllerChange(event:ControllerChangeEvent):void
 		{
-			if ( ( _isGamepad != event.isGamepad || _isAcceptCancelSwapped != InputManager.getInstance().swapAcceptCancel || _platform != InputManager.getInstance().getPlatform() ) && (_data || _commonButtons.length) )
+			if ( ( _isGamepad != event.isGamepad || _isMouse != event.isMouse || _isAcceptCancelSwapped != InputManager.getInstance().swapAcceptCancel || _platform != InputManager.getInstance().getPlatform() ) && (_data || _commonButtons.length) )
 			{
 				_isAcceptCancelSwapped = InputManager.getInstance().swapAcceptCancel;
 				populateData();
@@ -707,28 +874,99 @@ package red.game.witcher3.menus.common_menu
 			return null;
 		}
 
+		private function dispatchFakeInputEvent( keyCode : uint, value : String, navCode : String, global : Boolean = false ) : void
+		{
+			if (_emulateInputEvent)
+			{
+				var fakeInput:InputDetails = new InputDetails( "key", keyCode, value, navCode );
+				var fakeInputEvent:InputEvent = new InputEvent( InputEvent.INPUT, fakeInput );
+
+				//Dispatch fake input event inside this flash VM
+				InputDelegate.getInstance().dispatchEvent( fakeInputEvent );
+
+				//Dispatch fake input event across flash VMs, through WitcherScript
+				if ( global )
+				{
+					dispatchEvent( new GameEvent( GameEvent.CALL, 'OnDispatchForeignInputEvent', [fakeInput.type, uint(fakeInput.code), fakeInput.value, fakeInput.navEquivalent] ) );
+				}
+			}
+		}
+
 		protected function handleButtonClick(event:MouseEvent):void
 		{
-			if (!_isGamepad)
+			if (_isMouse)
 			{
 				var mcButton:InputFeedbackButton = event.currentTarget as InputFeedbackButton;
 				var bindingData:KeyBindingData = mcButton.getBindingData();
 				if (bindingData && mcButton.clickable)
 				{
 					activateButton(bindingData, null, true);
-					if (_emulateInputEvent)
-					{
-						var fakeInputDetails:InputDetails = new InputDetails("key", bindingData.keyboard_keyCode, InputValue.KEY_UP, bindingData.gamepad_navEquivalent);
-						var fakeInputEvent:InputEvent = new InputEvent(InputEvent.INPUT, fakeInputDetails);
-						InputDelegate.getInstance().dispatchEvent(fakeInputEvent);
-					}
+					dispatchFakeInputEvent( bindingData.keyboard_keyCode, InputValue.KEY_UP, bindingData.gamepad_navEquivalent );
 				}
 			}
 		}
-		
+
+		protected function handleButtonGesture(event:GestureEvent):void
+		{
+			var mcButton:InputFeedbackButton = event.currentTarget as InputFeedbackButton;
+			var bindingData:KeyBindingData = mcButton.getBindingData();
+
+			if (bindingData)
+			{
+				//NOTE : HOLD navcodes (GAMEPAD_RSTICK_HOLD, GAMEPAD_LSTICK_HOLD) are just used for graphical representation.
+				//KeyBindingData::hasHoldPrefix should be used instead.
+				var isHoldBinding : Boolean = bindingData.hasHoldPrefix;
+				
+				//TODO-HACK : dispatchFakeInputEvent - KeyCode.GESTURE_TAP/KeyCode.GESTURE_PRESS is a hack. You should use gamepad or keyboard keycode instead.
+				//But if you do that input feebdack visualizations will break. (InputManager isGestureCode stuff...)
+				switch (event.type)
+				{
+					case GestureEventEx.GESTURE_TAP : 
+						//Send feedback button activation event to WS
+						activateButton( bindingData, null, true );
+
+						//Simulate a gamepad down and up keypress event. Both are needed, since listeners can choose it implement either.
+						if ( !isHoldBinding )
+						{
+							trace( "ModuleInputFeedback::handleButtonGesture TAP" );
+
+							dispatchFakeInputEvent( KeyCode.GESTURE_TAP, InputValue.KEY_DOWN, bindingData.gamepad_navEquivalent, true );
+							dispatchFakeInputEvent( KeyCode.GESTURE_TAP, InputValue.KEY_UP, bindingData.gamepad_navEquivalent, true );
+						}
+					break;
+					case GestureEventEx.GESTURE_PRESS : 
+						if ( isHoldBinding )
+						{
+							switch (event.phase)
+							{
+								case "begin" : 
+									//Send feedback button activation event to WS
+									activateButton( bindingData, null, true );
+
+									trace( "ModuleInputFeedback::handleButtonGesture PRESS - begin" );
+									dispatchFakeInputEvent( KeyCode.GESTURE_PRESS, InputValue.KEY_DOWN, bindingData.gamepad_navEquivalent, true );
+								break;
+								case "update" : 
+									trace( "ModuleInputFeedback::handleButtonGesture PRESS - update" );
+									dispatchFakeInputEvent( KeyCode.GESTURE_PRESS, InputValue.KEY_HOLD, bindingData.gamepad_navEquivalent, true );
+								break;
+								case "end" : 
+									trace( "ModuleInputFeedback::handleButtonGesture PRESS - end" );
+									dispatchFakeInputEvent( KeyCode.GESTURE_PRESS, InputValue.KEY_UP, bindingData.gamepad_navEquivalent, true );
+								break;
+							}
+						}
+					break;
+				}
+			}
+		}
+
 		override public function handleInput(event:InputEvent):void
 		{
 			super.handleInput(event);
+
+			if(event.handled)
+				return;
 			
 			var details:InputDetails = event.details;
 			var keyUp:Boolean = (details.value == InputValue.KEY_UP);
@@ -854,7 +1092,13 @@ package red.game.witcher3.menus.common_menu
 		
 		   return res;
 		}
-		
+
+		public function overrideSortMaps(gpadSortMap : Vector.<String>, kbSortMap : Vector.<int>):void
+		{
+			_gpadSortMap = gpadSortMap;
+			_kbSortMap = kbSortMap;
+			populateData();
+		}
 	}
 
 }

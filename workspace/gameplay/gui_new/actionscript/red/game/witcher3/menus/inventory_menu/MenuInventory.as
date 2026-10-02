@@ -4,17 +4,28 @@
 	import flash.display.MovieClip;
 	import flash.display.Sprite;
 	import flash.events.Event;
+	import flash.events.GestureEvent;
 	import flash.events.TimerEvent;
+	import flash.events.TransformGestureEvent;
 	import flash.text.TextField;
+	import flash.utils.getDefinitionByName;
 	import flash.utils.getTimer;
+	import flash.utils.setTimeout;
 	import flash.utils.Timer;
-	import red.core.constants.KeyCode;
+
 	import red.core.CoreMenu;
 	import red.core.CoreMenuModule;
+	import red.core.constants.KeyCode;
 	import red.core.events.GameEvent;
+	import red.core.events.GestureEventEx;
+	import red.game.witcher3.constants.EInputDeviceType;
 	import red.game.witcher3.controls.InputFeedbackButton;
+	import red.game.witcher3.events.ControllerChangeEvent;
+	import red.game.witcher3.events.ItemDragEvent;
+	import red.game.witcher3.interfaces.IBaseSlot;
 	import red.game.witcher3.managers.ContextInfoManager;
 	import red.game.witcher3.managers.InputFeedbackManager;
+	import red.game.witcher3.managers.InputManager;
 	import red.game.witcher3.menus.character_menu.CharacterModeBackground;
 	import red.game.witcher3.menus.common.CheckboxListMode;
 	import red.game.witcher3.menus.common.ModuleMerchantInfo;
@@ -23,15 +34,18 @@
 	import red.game.witcher3.slots.SlotInventoryGrid;
 	import red.game.witcher3.slots.SlotPaperdoll;
 	import red.game.witcher3.slots.SlotSkillGrid;
+	import red.game.witcher3.slots.SlotsListBase;
 	import red.game.witcher3.slots.SlotsListGrid;
 	import red.game.witcher3.slots.SlotsTransferManager;
+	import red.game.witcher3.utils.CommonUtils;
+
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.data.DataProvider;
 	import scaleform.clik.events.ButtonEvent;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.ui.InputDetails;
-	import flash.utils.getDefinitionByName;
+	import scaleform.clik.events.ListEvent;
 	
 	/**
 	 * This is the new inventory screen document class
@@ -42,6 +56,7 @@
 		public static const STATE_CHARACTER:String = "CharacterInventory";
 		public static const STATE_HORSE:String = "HorseInventory";
 		
+		public static const IMS_Invalid			:int = -1;
 		public static const IMS_Player			:int = 0;
 		public static const IMS_Shop			:int = 1;
 		public static const IMS_Container		:int = 2;
@@ -94,6 +109,7 @@
 		public var tooltipPaperdollAnchor   : MovieClip;
 		
 		protected var _filteringMode		: Boolean;
+		protected var _sellJunkEnable		: Boolean;
 		
 		private var _btn_stats_id   	    : int = -1;
 		private var _btn_sort_id     		: int = -1;
@@ -101,6 +117,8 @@
 		
 		private var _defaultTabIdx			: int   = -1;
 		
+		private var _inventoryMode : int = IMS_Invalid;
+
 		// ----  STATS PROTOTYPE
 		
 		public var mcVitalityStat 			: PlayerStatInfo;
@@ -113,7 +131,7 @@
 		
 		public var playerGridInitX			: Number;
 		public var playerGridXOffset		: Number = 155;
-		
+
 		// -- TICK --
 		private const TICK_DELAY:int = 100;
 		private var _timer : Timer;
@@ -166,7 +184,7 @@
 			mcSelectionMode.mcBackground = mcSelectionModeBackground;
 			mcSelectionModeBackground.alpha = 0;
 		}
-		
+
 		override public function setCurrentModule(value:int):void
 		{
 			super.setCurrentModule(value);
@@ -180,7 +198,24 @@
 				mcPlayerInventory.mcPlayerGrid.validateNow();
 			}
 		}
-		
+
+		private var 	_inputSymbolIDA						: int = -1;
+		public function SetSellJunkEnable(newEnable : Boolean)
+		{	
+			if(_sellJunkEnable == newEnable)
+				return;
+
+			_sellJunkEnable = newEnable;			
+			
+			if(newEnable)
+				_inputSymbolIDA = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_A, KeyCode.SPACE , "panel_inventory_sellJunk", true, 0.5);
+			else
+				InputFeedbackManager.removeButton(this, _inputSymbolIDA);
+
+			InputFeedbackManager.updateButtons(this);
+			//add common button here
+		}
+	
 		private function handleCharStatsShown(event:Event):void
 		{
 			if (_contextMgr)
@@ -222,13 +257,20 @@
 			{
 				_btn_sort_id = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_RSTICK_HOLD, -1 , "panel_button_common_sort_items");
 			}
-			if (_btn_switch_sections == -1)
+			if (_btn_switch_sections == -1 && InputManager.getInstance().gamepadType != EInputDeviceType.IDT_Switch2_Mouser)
 			{
 				_btn_switch_sections = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_R3, -1 , "panel_button_common_jump_sections");
 			}
 			
 			mcPlayerInventory.enabled = true;
 			mcPlayerInventory.refreshButtons();
+		}
+
+		private function CreateItemSectionData(id : uint, start:uint, end:uint, label:String, border:MovieClip = null) : ItemSectionData
+		{
+			var itemSectionData: ItemSectionData = new ItemSectionData();
+			itemSectionData.setData(id, start, end, label, border);
+			return itemSectionData;
 		}
 		
 		override protected function get menuName():String { return "InventoryMenu"	}
@@ -252,24 +294,25 @@
 			var gridSectionsList:Array = [];
 			
 			var sectionsData:GridTabSections = new GridTabSections();
-			
-			sectionsData.push(4, new ItemSectionData(0, 0, 3, "[[panel_inventory_tab_weapons]]"));
-			sectionsData.push(4, new ItemSectionData(1, 4, 8, "[[panel_inventory_tab_armors]]"));
-			
-			sectionsData.push(3, new ItemSectionData(0, 0, 2, "[[panel_alchemy_tab_oils]]"));
-			sectionsData.push(3, new ItemSectionData(1, 3, 5, "[[panel_alchemy_tab_potions]]"));
-			sectionsData.push(3, new ItemSectionData(2, 6, 8, "[[panel_alchemy_tab_bombs]]"));
 
-			sectionsData.push(2, new ItemSectionData(0, 0, 5, "[[item_category_edibles]]"));
-			sectionsData.push(2, new ItemSectionData(1, 6, 8, "[[panel_inventory_tab_horse]]"));
+			sectionsData.push(4, CreateItemSectionData(0, 0, 3, "[[panel_inventory_tab_weapons]]"));
+			sectionsData.push(4, CreateItemSectionData(1, 4, 8, "[[panel_inventory_tab_armors]]"));
 			
-			sectionsData.push(1, new ItemSectionData(0, 0, 3, "[[item_category_quest_items]]"));
-			sectionsData.push(1, new ItemSectionData(1, 4, 8, "[[item_category_misc]]"));
+			sectionsData.push(3, CreateItemSectionData(0, 0, 2, "[[panel_alchemy_tab_oils]]"));
+			sectionsData.push(3, CreateItemSectionData(1, 3, 5, "[[panel_alchemy_tab_potions]]"));
+			sectionsData.push(3, CreateItemSectionData(2, 6, 8, "[[panel_alchemy_tab_bombs]]"));
+
+			sectionsData.push(2, CreateItemSectionData(0, 0, 5, "[[item_category_edibles]]"));
+			sectionsData.push(2, CreateItemSectionData(1, 6, 8, "[[panel_inventory_tab_horse]]"));
 			
-			sectionsData.push(0, new ItemSectionData(0, 0, 4, "[[panel_inventory_tab_crafting]]"));
-			sectionsData.push(0, new ItemSectionData(1, 5, 8, "[[panel_inventory_tab_alchemy]]"));
+			sectionsData.push(1, CreateItemSectionData(0, 0, 3, "[[item_category_quest_items]]"));
+			sectionsData.push(1, CreateItemSectionData(1, 4, 8, "[[item_category_misc]]"));
+			
+			sectionsData.push(0, CreateItemSectionData(0, 0, 4, "[[panel_inventory_tab_crafting]]"));
+			sectionsData.push(0, CreateItemSectionData(1, 5, 8, "[[panel_inventory_tab_alchemy]]"));
 			
 			mcPlayerInventory.setItemSections(sectionsData);
+			SlotsTransferManager.getInstance().enableDragWithPan( true );
 			
 			//-----------
 			
@@ -280,6 +323,9 @@
 			mcSelectionMode.visible = false;
 			mcSelectionMode.addEventListener(CharacterModeBackground.ACCEPT, handleSelectionModeAcceptClick, false, 0, true);
 			mcSelectionMode.addEventListener(CharacterModeBackground.CANCEL, handleSelectionModeCancelClick, false, 0, true);
+
+			var inputMgr:InputManager = InputManager.getInstance();
+			inputMgr.addEventListener(ControllerChangeEvent.CONTROLLER_CHANGE, handleControllerChanged, false, 0, true);
 			
 			if (mcSortingMode)
 			{
@@ -310,10 +356,38 @@
 			_timer.start();
 			
 			tickTimeDelta = getTimer();
-			if (_btn_switch_sections == -1 )
+			if (_btn_switch_sections == -1 && InputManager.getInstance().gamepadType != EInputDeviceType.IDT_Switch2_Mouser)
 			{
 				_btn_switch_sections = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_R3, -1 , "panel_button_common_jump_sections");
 			}
+		}
+		
+		override protected function handleControllerChanged(event:ControllerChangeEvent):void
+		{
+			super.handleControllerChanged(event);
+
+			_rendererController.handleControllerChanged(event);
+
+			if (_btn_stats_id != -1)
+			{
+				InputFeedbackManager.removeButton(this, _btn_stats_id);
+				_btn_stats_id = InputFeedbackManager.appendButton(this, getShowAdvancedStatsGpadNavCode(), KeyCode.C, "panel_common_show_advanced_statistics");
+			}
+
+			if (mcPlayerInventory.enabled)
+			{
+				if (_btn_switch_sections == -1 && InputManager.getInstance().gamepadType != EInputDeviceType.IDT_Switch2_Mouser)
+				{
+					_btn_switch_sections = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_R3, -1 , "panel_button_common_jump_sections");
+				}
+				else if (InputManager.getInstance().gamepadType == EInputDeviceType.IDT_Switch2_Mouser)
+				{
+					InputFeedbackManager.removeButton(this, _btn_switch_sections);
+					_btn_switch_sections = -1;
+				}
+			}
+
+			InputFeedbackManager.updateButtons(this);
 		}
 		
 		private var tickTimeDelta:int = 0;
@@ -645,12 +719,18 @@
 
 			return true;
 		}
+
+		private function getShowAdvancedStatsGpadNavCode():String
+		{
+			return InputManager.getInstance().gamepadType == EInputDeviceType.IDT_Switch2_Mouser ? NavigationCode.GAMEPAD_L1 : NavigationCode.GAMEPAD_R2;
+		}
 		
 		public function /*Witcher Script*/  setInventoryMode( value : int ) : void
 		{
 			trace("GFX --------------------------------------");
 			trace("GFX [WitcherScript] setInventoryMode", value);
-			
+
+			_inventoryMode = value;
 			mcPlayerInventory.mcPlayerGrid.dropMode = value;
 
 			///////////////
@@ -665,15 +745,16 @@
 				InputFeedbackManager.removeButton(this, _btn_stats_id);
 				_btn_stats_id = -1;
 			}
-			
-			
+
+			SetSellJunkEnable( value == IMS_Shop);
+
 			switch(value)
 			{
 				case IMS_Player:
 					
 					if (_btn_stats_id == -1)
 					{
-						_btn_stats_id = InputFeedbackManager.appendButton(this, NavigationCode.GAMEPAD_R2, KeyCode.C, "panel_common_show_advanced_statistics");
+						_btn_stats_id = InputFeedbackManager.appendButton(this, getShowAdvancedStatsGpadNavCode(), KeyCode.C, "panel_common_show_advanced_statistics");
 					}
 					
 					mcSortingMode.x = 0;
@@ -697,7 +778,6 @@
 					mcVitalityStat.visible = true;
 					mcToxicityStat.visible = true;
 					
-					
 					mcPlayerInventory.setTabData(new DataProvider( [
 																	{ icon:"INGREDIENTS", locKey:"[[panel_inventory_filter_type_ingredients]]" },
 																	{ icon:"QUEST_ITEMS", locKey:"[[panel_inventory_filter_type_quest_items]]" },
@@ -710,8 +790,7 @@
 																	
 					mcPlayerInventory.onSetTabCalled(4);
 					
-					break;
-				
+					break;				
 				case IMS_Stash:
 					
 					mcSortingMode.x = 170;
@@ -760,9 +839,8 @@
 						mcPlayerInventory.onSetTabCalled( _defaultTabIdx );
 					}
 					
-					break;
-					
-				case IMS_Shop:
+					break;					
+				case IMS_Shop:					
 				case IMS_Container:
 					
 					mcSortingMode.x = 170;
@@ -814,7 +892,7 @@
 					mcCharacterRenderer.x = mcHorseModelAnchor.x;
 					mcCharacterRenderer.y = mcHorseModelAnchor.y;
 					*/
-					
+
 					break;
 					
 				case IMS_HorseInventory:
@@ -836,7 +914,7 @@
 					break;
 			}
 			
-			stage.dispatchEvent(new Event(CoreMenu.CURRENT_MODULE_INVALIDATE));
+			stage.dispatchEvent(new Event(CoreMenu.CURRENT_MODULE_INVALIDATE));			
 		}
 		
 		protected function /*Witcher Script*/ setIsOverburdenedText( value : String ) : void
@@ -876,7 +954,12 @@
 		override protected function handleInputNavigate(event:InputEvent):void
 		{
 			var details:InputDetails = event.details;
-			var inputEnabled:Boolean = details.value == InputValue.KEY_UP && !event.handled;
+			var keyUp = details.value == InputValue.KEY_UP;
+			var keyDown = details.value == InputValue.KEY_DOWN;
+			var keyHold = details.value == InputValue.KEY_HOLD;
+
+			var inputEnabledUp:Boolean = keyUp && !event.handled;
+			var inputEnabledDown:Boolean = (keyDown || keyHold) && !event.handled;
 			
 			//trace("GFX --- handleInputNavigate --- ", details.navEquivalent, "; _rendererController ", _rendererController);
 			
@@ -886,8 +969,31 @@
 				//_rendererController.handleInput(event);
 			}
 			*/
-			
-			if (inputEnabled)
+
+			if(inputEnabledDown)
+			{
+				if((details.navEquivalent == NavigationCode.GAMEPAD_A ||
+     				details.code == KeyCode.E) && _sellJunkEnable)
+				{
+					if(keyDown)
+					{
+						junkHold = true;
+						junkTimerStart = new Date().time;
+					}
+					if(keyHold && junkHold)
+					{
+						if(new Date().time - junkTimerStart > junkHoldTimeRequired * 1000)
+						{
+							junkHold = false;
+							handleSellAllJunk();
+							dontReactOnNextGPA = true;
+							dispatchSetBlockSell(true);
+							InputFeedbackManager.updateButtons(this);
+						}
+					}
+				}
+			}
+			else if (inputEnabledUp)
 			{
 				switch (details.navEquivalent)
 				{
@@ -906,13 +1012,21 @@
 						break;
 						
 					case NavigationCode.GAMEPAD_A:
-						if (mcSelectionMode.isActive())
+						if(!dontReactOnNextGPA)
 						{
-							if (FinishSelectionMode())
+							if (mcSelectionMode.isActive())
 							{
-								event.handled = true;
-								event.stopImmediatePropagation();
+								if (FinishSelectionMode())
+								{
+									event.handled = true;
+									event.stopImmediatePropagation();
+								}
 							}
+						}
+						else 
+						{
+							dontReactOnNextGPA = false;
+							setTimeout(dispatchSetBlockSell, 1, false);
 						}
 						break;
 				}
@@ -949,18 +1063,40 @@
 				}
 				if (details.code == KeyCode.E)
 				{
-					if (mcSelectionMode.isActive())
+					if(!dontReactOnNextGPA)
 					{
-						if (FinishSelectionMode())
+						if (mcSelectionMode.isActive())
 						{
-							event.handled = true;
-							event.stopImmediatePropagation();
+							if (FinishSelectionMode())
+							{
+								event.handled = true;
+								event.stopImmediatePropagation();
+							}
 						}
+					}
+					else {
+						setTimeout(dispatchSetBlockSell, 1, false);
+						dontReactOnNextGPA = false;
 					}
 				}
 			}
 			
 			super.handleInputNavigate(event);
+		}
+
+		private var junkHoldTimeRequired:Number = 0.5;
+		private var junkHold:Boolean = false;
+		private var junkTimerStart : Number;
+		private var dontReactOnNextGPA : Boolean = false;
+
+		private function dispatchSetBlockSell(value : Boolean)
+		{
+			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnSetBlockSell', [value] ) );
+		}
+
+		private function handleSellAllJunk():void
+		{
+			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnSellAllJunk' ) );
 		}
 		
 		private function handleSelectionModeAcceptClick(event:Event):void

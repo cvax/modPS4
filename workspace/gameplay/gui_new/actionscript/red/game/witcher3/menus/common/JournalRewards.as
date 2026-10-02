@@ -67,6 +67,8 @@ package red.game.witcher3.menus.common
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, dataBindingKeyReward, [handleRewardDataSet]));
 			//mcRewardGrid.resetRenderers();
 			mcRewardGrid.addEventListener( GridEvent.ITEM_CHANGE, onGridItemChange, false, 0, true );
+			mcRewardGrid.addEventListener( ListEvent.INDEX_CHANGE, onGridListItemChange, false, 0, true );
+			mcRewardGrid.enableTouch( true );
 			handleExperienceValueSet('0');
 			Init();
 			//journalRewardModule =
@@ -215,6 +217,11 @@ package red.game.witcher3.menus.common
 		}
 
 		protected function onGridItemChange( event : GridEvent ):void
+		{
+			dispatchEvent(event);
+		}
+
+		protected function onGridListItemChange( event : ListEvent ):void
 		{
 			dispatchEvent(event);
 		}

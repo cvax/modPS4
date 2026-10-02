@@ -7,38 +7,34 @@
 package red.game.witcher3.menus.glossary
 {
 	import flash.display.MovieClip;
-	import red.core.events.GameEvent;
-	import scaleform.clik.core.UIComponent;
-	import scaleform.clik.data.DataProvider;
-	import scaleform.clik.events.ListEvent;
+	import flash.display.Sprite;
+	import flash.events.TimerEvent;
+	import flash.external.ExternalInterface;
+	import flash.utils.Timer;
 
-	import red.core.CoreMenu;
+	import scaleform.clik.constants.InputValue;
+	import scaleform.clik.constants.InvalidationType;
+	import scaleform.clik.constants.NavigationCode;
+	import scaleform.clik.core.UIComponent;
+	import scaleform.clik.events.InputEvent;
+	import scaleform.clik.events.ListEvent;
+	import scaleform.clik.data.DataProvider;
+	import scaleform.clik.ui.InputDetails;
+
 	import scaleform.gfx.Extensions;
 
-	import scaleform.clik.constants.InvalidationType;
-	import scaleform.clik.events.InputEvent;
-	import scaleform.clik.ui.InputDetails;
-	import scaleform.clik.constants.InputValue;
-	import scaleform.clik.constants.NavigationCode;
+	import red.core.CoreMenu;
+	import red.core.events.GameEvent;
 	import red.core.constants.KeyCode;
-
-	//import red.game.witcher3.managers.PanelModuleManager;
-	import red.game.witcher3.menus.common.TextAreaModule;
-
-	import red.game.witcher3.menus.common.ItemDataStub;
-
-	import flash.display.Sprite;
-	import flash.external.ExternalInterface;
-
-	import red.game.witcher3.menus.common.ListModuleBase;
-	//import red.game.witcher3.menus.common.W3VideoObject;
-
-	import flash.utils.Timer;
-	import flash.events.TimerEvent;
-	import red.game.witcher3.utils.motion.TweenEx;
-	import fl.transitions.easing.Strong;
 	import red.game.witcher3.controls.InputFeedbackButton;
 	import red.game.witcher3.managers.InputFeedbackManager;
+	import red.game.witcher3.managers.InputManager;
+	import red.game.witcher3.menus.common.TextAreaModule;
+	import red.game.witcher3.menus.common.ItemDataStub;
+	import red.game.witcher3.menus.common.ListModuleBase;
+	import red.game.witcher3.utils.motion.TweenEx;
+
+	import fl.transitions.easing.Strong;
 
 	Extensions.enabled = true;
 	Extensions.noInvisibleAdvance = true;
@@ -94,12 +90,15 @@ package red.game.witcher3.menus.glossary
 
 			focused = 1;
 
+
 			btnSkip = mcSkipIndicator.btnSkip;
 
 			btnSkip.clickable = false;
 			btnSkip.label = "[[panel_button_dialogue_skip]]";
 			mcSkipIndicator.alpha = 0;
-			btnSkip.setDataFromStage(NavigationCode.GAMEPAD_X, KeyCode.ESCAPE);
+
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+			btnSkip.setDataFromStage(isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.ESCAPE);
 			btnSkip.validateNow();
 		}
 
@@ -119,6 +118,7 @@ package red.game.witcher3.menus.glossary
 
 			var details:InputDetails = event.details;
             var keyUp:Boolean = (details.value == InputValue.KEY_UP);
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 
 			if ( mcMainListModule.GetMovieIsPlaying() )
 			{
@@ -128,13 +128,19 @@ package red.game.witcher3.menus.glossary
 					{
 						case NavigationCode.GAMEPAD_B :
 						case NavigationCode.GAMEPAD_X :
+						case NavigationCode.GAMEPAD_Y :
+						if (details.navEquivalent == NavigationCode.GAMEPAD_B ||
+							(isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y) ||		// Y on switch
+							(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X))		// X on other platforms
+						{
 							if ( mcSkipIndicator.alpha > 0.1 )
 							{
 								SkipConfirmHide();
 								closeMenu();
 								return;
 							}
-							break;
+						}
+						break;
 					}
 					SkipConfirmShow();
 				}

@@ -7,6 +7,7 @@ package red.game.witcher3.menus.gwint
 	import red.core.CoreMenu;
 	import red.core.events.GameEvent;
 	import red.game.witcher3.constants.CommonConstants;
+	import red.game.witcher3.constants.EInputDeviceType;
 	import red.game.witcher3.constants.GwintInputFeedback;
 	import red.game.witcher3.controls.ConditionalButton;
 	import red.game.witcher3.controls.ConditionalCloseButton;
@@ -27,6 +28,11 @@ package red.game.witcher3.menus.gwint
 	import red.game.witcher3.constants.InventoryActionType;
 	import red.game.witcher3.utils.CommonUtils;
 	import flash.display.MovieClip;
+	import flash.events.GestureEvent;
+	import red.core.events.GestureEventEx;
+	import flash.events.TransformGestureEvent;
+	import red.core.events.TransformGestureEventEx;
+	import red.game.witcher3.slots.SlotsListBase;
 	
 	/**
 	 * ...
@@ -121,6 +127,9 @@ package red.game.witcher3.menus.gwint
 			mcTutorial.currentTutorialFrame = 3; // #Y #HACK
 			
 			super.configUI();
+			dispatchEvent( new GameEvent( GameEvent.CALL, "OnConfigUI" ) );
+
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 			
 			if (mcTutorial)
 			{
@@ -139,26 +148,38 @@ package red.game.witcher3.menus.gwint
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'gwint.deckbuilder.collection', [updateGwintCollection ] ) );
 			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'gwint.deckbuilder.leaderList', [updateLeaderList] ) );
 			
-			dispatchEvent( new GameEvent( GameEvent.CALL, "OnConfigUI" ) );
 			
 			setupLeaderCard();
 			InputManager.getInstance().addEventListener(ControllerChangeEvent.CONTROLLER_CHANGE, handleControllerChange, false, 0, true);
 			
 			mcCollectionHolder.addEventListener(SlotActionEvent.EVENT_ACTIVATE, handleCollectionSlotActivated, false, 0, true);
 			mcCollectionHolder.addEventListener(CardSlot.CardMouseRightClick, onCollectionRightClickCard, false, 0, true);
-			mcCollectionHolder.mcCardSlotList.addEventListener(ListEvent.INDEX_CHANGE, onSelectedCardChanged, false, 0, true);
+			mcCollectionHolder.addEventListener(GwintDeckCTabModule.EVENT_MODULE_FOCUSED, refreshInputFeedbackButtons, false, 0, true);
+
+			mcCollectionHolder.mcCardSlotList.addEventListener( SlotsListBase.EVENT_SELECTED_TAPPED, onCollectionCardTappedTwice, false, 0, true );
+			mcCollectionHolder.mcCardSlotList.addEventListener( SlotsListBase.EVENT_SELECTED_DOUBLE_TAPPED, onCollectionCardDoubleTapped, false, 0, true );
+			mcCollectionHolder.mcCardSlotList.addEventListener( GestureEventEx.GESTURE_PRESS, onCollectionPressed, false, 0, true  );
+			mcCollectionHolder.mcCardSlotList.addEventListener( ListEvent.INDEX_CHANGE, refreshInputFeedbackButtons, false, 0, true );
+
 			mcCollectionHolder.closedCallback = resetToDefaultButtons;
 			mcCollectionHolder.openedCallback = resetToDefaultButtons;
 			
 			mcDeckHolder.addEventListener(SlotActionEvent.EVENT_ACTIVATE, handleDeckSlotActivated, false, 0, true);
 			mcDeckHolder.addEventListener(CardSlot.CardMouseRightClick, onDeckRightClickCard, false, 0, true);
-			mcDeckHolder.mcCardSlotList.addEventListener(ListEvent.INDEX_CHANGE, onSelectedCardChanged, false, 0, true);
+			mcDeckHolder.addEventListener(GwintDeckCTabModule.EVENT_MODULE_FOCUSED, refreshInputFeedbackButtons, false, 0, true);
+
+			mcDeckHolder.mcCardSlotList.addEventListener( SlotsListBase.EVENT_SELECTED_TAPPED, onDeckCardTappedTwice, false, 0, true );
+			mcDeckHolder.mcCardSlotList.addEventListener( SlotsListBase.EVENT_SELECTED_DOUBLE_TAPPED, onDeckCardDoubleTapped, false, 0, true );
+			mcDeckHolder.mcCardSlotList.addEventListener( GestureEventEx.GESTURE_PRESS, onDeckPressed, false, 0, true  );
+			mcDeckHolder.mcCardSlotList.addEventListener( ListEvent.INDEX_CHANGE, refreshInputFeedbackButtons, false, 0, true );
+
 			mcDeckHolder.closedCallback = resetToDefaultButtons;
 			mcDeckHolder.openedCallback = resetToDefaultButtons;
 			
 			if (mcCloseBtn)
 			{
 				mcCloseBtn.addEventListener(ButtonEvent.PRESS, handleClosePressed, false, 0, true);
+				mcCloseBtn.showOnSwitch2Mouser = true;
 			}
 			
 			mcChoiceDialog.cardsCarousel.addEventListener(ListEvent.INDEX_CHANGE, onCarouselSelectionChanged, false, 0, true);
@@ -168,26 +189,38 @@ package red.game.witcher3.menus.gwint
 			if (mcLeftPCButton)
 			{
 				mcLeftPCButton.addEventListener(ButtonEvent.PRESS, handlePrevButtonPress, false, 0, true);
+				mcLeftPCButton.showOnSwitch2Mouser = true;
 			}
 			
 			if (mcRightPCButton)
 			{
 				mcRightPCButton.addEventListener(ButtonEvent.PRESS, handleNextButtonPress, false, 0, true);
+				mcRightPCButton.showOnSwitch2Mouser = true;
 			}
 			
 			if (mcLeftFeedbackButton)
 			{
+				mcLeftFeedbackButton.addEventListener(GestureEventEx.GESTURE_TAP, handlePrevButtonPress, false, 0, true);
+
 				mcLeftFeedbackButton.setDataFromStage(NavigationCode.GAMEPAD_L1, -1);
+				mcLeftFeedbackButton.showKeyboardIconOnSwitch2Mouser(true);
 			}
 			
 			if (mcRightFeedbackButton)
 			{
+				mcRightFeedbackButton.addEventListener(GestureEventEx.GESTURE_TAP, handleNextButtonPress, false, 0, true);
+
 				mcRightFeedbackButton.setDataFromStage(NavigationCode.GAMEPAD_R1, -1);
+				mcRightFeedbackButton.showKeyboardIconOnSwitch2Mouser(true);
 			}
+			
+			stage.addEventListener( TransformGestureEventEx.GESTURE_TWO_FINGER_SWIPE, handleGestureTwoFingerSwipe, false, 0, true );
+			stage.addEventListener(GestureEvent.GESTURE_TWO_FINGER_TAP, handleGestureTwoFingerTap, false, 0, true );
 			
 			if (mcStartGameButton)
 			{
-				mcStartGameButton.setDataFromStage(NavigationCode.GAMEPAD_Y, -1);
+				mcStartGameButton.addEventListener(GestureEventEx.GESTURE_TAP, handleStartPressed, false, 0, true);
+				mcStartGameButton.setDataFromStage(isSwitchPlatform ? NavigationCode.GAMEPAD_X : NavigationCode.GAMEPAD_Y, -1);
 				//mcStartGameButton.visible = false;
 			}
 			
@@ -210,7 +243,7 @@ package red.game.witcher3.menus.gwint
 			
 			if (mcChangeHeroButton)
 			{
-				mcChangeHeroButton.setDataFromStage(NavigationCode.GAMEPAD_X, -1);
+				mcChangeHeroButton.setDataFromStage(isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, -1);
 			}
 			
 			if (mcChoiceDialog)
@@ -220,7 +253,37 @@ package red.game.witcher3.menus.gwint
 			
 			currentModuleIdx = 0;
 		}
-		
+
+		protected function onCollectionPressed( event : GestureEvent ) : void
+		{
+			if ( event.phase == "begin" )
+			{
+				var card : CardSlot = mcCollectionHolder.mcCardSlotList.getSelectedRenderer() as CardSlot;
+				if ( card && card.mcHitBox && card.mcHitBox.hitTestPoint( event.stageX, event.stageY ) )
+				{
+					tryZoomCard(null, mcCollectionHolder);
+					mcChoiceDialog.ignoreNextRightClick = true;
+
+					trace( "DeckBuilderMenu::onCollectionPressed : ", card.mcHitBox.hitTestPoint( event.stageX, event.stageY ) );
+				}
+			}
+		}
+
+		protected function onDeckPressed( event : GestureEvent ) : void
+		{
+			if ( event.phase == "begin" )
+			{
+				var card : CardSlot = mcDeckHolder.mcCardSlotList.getSelectedRenderer() as CardSlot;
+				if ( card && card.mcHitBox && card.mcHitBox.hitTestPoint( event.stageX, event.stageY ) )
+				{
+					tryZoomCard(null, mcDeckHolder);
+					mcChoiceDialog.ignoreNextRightClick = true;
+
+					trace( "DeckBuilderMenu::onDeckPressed : ", card.mcHitBox.hitTestPoint( event.stageX, event.stageY ) );
+				}
+			}
+		}
+
 		override protected function get menuName():String
 		{ 
 			return "DeckBuilder";
@@ -636,7 +699,7 @@ package red.game.witcher3.menus.gwint
 			super.closeMenu();
 		}
 		
-		protected function handleStartPressed( event : ButtonEvent ) : void
+		protected function handleStartPressed( event : Event ) : void
 		{
 			var currentDeck:GwintDeck = getSelectedDeck();
 			if (!mcChoiceDialog.visible && !isInZoomMode)
@@ -687,6 +750,8 @@ package red.game.witcher3.menus.gwint
 				}
 				else
 				{
+					var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+
 					if (details.code == KeyCode.X && keyUp && !isInZoomMode)
 					{
 						startChooseModeLeader();
@@ -695,7 +760,9 @@ package red.game.witcher3.menus.gwint
 					{
 						tryClose();
 					}
-					else if (details.code == KeyCode.ENTER || details.navEquivalent == NavigationCode.GAMEPAD_Y)
+					else if (details.code == KeyCode.ENTER ||
+						(isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X) ||	// X on switch
+						(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y))	// Y on other platforms
 					{
 						if (keyUp && !mcChoiceDialog.visible && !isInZoomMode)
 						{
@@ -729,7 +796,11 @@ package red.game.witcher3.menus.gwint
 								}
 								break;
 							case NavigationCode.GAMEPAD_X:
-								if (keyUp && !isInZoomMode)
+							case NavigationCode.GAMEPAD_Y:
+								if (keyUp &&
+									!isInZoomMode &&
+									((isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y) ||		// Y on switch
+									(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X)))		// X on other platforms
 								{
 									startChooseModeLeader();
 								}
@@ -738,14 +809,12 @@ package red.game.witcher3.menus.gwint
 								if (keyDown && !isInZoomMode)
 								{
 									currentModuleIdx--;
-									resetToDefaultButtons();
 								}
 								break;
 							case NavigationCode.RIGHT:
 								if (keyDown && !isInZoomMode)
 								{
 									currentModuleIdx++;
-									resetToDefaultButtons();
 								}
 								break;
 							case NavigationCode.GAMEPAD_L1:
@@ -807,7 +876,7 @@ package red.game.witcher3.menus.gwint
 			tryClose();
 		}
 		
-		protected function handlePrevButtonPress( event : ButtonEvent ) : void
+		protected function handlePrevButtonPress( event : Event ) : void
 		{
 			if (!isInZoomMode)
 			{
@@ -815,7 +884,7 @@ package red.game.witcher3.menus.gwint
 			}
 		}
 		
-		protected function handleNextButtonPress( event : ButtonEvent ) : void
+		protected function handleNextButtonPress( event : Event ) : void
 		{
 			if (!isInZoomMode)
 			{
@@ -823,6 +892,45 @@ package red.game.witcher3.menus.gwint
 			}
 		}
 		
+		protected function handleGestureTwoFingerSwipe( event : TransformGestureEvent ) : void
+		{	
+			switch( event.rotation )
+			{
+				case 0.0 : 
+					handleNextButtonPress( null );
+				break;
+				case 180.0 : 
+					handlePrevButtonPress( null );
+				break;
+			}
+		}
+
+		protected function handleGestureTwoFingerTap( event : GestureEvent ) : void
+		{
+			if (mcTutorial && mcTutorial.visible)
+			{
+				return;
+			}
+
+			if ( !mcChoiceDialog.visible && !isInZoomMode )
+			{
+				tryClose();
+			}
+		}
+
+		private function transferCardFromDeckToCollection( selectedCard : CardSlot ) : void
+		{
+			dispatchEvent( new GameEvent( GameEvent.CALL, "OnCardRemovedFromDeck", [ selectedDeckIndex, selectedCard.cardIndex ] ) );
+			
+			collectionDeck.dbAddCard(selectedCard.cardIndex);
+			getSelectedDeck().dbRemoveCard(selectedCard.cardIndex);
+			
+			dispatchEvent(new GameEvent(GameEvent.CALL, "OnPlaySoundEvent", ["gui_gwint_discard_card"]));
+			
+			mcDeckStats.updateStats();
+			updateStartGameButton();
+		}
+
 		protected function handleDeckSlotActivated(event:SlotActionEvent):void
 		{	
 			if (event.actionType == InventoryActionType.DROP || isInZoomMode)
@@ -830,40 +938,70 @@ package red.game.witcher3.menus.gwint
 				return;
 			}
 			
-			var targetSlot:CardSlot = event.targetSlot as CardSlot;
-			
-			dispatchEvent( new GameEvent( GameEvent.CALL, "OnCardRemovedFromDeck", [ selectedDeckIndex, targetSlot.cardIndex ] ) );
-			
-			collectionDeck.dbAddCard(targetSlot.cardIndex);
-			getSelectedDeck().dbRemoveCard(targetSlot.cardIndex);
-			
-			dispatchEvent(new GameEvent(GameEvent.CALL, "OnPlaySoundEvent", ["gui_gwint_discard_card"]));
-			
-			mcDeckStats.updateStats();
-			updateStartGameButton();
+			var selectedCard:CardSlot = event.targetSlot as CardSlot;
+			transferCardFromDeckToCollection( selectedCard );
 		}
-		
-		protected function handleCollectionSlotActivated(event:SlotActionEvent):void
-		{	
-			if (event.actionType == InventoryActionType.DROP || isInZoomMode)
+
+		protected function onDeckCardTappedTwice( event : Event ) : void
+		{
+			var selectedCard : CardSlot = event.target.getSelectedRenderer() as CardSlot;
+			//Since we disabled focus handling (GwintDeckCTabModule::mcCardSlotList.focusable = false) We have to check if we are in focus manually.
+			trace( "DeckBuilderMenu::onDeckCardTappedTwice : ", mcDeckHolder.isOpen, selectedCard, event );
+			if ( mcDeckHolder.hasFocus && mcDeckHolder.isOpen && selectedCard )
 			{
-				return;
+				mcDeckHolder.mcCardSlotList.addEventListener( SlotsListBase.EVENT_SELECTED_TAPPED2, onDeckCardTappedTwice2, false, 0, true );
 			}
+		}
+
+		protected function onDeckCardTappedTwice2( event : Event ) : void
+		{
+			var selectedCard : CardSlot = event.target.getSelectedRenderer() as CardSlot;
 			
-			var targetSlot:CardSlot = event.targetSlot as CardSlot;
+			trace( "DeckBuilderMenu::onDeckCardTappedTwice2 : ", selectedCard );
+			if ( selectedCard )
+			{
+				mcDeckHolder.mcCardSlotList.removeEventListener( SlotsListBase.EVENT_SELECTED_TAPPED2, onDeckCardTappedTwice2, false );
+
+				if ( isInZoomMode )
+				{
+					return;
+				}
+
+				transferCardFromDeckToCollection( selectedCard );
+			}
+		}
+
+		protected function onDeckCardDoubleTapped( event : Event ) : void
+		{
+			var selectedCard : CardSlot = event.target.getSelectedRenderer() as CardSlot;
+			
+			trace( "DeckBuilderMenu::onDeckCardDoubleTapped : ", selectedCard );
+			if ( selectedCard )
+			{
+				if ( isInZoomMode )
+				{
+					return;
+				}
+
+				transferCardFromDeckToCollection( selectedCard );
+			}
+		}
+
+		private function transferCardFromCollectionToDeck( selectedCard : CardSlot )
+		{
 			var selectedDeck:GwintDeck = getSelectedDeck();
 			
-			if (!selectedDeck || !selectedDeck.dbCanAddCard(targetSlot.cardIndex))
+			if (!selectedDeck || !selectedDeck.dbCanAddCard(selectedCard.cardIndex))
 			{
 				mcDeckStats.highlightSpecialCards();
 				dispatchEvent( new GameEvent( GameEvent.CALL, "OnTooManySpecialCards" ) );
 				return;
 			}
 			
-			dispatchEvent( new GameEvent( GameEvent.CALL, "OnCardAddedToDeck", [ selectedDeckIndex, targetSlot.cardIndex ] ) );
+			dispatchEvent( new GameEvent( GameEvent.CALL, "OnCardAddedToDeck", [ selectedDeckIndex, selectedCard.cardIndex ] ) );
 			
-			collectionDeck.dbRemoveCard(targetSlot.cardIndex);
-			getSelectedDeck().dbAddCard(targetSlot.cardIndex);
+			collectionDeck.dbRemoveCard(selectedCard.cardIndex);
+			getSelectedDeck().dbAddCard(selectedCard.cardIndex);
 			
 			dispatchEvent(new GameEvent(GameEvent.CALL, "OnPlaySoundEvent", ["gui_gwint_draw_2"]));
 			
@@ -871,9 +1009,66 @@ package red.game.witcher3.menus.gwint
 			updateStartGameButton();
 			
 			// #Y Hack
-			if (mcTutorial.visible && getSelectedDeck().dbIsValidDeck())
+			//if (mcTutorial.visible && getSelectedDeck().dbIsValidDeck())
+			//{
+			//	mcTutorial.continueTutorial();
+			//}
+		}
+
+		protected function handleCollectionSlotActivated(event:SlotActionEvent):void
+		{	
+			if (event.actionType == InventoryActionType.DROP || isInZoomMode)
 			{
-				mcTutorial.continueTutorial();
+				return;
+			}
+			
+			var selectedCard:CardSlot = event.targetSlot as CardSlot;
+			transferCardFromCollectionToDeck( selectedCard );
+			
+		}
+
+		protected function onCollectionCardTappedTwice( event : Event ) : void
+		{
+			var selectedCard : CardSlot = event.target.getSelectedRenderer() as CardSlot;
+			//Since we disabled focus handling (GwintDeckCTabModule::mcCardSlotList.focusable = false) We have to check if we are in focus manually.
+			trace( "DeckBuilderMenu::onCollectionCardTappedTwice : ", mcCollectionHolder.isOpen, selectedCard, event );
+			if ( mcCollectionHolder.hasFocus && mcCollectionHolder.isOpen && selectedCard )
+			{
+				mcCollectionHolder.mcCardSlotList.addEventListener( SlotsListBase.EVENT_SELECTED_TAPPED2, onCollectionCardTappedTwice2, false, 0, true );
+			}
+		}
+
+		protected function onCollectionCardTappedTwice2( event : Event ) : void
+		{
+			var selectedCard : CardSlot = event.target.getSelectedRenderer() as CardSlot;
+			
+			trace( "DeckBuilderMenu::onCollectionCardTappedTwice2 : ", mcCollectionHolder.isOpen, selectedCard, event, mcCollectionHolder.mcCardSlotList.selectedIndex );
+			if ( selectedCard )
+			{
+				mcCollectionHolder.mcCardSlotList.removeEventListener( SlotsListBase.EVENT_SELECTED_TAPPED2, onCollectionCardTappedTwice2, false );
+
+				if ( isInZoomMode )
+				{
+					return;
+				}
+
+				transferCardFromCollectionToDeck( selectedCard );
+			}
+		}
+
+		protected function onCollectionCardDoubleTapped( event : Event ) : void
+		{
+			var selectedCard : CardSlot = event.target.getSelectedRenderer() as CardSlot;
+			
+			trace( "DeckBuilderMenu::onCollectionCardDoubleTapped : ", mcCollectionHolder.isOpen, selectedCard, event, mcCollectionHolder.mcCardSlotList.selectedIndex );
+			if ( selectedCard )
+			{
+				if ( isInZoomMode )
+				{
+					return;
+				}
+
+				transferCardFromCollectionToDeck( selectedCard );
 			}
 		}
 		
@@ -1018,12 +1213,14 @@ package red.game.witcher3.menus.gwint
 			{
 				return;
 			}
+
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 			
 			resetInputFeedbackButtons();
 			
 			if (gwintGamePending)
 			{
-				InputFeedbackManager.appendButtonById(GwintInputFeedback.startGame, NavigationCode.GAMEPAD_Y, KeyCode.ENTER, "gwint_deckbuilder_start_game");
+				InputFeedbackManager.appendButtonById(GwintInputFeedback.startGame, isSwitchPlatform ? NavigationCode.GAMEPAD_X : NavigationCode.GAMEPAD_Y, KeyCode.ENTER, "gwint_deckbuilder_start_game");
 				InputFeedbackManager.appendButtonById(GwintInputFeedback.quitGame, NavigationCode.GAMEPAD_B, -1, "gwint_pass_game");
 			}
 			else
@@ -1031,11 +1228,15 @@ package red.game.witcher3.menus.gwint
 				InputFeedbackManager.appendButtonById(GwintInputFeedback.closeDeckbuilder, NavigationCode.GAMEPAD_B, -1, "panel_button_common_close");
 			}
 			
-			InputFeedbackManager.appendButtonById(GwintInputFeedback.choseLeader, NavigationCode.GAMEPAD_X, KeyCode.X, "gwint_deckbuilder_inputfeedback_changeleader");
+			InputFeedbackManager.appendButtonById(GwintInputFeedback.choseLeader, isSwitchPlatform ? NavigationCode.GAMEPAD_Y : NavigationCode.GAMEPAD_X, KeyCode.X, "gwint_deckbuilder_inputfeedback_changeleader");
 			
 			if (deckFactionList != null && deckFactionList.length > 1)
 			{
-				InputFeedbackManager.appendButtonById(GwintInputFeedback.changeDeck, NavigationCode.GAMEPAD_RBLB, -1, "gwint_deckbuilder_inputfeedback_changedeck");
+				// Do not show on switch 2 with mouser as it is not binded.
+				if (InputManager.getInstance().gamepadType != EInputDeviceType.IDT_Switch2_Mouser)
+				{
+					InputFeedbackManager.appendButtonById(GwintInputFeedback.changeDeck, NavigationCode.GAMEPAD_RBLB, -1, "gwint_deckbuilder_inputfeedback_changedeck");
+				}
 			}
 			
 			if (mcDeckHolder.focused)
@@ -1063,8 +1264,8 @@ package red.game.witcher3.menus.gwint
 				}
 			}
 		}
-		
-		protected function onSelectedCardChanged( event:ListEvent ):void
+
+		protected function refreshInputFeedbackButtons( event:Event ):void
 		{
 			resetToDefaultButtons();
 		}
@@ -1240,35 +1441,44 @@ package red.game.witcher3.menus.gwint
 			{
 				mcLeaderCard.addEventListener(CardSlot.CardMouseOver, onLeaderMouseOver, false, 0, true);
 				mcLeaderCard.addEventListener(CardSlot.CardMouseOut, onLeaderMouseOut, false, 0, true);
-				//mcLeaderCard.addEventListener(CardSlot.CardMouseLeftClick, onLeaderMouseLeftClick, false, 0, true);
-				mcLeaderCard.addEventListener(CardSlot.CardMouseRightClick, onLeaderMouseRightClick, false, 0, true);
-				mcLeaderCard.addEventListener(CardSlot.CardMouseDoubleClick, onLeaderMouseDoubleClick, false, 0, true);
+
+				//Inspect / show details
+				mcLeaderCard.addEventListener(CardSlot.CardMouseRightClick, onLeaderInspect, false, 0, true);
+				mcLeaderCard.addEventListener(GestureEventEx.GESTURE_PRESS, onLeaderPress, false, 0, true);
+
+				//Choose
+				mcLeaderCard.addEventListener(CardSlot.CardMouseDoubleClick, onLeaderChoose, false, 0, true);
+				mcLeaderCard.addEventListener(GestureEventEx.GESTURE_TAP, onLeaderChoose, false, 0, true);
 			}
 		}
 		
-		protected function onLeaderMouseOver(e:Event):void
+		protected function onLeaderMouseOver( e : Event ) : void
 		{
 			_leaderCardHovered = true;
-			if (!InputManager.getInstance().isGamepad())
+			if (InputManager.getInstance().isMouse())
 			{
 				mcLeaderCard.selected = true;
 			}
 		}
 		
-		protected function onLeaderMouseOut(e:Event):void
+		protected function onLeaderMouseOut( e : Event ) : void
 		{
 			_leaderCardHovered = false;
-			if (!InputManager.getInstance().isGamepad())
+			if (InputManager.getInstance().isMouse())
 			{
 				mcLeaderCard.selected = false;
 			}
 		}
+
+		protected function onLeaderPress( e : GestureEvent ) : void
+		{
+			if (e.phase == "begin")
+			{
+				onLeaderInspect( null );
+			}
+		}
 		
-		//protected function onLeaderMouseLeftClick(e:Event):void
-		//{
-		//}
-		
-		protected function onLeaderMouseRightClick(e:Event):void
+		protected function onLeaderInspect( e : Event ) : void
 		{
 			if (!isInZoomMode)
 			{
@@ -1277,7 +1487,7 @@ package red.game.witcher3.menus.gwint
 			}
 		}
 		
-		protected function onLeaderMouseDoubleClick(e:Event):void
+		protected function onLeaderChoose( e : Event ):void
 		{
 			if (!isInZoomMode && !choosingLeader)
 			{
@@ -1287,18 +1497,20 @@ package red.game.witcher3.menus.gwint
 		
 		protected function handleControllerChange(event:ControllerChangeEvent):void
 		{
-			if (event.isGamepad)
-			{
-				if (mcLeaderCard && mcLeaderCard.selected)
-				{
-					mcLeaderCard.selected = false;
-				}
-			}
-			else
+			resetToDefaultButtons();
+
+			if (event.isMouse)
 			{
 				if (mcLeaderCard && _leaderCardHovered)
 				{
 					mcLeaderCard.selected = true;
+				}
+			}
+			else
+			{
+				if (mcLeaderCard && mcLeaderCard.selected)
+				{
+					mcLeaderCard.selected = false;
 				}
 			}
 		}

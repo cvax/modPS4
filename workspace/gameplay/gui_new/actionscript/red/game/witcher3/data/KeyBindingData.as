@@ -11,6 +11,7 @@ package red.game.witcher3.data
 		public var actionId:uint;
 		public var gamepad_navEquivalent:String = "";
 		public var keyboard_keyCode:int;
+		public var isAlreadyLocalized:Boolean = false;
 		public var label:String;
 		public var level:int; // binding priority, if we have several equal bindings, one with highest level will be shown
 		public var isContextBinding:Boolean; // @deprecated

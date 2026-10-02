@@ -1,22 +1,29 @@
 package red.game.witcher3.menus.gwint
 {
 	import flash.events.Event;
+	import flash.events.GestureEvent;
 	import flash.events.MouseEvent;
+
 	import red.core.constants.KeyCode;
 	import red.core.events.GameEvent;
+	import red.core.events.GestureEventEx;
 	import red.game.witcher3.controls.ConditionalCloseButton;
 	import red.game.witcher3.controls.InputFeedbackButton;
 	import red.game.witcher3.controls.W3ChoiceDialog;
 	import red.game.witcher3.controls.W3MessageQueue;
 	import red.game.witcher3.events.InputFeedbackEvent;
+	import red.game.witcher3.events.ControllerChangeEvent;
 	import red.game.witcher3.managers.InputFeedbackManager;
+	import red.game.witcher3.managers.InputManager;
+
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.events.ButtonEvent;
 	import scaleform.clik.events.InputEvent;
 	import scaleform.clik.managers.InputDelegate;
 	import scaleform.clik.ui.InputDetails;
-	
+	import scaleform.gfx.MouseEventEx;
+
 	/**
 	 * ...
 	 * @author Jason Slama sept 2014
@@ -103,7 +110,9 @@ package red.game.witcher3.menus.gwint
 			
 			if (mcCloseBtn)
 			{
-				mcCloseBtn.addEventListener(ButtonEvent.PRESS, handleClosePressed, false, 0, true);
+				mcCloseBtn.addEventListener(ButtonEvent.PRESS, handleCloseClick, false, 0, true);
+				mcCloseBtn.addEventListener(GestureEventEx.GESTURE_PRESS, handleClosePressed, false, 0, true);
+				mcCloseBtn.showOnSwitch2Mouser = true;
 				mcCloseBtn.label = "[[gwint_pass_game]]";
 			}
 			
@@ -115,31 +124,64 @@ package red.game.witcher3.menus.gwint
 			
 			gameFlowController.addEventListener(GwintGameFlowController.COIN_TOSS_POPUP_NEEDED, chooseCoingPopup, false, 0, true);
 			InputDelegate.getInstance().addEventListener(InputEvent.INPUT, handleInput, false, 0, true);
-			stage.addEventListener(MouseEvent.CLICK, handleMouseClick, false, 2, true);
-			
-			btnSkipTurn.label = "[[qwint_skip_turn]]";
-			btnSkipTurn.setDataFromStage(NavigationCode.GAMEPAD_Y, KeyCode.SPACE);
-			btnSkipTurn.holdDuration = SKIP_TURN_HOLD_DELAY;
-			btnSkipTurn.visible = false;
-			gameFlowController.skipButton = btnSkipTurn;
+			stage.addEventListener(MouseEvent.CLICK, handleGestureOrMouseClick, false, 2, true);
+			stage.addEventListener(GestureEventEx.GESTURE_TAP, handleGestureOrMouseClick, false, 2, true);
+			stage.addEventListener(GestureEvent.GESTURE_TWO_FINGER_TAP, handleGestureOrMouseClick, false, 2, true);
+			stage.addEventListener(GestureEventEx.GESTURE_PRESS, handleGestureOrMouseClick, false, 2, true);
+
+			setupSkipButton();
 			
 			mcChoiceDialog.visible = false; // #J WIP component, hiding it permentaly for now
 			
 			dispatchEvent( new GameEvent( GameEvent.CALL, "OnConfigUI" ) );
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'gwent.spawnCardInstance', [onSpawnCardInstance] ) );
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'gwent.addCardToDeck', [onAddCardToDeck] ) );
+			dispatchEvent( new GameEvent( GameEvent.REGISTER, 'gwent.killCard', [onKillCard] ) );
 			
 			//#Y We shoud have some exit dialog, for now it just a hack, so don't show inputf for it
 			//InputFeedbackManager.appendButton(this, NavigationCode.START, -1, "[[panel_button_common_exit]]");
 		}
+
+		override public function setPlatform(platformType:uint):void
+		{
+			super.setPlatform(platformType);
+
+			setupSkipButton();
+		}
+
+		override protected function handleControllerChanged(event:ControllerChangeEvent):void
+		{
+			super.handleControllerChanged(event);
+
+			setupSkipButton();
+		}
+
+		protected function setupSkipButton()
+		{
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+			btnSkipTurn.label = "[[qwint_skip_turn]]";
+			btnSkipTurn.setDataFromStage(isSwitchPlatform ? NavigationCode.GAMEPAD_X : NavigationCode.GAMEPAD_Y, KeyCode.SPACE, -1, SKIP_TURN_HOLD_DELAY);
+			btnSkipTurn.visible = false;
+			gameFlowController.skipButton = btnSkipTurn;
+		}
 		
-		protected function handleClosePressed( event : ButtonEvent ) : void
+		protected function handleCloseClick( event : Event ) : void
 		{
 			if (mcEndGameDialog && mcEndGameDialog.visible)
 			{
-				mcEndGameDialog.closeButtonPressed(null);
+				mcEndGameDialog.closeButtonPressedOrTapped(null);
 			}
 			else
 			{
 				tryQuitGame();
+			}
+		}
+
+		protected function handleClosePressed( event : GestureEvent ) : void
+		{
+			if ( event.phase == "begin" )
+			{
+				handleCloseClick( null );
 			}
 		}
 		
@@ -174,16 +216,16 @@ package red.game.witcher3.menus.gwint
 					if (details.code == KeyCode.I)
 					{
 						m_CheatCardID = 0;
-						trace("GFX ----------------- reset cheat id to: ", m_CheatCardID);
+						CardManager.log("----------------- reset cheat id to: ", m_CheatCardID);
 					}
 					else if (details.code == KeyCode.O)
 					{
-						trace("GFX ----------------- Spawning card for player 1 with id: ", m_CheatCardID);
+						CardManager.log("----------------- Spawning card for player 1 with id: ", m_CheatCardID);
 						_cardManager.spawnCardInstance(m_CheatCardID, CardManager.PLAYER_1);
 					}
 					else if (details.code == KeyCode.P)
 					{
-						trace("GFX ----------------- Spawning card for player 2 with id: ", m_CheatCardID);
+						CardManager.log("----------------- Spawning card for player 2 with id: ", m_CheatCardID);
 						_cardManager.spawnCardInstance(m_CheatCardID, CardManager.PLAYER_2);
 					}
 					else 
@@ -250,7 +292,7 @@ package red.game.witcher3.menus.gwint
 							m_CheatCardID = parseInt(newNumber, 10);
 						}
 						
-						trace("GFX ----------------- Cheat card ID changed to:", m_CheatCardID);
+						CardManager.log("----------------- Cheat card ID changed to:", m_CheatCardID);
 					}
 				}
 				*/
@@ -278,8 +320,8 @@ package red.game.witcher3.menus.gwint
 				}
 			}
 		}
-		
-		public function handleMouseClick(event:MouseEvent):void
+
+		private function handleGestureOrMouseClick(event:Event):void
 		{
 			if (mcTutorials && mcTutorials.visible && !mcTutorials.isPaused)
 			{
@@ -298,7 +340,16 @@ package red.game.witcher3.menus.gwint
 					var currentController:BasePlayerController = gameFlowController.playerControllers[i];
 					if (currentController)
 					{
-						currentController.handleMouseClick(event);
+						var mouseEvent : MouseEvent = event as MouseEvent;
+						var gestureEvent : GestureEvent = event as GestureEvent;
+						if ( mouseEvent )
+						{
+							currentController.handleMouseClick( mouseEvent );
+						}
+						else if ( gestureEvent )
+						{
+							currentController.handleGesture( gestureEvent );
+						}
 					}
 				}
 			}
@@ -391,7 +442,7 @@ package red.game.witcher3.menus.gwint
 		
 		public function setCardValues(cardValues:Object):void
 		{
-			trace("GFX ----------------- cardValues received:", cardValues);
+			CardManager.log("----------------- cardValues received:", cardValues);
 			_cardManager.cardValues = cardValues as GwintCardValues;
 		}
 		
@@ -431,8 +482,8 @@ package red.game.witcher3.menus.gwint
 			var cardInstances:Vector.<CardInstance> = new Vector.<CardInstance>();
 			var newInstance:CardInstance;
 			
-			trace("GFX --------------------------------------------------------- Commencing card test ---------------------------------------------------------" );
-			trace("GFX ================================================== Creating temporary card instances ===================================================" );
+			CardManager.log("--------------------------------------------------------- Commencing card test ---------------------------------------------------------" );
+			CardManager.log("================================================== Creating temporary card instances ===================================================" );
 			
 			for each(var curTemplate:CardTemplate in _cardManager._cardTemplates)
 			{
@@ -446,22 +497,22 @@ package red.game.witcher3.menus.gwint
 				cardInstances.push(newInstance);
 			}
 			
-			trace("GFX - Successfully created: " + cardInstances.length + " card instances" );
+			CardManager.log("- Successfully created: " + cardInstances.length + " card instances" );
 			
 			for (var i:int = 0; i < cardInstances.length; ++i)
 			{
-				trace("GFX - Checking Card with ID: " + cardInstances[i].templateId + " --------------------------");
-				trace("GFX ---------------------------------------------------------" );
-				trace("GFX - template Ref: " + cardInstances[i].templateRef);
-				trace("GFX - instance info: " + cardInstances[i]);
-				trace("GFX - recalulating optimal transaction for card");
+				CardManager.log("- Checking Card with ID: " + cardInstances[i].templateId + " --------------------------");
+				CardManager.log("---------------------------------------------------------" );
+				CardManager.log("- template Ref: " + cardInstances[i].templateRef);
+				CardManager.log("- instance info: " + cardInstances[i]);
+				CardManager.log("- recalulating optimal transaction for card");
 				cardInstances[i].recalculatePowerPotential(_cardManager);
-				trace("GFX - successfully recalculated following power info: ");
-				trace("GFX - " + cardInstances[i].getOptimalTransaction());
+				CardManager.log("- successfully recalculated following power info: ");
+				CardManager.log("- " + cardInstances[i].getOptimalTransaction());
 			}
 			
-			trace("GFX ================================ Successfully Finished Test of Card Instances ====================================" );
-			trace("GFX ------------------------------------------------------------------------------------------------------------------" );
+			CardManager.log("================================ Successfully Finished Test of Card Instances ====================================" );
+			CardManager.log("------------------------------------------------------------------------------------------------------------------" );
 		}
 		
 		public function /* Witcherscript */ winGwint( result : int ) : void
@@ -489,6 +540,70 @@ package red.game.witcher3.menus.gwint
 			}
 		}
 		
+		public function findBoardBackground():BoardBackground
+		{
+			for(var i = 0; i<numChildren; ++i)
+			{
+				var background = getChildAt(i) as BoardBackground;
+				if(background)
+				{
+					return background;
+				}
+			}
+			return null;
+		}
+
+		private function onSpawnCardInstance(params:Array)
+		{
+			if(params.length < 3)
+				throw Error;
+
+			for(var i = 2; i<params.length; ++i)
+			{
+				var newCardInstance = _cardManager.spawnCardInstance(params[i], params[0]);
+				_cardManager.addCardInstanceToList(newCardInstance, params[1], params[0]);
+			}
+		}
+
+		private function onAddCardToDeck(params:Array)
+		{
+			if(params.length < 2)
+				throw Error;
+
+			for(var i = 1; i<params.length; ++i)
+			{
+				_cardManager.addCardToDeck(params[i], params[0]);
+			}
+		}
+
+		private function onKillCard(params:Array)
+		{
+			if(params.length != 0)
+				throw Error;
+
+			var cardHolder = gameFlowController.playerControllers[CardManager.PLAYER_1].boardRenderer.getSelectedCardHolder();
+			if (cardHolder != null)
+			{
+				trace("===================================================");
+				trace("===================================================");
+				trace("===================================================");
+				trace("================ CARD HOLDER KILL " + cardHolder.selectedCardIdx); 
+				trace("===================================================");
+				trace("===================================================");
+				trace("===================================================");
+				var card = cardHolder.getSelectedCardSlot();
+				if (card != null)
+				{
+					trace("===================================================");
+					trace("===================================================");
+					trace("===================================================");
+					trace("================ KILL " + card.instanceId); 
+					trace("===================================================");
+					trace("===================================================");
+					trace("===================================================");
+					_cardManager.sendToGraveyard(_cardManager.getCardInstance(card.instanceId));
+				}
+			}
+		}
 	}
-	
 }

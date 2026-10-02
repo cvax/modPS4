@@ -90,6 +90,8 @@
 					case 'SideQuest':
 					case 'MonsterQuest':
 					case 'TreasureQuest':
+					case 'QuestObjective':
+					case 'QuestObjectiveOther':
 						resultCanvas = _questCanvas;
 						break;
 					case 'NoticeBoard':

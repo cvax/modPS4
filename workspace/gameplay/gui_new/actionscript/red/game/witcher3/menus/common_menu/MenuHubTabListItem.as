@@ -8,6 +8,7 @@
 package red.game.witcher3.menus.common_menu
 {
 	import flash.display.MovieClip;
+	import flash.events.Event;
 	import flash.events.MouseEvent;
 	import flash.text.TextField;
 	import red.game.witcher3.constants.CommonConstants;
@@ -20,7 +21,7 @@ package red.game.witcher3.menus.common_menu
 		public var mcHasNewIcon : MovieClip;
 		public var txtLabel:TextField;
 		public var isSmallTab:Boolean = false;
-		
+		public var noSafeUpperCase:Boolean =false
 		
 		protected override function configUI():void
 		{
@@ -46,9 +47,16 @@ package red.game.witcher3.menus.common_menu
 			if (txtLabel)
 			{
 				updateLabelPosition();
-				txtLabel.htmlText = CommonUtils.toUpperCaseSafe(value);
+				if(noSafeUpperCase)
+				{
+					txtLabel.htmlText = value;
+					txtLabel.htmlText.toUpperCase();
+				}
+				else
+				{
+					txtLabel.htmlText = CommonUtils.toUpperCaseSafe(value);
+				}
 				txtLabel.height = txtLabel.textHeight + CommonConstants.SAFE_TEXT_PADDING;
-				
 			}
 			
 		}
@@ -68,6 +76,17 @@ package red.game.witcher3.menus.common_menu
 					txtLabel.y = 11.55;
 				}
 			}
+			/*else
+			{
+				if ( txtLabel.numLines > 1 )
+				{
+					txtLabel.y = 31;
+				}
+				else
+				{
+					txtLabel.y = 46.9;
+				}
+			}*/
 		}
 
 		override public function get selectable():Boolean
@@ -81,8 +100,18 @@ package red.game.witcher3.menus.common_menu
 
 			if (txtLabel && data)
 			{
-				txtLabel.htmlText = CommonUtils.toUpperCaseSafe(data.label);
+				if(noSafeUpperCase)
+				{	
+					txtLabel.htmlText = data.label;
+					txtLabel.htmlText.toUpperCase();
+				}
+				else
+				{
+					txtLabel.htmlText = CommonUtils.toUpperCaseSafe(data.label);
+				}
+
 				txtLabel.height = txtLabel.textHeight + CommonConstants.SAFE_TEXT_PADDING;
+				dispatchEvent( new Event("setLabel") );
 				updateLabelPosition();
 			}
 			
@@ -94,9 +123,17 @@ package red.game.witcher3.menus.common_menu
 
 			if (txtLabel && data)
 			{
-				txtLabel.htmlText = CommonUtils.toUpperCaseSafe(data.label);
+				if(noSafeUpperCase)
+				{	
+					txtLabel.htmlText = data.label;
+					txtLabel.htmlText.toUpperCase();
+				}
+				else
+				{
+					txtLabel.htmlText = CommonUtils.toUpperCaseSafe(data.label);
+				}
 				txtLabel.height = txtLabel.textHeight + CommonConstants.SAFE_TEXT_PADDING;
-				//updateLabelPosition();			
+				//updateLabelPosition();
 			}
 		}
 	}

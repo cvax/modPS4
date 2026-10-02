@@ -1,35 +1,37 @@
 ﻿package red.game.witcher3.menus.mainmenu
 {
 	import flash.events.Event;
-	import flash.text.TextField;
-	import red.core.events.GameEvent;
+	import flash.events.TimerEvent;
 	import flash.display.MovieClip;
-	import red.core.CoreMenu;
-	import scaleform.gfx.Extensions;
+	import flash.display.BitmapData;
+	import flash.display.Bitmap;
+	import flash.text.TextField;
 	import flash.utils.getTimer;
+	import flash.utils.Timer;
 
 	import scaleform.clik.events.InputEvent;
-	import red.core.constants.KeyCode;
 	import scaleform.clik.ui.InputDetails;
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
+
+	import scaleform.gfx.Extensions;
+
+	import red.core.CoreMenu;
+	import red.core.constants.KeyCode;
 	import red.core.data.InputAxisData;
+	import red.core.events.GameEvent;
+	import red.core.events.GestureEventEx;
+	import red.game.witcher3.controls.InputFeedbackButton;
+	import red.game.witcher3.managers.InputManager;
+	import red.game.witcher3.utils.motion.TweenEx;
 
 	import com.gskinner.motion.easing.Exponential;
 	import com.gskinner.motion.easing.Sine;
 	import com.gskinner.motion.easing.Quadratic;
 	import com.gskinner.motion.GTween;
 	import com.gskinner.motion.GTweener;
-	import red.game.witcher3.controls.InputFeedbackButton;
-	import red.core.CoreMenu;
 
-	import flash.utils.Timer;
-	import flash.events.TimerEvent;
-	import red.game.witcher3.utils.motion.TweenEx;
 	import fl.transitions.easing.Strong;
-
-	import flash.display.BitmapData;
-	import flash.display.Bitmap;
 
 	public class CreditsMenu extends CoreMenu
 	{
@@ -82,11 +84,7 @@
 			
 			mcSkipIndicator.alpha = 0;
 
-			var btnSkip : InputFeedbackButton = mcSkipIndicator.btnSkip as InputFeedbackButton;
-			btnSkip.clickable = false;
-			btnSkip.label = "[[panel_button_dialogue_skip]]";
-			btnSkip.setDataFromStage(NavigationCode.GAMEPAD_X, KeyCode.ESCAPE);
-			btnSkip.validateNow();
+			setupSkipButton();
 			
 			tfScrollingText1.autoSize = "left";
 			//tfScrollingText1.border = true;
@@ -106,12 +104,30 @@
 			mcThanks.addEventListener(Event.COMPLETE, thankYouFinished);
 			mcLovingMemory.addEventListener(CreditsMenu.STOP_VIDEO, lovingMemoryStopVideo);
 			mcLovingMemory.addEventListener(Event.COMPLETE, lovingMemoryFinished);
+
+			stage.addEventListener( GestureEventEx.GESTURE_TAP, handleGestureTap, false, 0, true );
+			stage.addEventListener( GestureEventEx.GESTURE_DOUBLE_TAP, handleGestureTap, false, 0, true );
+		}
+
+		override public function setPlatform(platformType:uint):void
+		{
+			super.setPlatform(platformType);
+
+			setupSkipButton();
+		}
+
+		private function setupSkipButton()
+		{
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
+			var btnSkip : InputFeedbackButton = mcSkipIndicator.btnSkip as InputFeedbackButton;
+			btnSkip.clickable = false;
+			btnSkip.label = "[[panel_button_dialogue_skip]]";
+			btnSkip.setDataFromStage(isSwitchPlatform ? NavigationCode.GAMEPAD_B : NavigationCode.GAMEPAD_X, KeyCode.ESCAPE);
+			btnSkip.validateNow();
 		}
 
 		public function setCreditsText(string:String,displayTime:Number,delay:Number,posX: int, posY: int):void
 		{
-
-			
 			if (posX > 890)
 			{
 				mcCurrentSection.tfCurrent.htmlText = "<p align=\"right\">" + string +"</p>";
@@ -382,10 +398,24 @@
 			}
 		}
 
+		private function handleGestureTap( event : Event ) : void
+		{
+			if ( mcSkipIndicator.alpha > 0.1 )
+			{
+				SkipConfirmHide();
+				closeMenu();
+			}
+			else
+			{
+				SkipConfirmShow();
+			}
+		}
+
 		override protected function handleInputNavigate(event:InputEvent):void
 		{
             var details:InputDetails = event.details;
             var keyUp:Boolean = (details.value == InputValue.KEY_UP);
+			var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 
 			if (!event.handled && keyUp)
 			{
@@ -393,13 +423,17 @@
 				{
 					case NavigationCode.GAMEPAD_B :
 					case NavigationCode.GAMEPAD_X :
+					if (details.navEquivalent == NavigationCode.GAMEPAD_B ||							// B on switch, and also on other platforms
+						(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X))		// X on other platforms
+					{
 						if ( mcSkipIndicator.alpha > 0.1 )
 						{
 							SkipConfirmHide();
 							closeMenu();
 							return;
 						}
-						break;
+					}
+					break;
 				}
 				SkipConfirmShow();
 			}

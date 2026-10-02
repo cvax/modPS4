@@ -55,6 +55,7 @@ package red.game.witcher3.menus.overlay
 			super.configUI();
 			
 			mcSlider.addEventListener(SliderEvent.VALUE_CHANGE, handlSliderChanged, false, 0, true);
+			mcSlider.enableTouch( true );
 			stage.addEventListener(InputEvent.INPUT, handleInput, false, 0, true);
 		}
 

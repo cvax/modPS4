@@ -230,22 +230,20 @@
 		
 		public function handleTooltipToggled(noUpdate:Boolean = false ):void
 		{
-			trace("GFX handleTooltipToggled; noUpdate ", noUpdate);
-			
+			//trace("GFX handleTooltipToggled; noUpdate ", noUpdate);
 			if (!_rootCanvas)
 			{
 				return;
 			}
 			
-			trace("GFX _enableInputFeedback ", _enableInputFeedback, "; noUpdate", noUpdate);
-			
+			//trace("GFX _enableInputFeedback ", _enableInputFeedback, "; noUpdate", noUpdate);
 			if (_enableInputFeedback)
 			{
 				if (!_isHiddenState)
 				{
 					if (_btn_show_tooltip == -1)
 					{
-						_btn_show_tooltip = InputFeedbackManager.appendButton(_rootCanvas, NavigationCode.GAMEPAD_LSTICK_HOLD, -1, "input_tooltip_hide");
+						_btn_show_tooltip = InputFeedbackManager.appendButton(_rootCanvas, NavigationCode.GAMEPAD_L3, -1, "input_tooltip_hide");
 					}
 					
 					if (_btn_hide_tooltip != -1)
@@ -258,7 +256,7 @@
 				{
 					if (_btn_hide_tooltip == -1)
 					{
-						_btn_hide_tooltip = InputFeedbackManager.appendButton(_rootCanvas, NavigationCode.GAMEPAD_LSTICK_HOLD, -1, "input_tooltip_show");
+						_btn_hide_tooltip = InputFeedbackManager.appendButton(_rootCanvas, NavigationCode.GAMEPAD_L3, -1, "input_tooltip_show");
 					}
 					
 					if (_btn_show_tooltip != -1)
@@ -311,7 +309,6 @@
 			}
 		}
 		
-		
 		//#Y HAX; Stats only, REFACT
 		public function dataReceiverStat(value:Object):void
 		{
@@ -361,7 +358,7 @@
 		
 		protected function handleControllerChange(event:ControllerChangeEvent):void
 		{
-			if (!event.isGamepad)
+			if (event.isMouse)
 			{
 				setHiddenState(false);
 			}
@@ -373,14 +370,14 @@
 		protected var bufGridEvent:GridEvent;
 		protected function pospondedTooltipShow(event:GridEvent):void
 		{
-			var isGamepad:Boolean = _inputMgr.isGamepad();
+			var isMouse:Boolean = _inputMgr.isMouse();
 			
-			if (!_gridEventsMouseOnly || !isGamepad)
+			if (!_gridEventsMouseOnly || isMouse)
 			{
 				bufGridEvent = event;
 				handleTooltipHideEvent();
 				
-				_tooltipTimer = new Timer(isGamepad ? TOOLTIPS_DELAY : TOOLTIPS_DELAY_MOUSE , 1);
+				_tooltipTimer = new Timer(isMouse ? TOOLTIPS_DELAY_MOUSE : TOOLTIPS_DELAY, 1);
 				_tooltipTimer.addEventListener(TimerEvent.TIMER_COMPLETE, showTooltipTimerEnded);
 				_tooltipTimer.start();
 			}
@@ -399,7 +396,7 @@
 			var keyArgs			: Array;
 			var targetConentRef : String;
 			
-			if (_gridEventsMouseOnly && _inputMgr.isGamepad())
+			if (_gridEventsMouseOnly && !_inputMgr.isMouse())
 			{
 				return;
 			}
@@ -465,6 +462,15 @@
 			if (event.tooltipCustomArgs)
 			{
 				keyArgs = event.tooltipCustomArgs;
+			}
+			else if (tooltipData.hasOwnProperty("realId"))
+			{
+				dataObject.dataSource = "OnGetItemDataTransmog";
+				keyArgs = [uint(tooltipData.realId), uint(tooltipData.id), compareItem, uint(tooltipData.modified)];
+			}
+			else if (tooltipData.hasOwnProperty("cacheIndex"))
+			{
+				keyArgs = [uint(tooltipData.id), compareItem, uint(tooltipData.cacheIndex)];
 			}
 			else
 			{
@@ -620,7 +626,7 @@
 			{
 				return;
 			}
-			else if (InputManager.getInstance().isGamepad())
+			else if (!InputManager.getInstance().isMouse())
 			{
 				_rootCanvas.removeChild(_tooltip);
 			}
@@ -668,26 +674,18 @@
 			_upscaleMePlease = initScaling;
 		}
 		
-		protected function handleInput(event:InputEvent):void
+		protected function handleInput( event:InputEvent ) : void
 		{
 			var details:InputDetails = event.details;
-					
 			
-			if (!event.handled)
+			CommonUtils.fixupKeyCode( details );
+			if ( !event.handled )
 			{
-				if (details.navEquivalent == NavigationCode.GAMEPAD_L2 || details.code == KeyCode.SHIFT_LEFT || details.code == KeyCode.SHIFT_RIGHT )
+				if ( details.navEquivalent == NavigationCode.GAMEPAD_L2 || details.code == KeyCode.SHIFT_LEFT || details.code == KeyCode.SHIFT_RIGHT )
 				{
-					if (details.value == InputValue.KEY_UP)
-					{
-						comparisonMode = false;
-					}
-					else
-					{
-						comparisonMode = true;
-					}
+					comparisonMode = (details.value != InputValue.KEY_UP);
 				}
-				else
-				if ( details.navEquivalent == NavigationCode.GAMEPAD_L3 && details.value == InputValue.KEY_UP && _enableInputFeedback)
+				else if ( details.navEquivalent == NavigationCode.GAMEPAD_L3 && details.value == InputValue.KEY_UP && _enableInputFeedback)
 				{
 					if (blockModeSwitching)
 					{
@@ -702,6 +700,7 @@
 					
 					setHiddenState(!_isHiddenState);
 				}
+
 				if ( details.navEquivalent == NavigationCode.GAMEPAD_L3 && details.value == InputValue.KEY_HOLD && !_holdTriggered && _enableInputFeedback)
 				{
 					var tweenValues:Object;
@@ -711,7 +710,7 @@
 					{
 						return;
 					}
-					
+				
 					_holdTriggered = true;
 					
 					if (_tooltip && _upscaleMePlease)
@@ -738,8 +737,7 @@
 						GTweener.to(_tooltip, .5, tweenValues, { ease:Exponential.easeOut, onComplete:handleTooltipUnzoomed  } );
 						_upscaleMePlease = false;
 					}
-					else
-					if (_tooltip && !_upscaleMePlease && _enableInputFeedback)
+					else if (_tooltip && !_upscaleMePlease && _enableInputFeedback)
 					{
 						var curMaxZoom:Number = getMaxScale( _tooltip );
 						
@@ -771,10 +769,8 @@
 			}
 		}
 		
-		private function handleTooltipZoomed(gt:GTween):void
+		private function handleTooltipZoom( zoomed : Boolean ) : void
 		{
-			//trace("GFX handleTooltipZoomed ", saveScaleValue);
-			
 			if (_tooltip)
 			{
 				_tooltip.stopSafeRectCheck(false);
@@ -782,23 +778,20 @@
 			
 			if (saveScaleValue)
 			{
-				_rootCanvas.dispatchEvent( new GameEvent( GameEvent.CALL, 'OnTooltipScaleStateSave', [true] ) );
+				_rootCanvas.dispatchEvent( new GameEvent( GameEvent.CALL, 'OnTooltipScaleStateSave', [zoomed] ) );
 			}
+		}
+
+		private function handleTooltipZoomed(gt:GTween):void
+		{
+			//trace("GFX handleTooltipZoomed ", saveScaleValue);
+			handleTooltipZoom(true);
 		}
 		
 		private function handleTooltipUnzoomed(gt:GTween):void
 		{
 			//trace("GFX handleTooltipUnzoomed ", saveScaleValue);
-			
-			if (_tooltip)
-			{
-				_tooltip.stopSafeRectCheck(false);
-			}
-			
-			if (saveScaleValue)
-			{
-				_rootCanvas.dispatchEvent( new GameEvent( GameEvent.CALL, 'OnTooltipScaleStateSave', [false] ) );
-			}
+			handleTooltipZoom(false);
 		}
 		
 		private function handleMouseClick(event:MouseEvent):void
@@ -811,7 +804,6 @@
 			{
 				_upscaleMePlease = !_upscaleMePlease;
 				
-
 				if (_upscaleMePlease)
 				{
 					_tooltip.scaleX = _tooltip.scaleY = getMaxScale( _tooltip );
@@ -872,7 +864,5 @@
 				return MAX_ZOOM;
 			}
 		}
-		
-
 	}
 }

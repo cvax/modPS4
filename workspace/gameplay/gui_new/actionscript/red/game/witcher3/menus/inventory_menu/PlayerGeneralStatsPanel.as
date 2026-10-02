@@ -19,6 +19,7 @@ package red.game.witcher3.menus.inventory_menu
 		public function PlayerGeneralStatsPanel() 
 		{
 			mcStatsList.visible = false;
+			mcStatsList.enableTouch( true );
 			mcStatsList.addEventListener(ListEvent.INDEX_CHANGE, handleIndexChanged, false, 0, true);
 		}
 		

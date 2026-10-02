@@ -88,6 +88,9 @@ package scaleform.clik.constants
 		public static var GAMEPAD_LSTICK_DOWN:String = "gamepad_L_down";
 				
 		public static var GAMEPAD_SHARE:String = "gamepad_Share";
+
+        // #LT Additional for photomode
+        public static var GAMEPAD_Y_HOLD:String = "gamepad_Y";
     }
 
 }

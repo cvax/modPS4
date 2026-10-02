@@ -30,6 +30,9 @@ package red.game.witcher3.controls
 	import scaleform.clik.ui.InputDetails;
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.gfx.MouseEventEx;
+	import flash.events.TransformGestureEvent;
+	import red.game.witcher3.slots.SlotsListBase;
+	import flash.events.GestureEvent;
 	
 	public class W3ChoiceDialog extends UIComponent
 	{
@@ -44,6 +47,7 @@ package red.game.witcher3.controls
 		private var _acceptCallback:Function;
 		private var _declineCallback:Function;
 		private var _shown:Boolean;
+		private var _panXAccumulator:Number = 0;
 		public var ignoreNextRightClick:Boolean = false;
 		
 		override protected function configUI():void 
@@ -55,8 +59,11 @@ package red.game.witcher3.controls
 			cardsCarousel.addEventListener(ListEvent.INDEX_CHANGE, onCarouselSelectionChanged, false, 0, true);
 			stage.addEventListener(MouseEvent.CLICK, handleStageClick, false, 1, true);
 			stage.addEventListener( MouseEvent.MOUSE_WHEEL,	OnMouseWheel,	false, 0, true );
+			stage.addEventListener( GestureEvent.GESTURE_TWO_FINGER_TAP, handleGestureTwoFingerTap, false, 1, true );
 			
-			cardsCarousel.addEventListener(CardSlot.CardMouseDoubleClick, 	OnCardMouseDoubleClick,	false, 0, true);
+			cardsCarousel.addEventListener( CardSlot.CardMouseDoubleClick, 	onApplyCard,	false, 0, true);
+			cardsCarousel.addEventListener( SlotsListBase.EVENT_SELECTED_TAPPED, onApplyCard, false, 0, true );
+			cardsCarousel.enableTouch(true);
 		}
 		
 		public function showDialogCardInstances(sourceList:Vector.<CardInstance>, acceptCallback:Function, declineCallback:Function, messageText:String):void
@@ -118,6 +125,8 @@ package red.game.witcher3.controls
 			updateInputFeedback();
 			
 			inputEnabled = true;
+			addEventListener( TransformGestureEvent.GESTURE_PAN, handleGesturePan, false, 0, true );
+			_panXAccumulator = 0;
 		}
 		
 		protected var _inputEnabled:Boolean = true;
@@ -173,6 +182,8 @@ package red.game.witcher3.controls
 			}
 			InputFeedbackManager.removeButtonById(GwintInputFeedback.apply);
 			InputFeedbackManager.removeButtonById(GwintInputFeedback.cancel);
+			removeEventListener( TransformGestureEvent.GESTURE_PAN, handleGesturePan );
+			_panXAccumulator = 0;
 		}
 		
 		override public function set visible(value:Boolean):void {
@@ -189,7 +200,7 @@ package red.game.witcher3.controls
 		
 		private function handleDialogShown(tweenInstance:GTween):void
 		{
-			//
+			
 		}
 		
 		private function handleDialogHidden(tweenInstance:GTween):void
@@ -202,6 +213,18 @@ package red.game.witcher3.controls
 			return _shown;
 		}
 		
+		private function handleGestureTwoFingerTap( event : GestureEvent ) : void
+		{
+			if ( !_shown || !_inputEnabled )
+			{
+				return;
+			}
+
+			event.stopImmediatePropagation();
+			event.preventDefault();
+			cancelChoice();
+		}
+
 		private function handleInputCustom(event:InputEvent):void
 		{
 			if (!_inputEnabled)
@@ -389,7 +412,7 @@ package red.game.witcher3.controls
 		
 		public function OnMouseWheel( event : MouseEvent )
 		{
-			if (!_shown)
+			if ( !_shown || !_inputEnabled )
 			{
 				return;
 			}
@@ -404,7 +427,34 @@ package red.game.witcher3.controls
 			}
 		}
 		
-		public function OnCardMouseDoubleClick( event : Event )
+		protected function handleGesturePan( event : TransformGestureEvent ) : void
+		{	
+			if ( !_shown || !_inputEnabled )
+			{
+				return;
+			}
+
+			var rowHeight : Number = CardSlot.CARD_ORIGIN_WIDTH;
+
+			_panXAccumulator += event.offsetX;
+			var rowsToScroll : int = int ( _panXAccumulator / rowHeight );
+			if ( Math.abs( rowsToScroll ) > 0 )
+			{
+				//Put the remainder back to the accumulator (fmod)
+				_panXAccumulator = _panXAccumulator % rowHeight;
+			}
+
+			if ( rowsToScroll >= 1 )
+			{
+				cardsCarousel.navigateLeft();
+			}
+			else if ( rowsToScroll <= -1 )
+			{
+				cardsCarousel.navigateRight();
+			}
+		}
+
+		private function onApplyCard( event : Event )
 		{
 			applyChoice();
 		}

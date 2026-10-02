@@ -57,16 +57,34 @@ package red.game.witcher3.menus.character_menu
 			mutagenSlot.data = _mutagenData;
 			updateData();
 		}
+
+		public function isMutagenRare(mutagenColor : String):Boolean
+		{
+			return mutagenColor == COLOR_REDBLUE || mutagenColor == COLOR_REDGREEN || mutagenColor == COLOR_BLUEGREEN
+				|| mutagenColor == COLOR_REDWHITE || mutagenColor == COLOR_GREENWHITE || mutagenColor == COLOR_BLUEWHITE;
+		}
 		
 		const COLOR_NONE:String = "SC_None";
 		const COLOR_MIX:String = "SC_Mix";
+		const COLOR_RED:String = "SC_Red";
+		const COLOR_GREEN:String = "SC_Green";
+		const COLOR_BLUE:String = "SC_Blue";
+		const COLOR_WHITE:String = "SC_Yellow";
+		const COLOR_REDBLUE:String = "SC_RedBlue";
+		const COLOR_REDGREEN:String = "SC_RedGreen";
+		const COLOR_BLUEGREEN:String = "SC_BlueGreen";
+		const COLOR_REDWHITE:String = "SC_RedWhite";
+		const COLOR_GREENWHITE:String = "SC_GreenWhite";
+		const COLOR_BLUEWHITE:String = "SC_BlueWhite";
 		public function updateData():void
 		{
 			var skillExist:Boolean;
+			var notNullAny:Boolean;
 			var len:int = _skillSlotConnectorsList.length;
 			var i:int;
 			var mutagenColor:String = mutagenSlot.data ? mutagenSlot.data.color : COLOR_NONE;
 			skillExist = false;
+			notNullAny = true;
 			
 			if (_skillSlotRefs.length != _skillSlotConnectorsList.length)
 			{
@@ -81,20 +99,78 @@ package red.game.witcher3.menus.character_menu
 				trace("GFX * ", mutagenSlot.data.color );
 			}
 			*/
-			
+			/*var txt : String = "";
+			for (i = 0; i < len; i++)
+			{
+				if(txt.length > 0)
+					txt += ", ";
+				if(_skillSlotRefs[i].data != null)
+					txt += _skillSlotRefs[i].data.color;
+				else
+					txt += "null";
+			}
+			trace("GFX -_skillSlotRefs[i].data.color s:",txt);
+			*/
 			for (i = 0; i < len; i++)
 			{
 				if (_skillSlotConnectorsList[i])
 				{
 					if (mutagenColor != COLOR_NONE && _skillSlotRefs[i].data != null && mutagenColor == _skillSlotRefs[i].data.color)
 					{
-						
 						_skillSlotConnectorsList[i].currentColor = mutagenColor;
 						skillExist = true;
 					}
-					else
+					else if (isMutagenRare(mutagenColor))
+					{
+						if(_skillSlotRefs[i].data != null)
+						{
+							if(mutagenColor == COLOR_REDBLUE && (_skillSlotRefs[i].data.color == COLOR_RED || _skillSlotRefs[i].data.color == COLOR_BLUE))
+							{
+								_skillSlotConnectorsList[i].currentColor = _skillSlotRefs[i].data.color;
+								skillExist = true;
+							}
+							else if(mutagenColor == COLOR_REDGREEN && (_skillSlotRefs[i].data.color == COLOR_RED || _skillSlotRefs[i].data.color == COLOR_GREEN))
+							{
+								_skillSlotConnectorsList[i].currentColor = _skillSlotRefs[i].data.color;
+								skillExist = true;
+							}
+							else if(mutagenColor == COLOR_BLUEGREEN && (_skillSlotRefs[i].data.color == COLOR_BLUE || _skillSlotRefs[i].data.color == COLOR_GREEN))
+							{
+								_skillSlotConnectorsList[i].currentColor = _skillSlotRefs[i].data.color;
+								skillExist = true;
+							}
+							else if(mutagenColor == COLOR_REDWHITE && (_skillSlotRefs[i].data.color == COLOR_RED || _skillSlotRefs[i].data.color == COLOR_WHITE))
+							{
+								_skillSlotConnectorsList[i].currentColor = _skillSlotRefs[i].data.color;
+								skillExist = true;
+							}
+							else if(mutagenColor == COLOR_GREENWHITE && (_skillSlotRefs[i].data.color == COLOR_GREEN || _skillSlotRefs[i].data.color == COLOR_WHITE))
+							{
+								_skillSlotConnectorsList[i].currentColor = _skillSlotRefs[i].data.color;
+								skillExist = true;
+							}
+							else if(mutagenColor == COLOR_BLUEWHITE && (_skillSlotRefs[i].data.color == COLOR_BLUE || _skillSlotRefs[i].data.color == COLOR_WHITE))
+							{
+								_skillSlotConnectorsList[i].currentColor = _skillSlotRefs[i].data.color;
+								skillExist = true;
+							}
+							else 
+							{
+								_skillSlotConnectorsList[i].currentColor = COLOR_NONE;
+							}
+						}
+						else
+						{
+							notNullAny = false;
+						}
+					}
+					else if(_skillSlotRefs[i].data != null)
 					{
 						_skillSlotConnectorsList[i].currentColor = COLOR_NONE;
+					}
+					else
+					{
+						notNullAny = false;
 					}
 				}
 			}
@@ -103,7 +179,8 @@ package red.game.witcher3.menus.character_menu
 			{
 				connector.currentColor = mutagenColor;
 			}
-			else
+			else if(notNullAny) // #LT <-- this is because the data is transfered one by one for each skill 
+			// (red, null, null)->(red,none,null)->(red,none,green) for example, so linkage won't break if the first skill is not good for the mutagen but another skill is good
 			{
 				connector.currentColor = COLOR_NONE;
 			}

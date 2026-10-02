@@ -9,16 +9,29 @@ package red.game.witcher3.menus.mainmenu
 {
 	import com.gskinner.motion.GTween;
 	import com.gskinner.motion.GTweener;
+	
+	import flash.display.MovieClip;
 	import flash.events.Event;
 	import flash.events.MouseEvent;
+	import flash.events.TouchEvent;
+	import flash.events.GestureEvent;
 	import flash.events.TimerEvent;
+	import flash.events.TransformGestureEvent;
 	import flash.utils.Timer;
+	import flash.utils.setTimeout;
+	import flash.geom.Point;
+
+	import red.core.CoreComponent;
 	import red.core.CoreMenuModule;
 	import red.core.events.GameEvent;
+	import red.core.events.GestureEventEx;
+	import red.core.constants.KeyCode;
 	import red.game.witcher3.controls.W3ScrollingList;
 	import red.game.witcher3.controls.W3UILoader;
 	import red.game.witcher3.events.ControllerChangeEvent;
 	import red.game.witcher3.managers.InputManager;
+	import red.game.witcher3.utils.CommonUtils;
+
 	import scaleform.clik.constants.InputValue;
 	import scaleform.clik.constants.NavigationCode;
 	import scaleform.clik.controls.ScrollBar;
@@ -27,44 +40,64 @@ package red.game.witcher3.menus.mainmenu
 	import scaleform.clik.events.ListEvent;
 	import scaleform.clik.ui.InputDetails;
 	import scaleform.gfx.MouseEventEx;
-	import red.core.constants.KeyCode;
 	
 	public class SaveSlotListModule extends CoreMenuModule
 	{
-		public var mcScrollingList:W3ScrollingList;
-		public var mcSaveSlotItem1 :SaveSlotItemRenderer;
-		public var mcSaveSlotItem2 :SaveSlotItemRenderer;
-		public var mcSaveSlotItem3 :SaveSlotItemRenderer;
-		public var mcSaveSlotItem4 :SaveSlotItemRenderer;
-		public var mcSaveSlotItem5 :SaveSlotItemRenderer;
-		public var mcSaveSlotItem6 :SaveSlotItemRenderer;
-		public var mcSaveSlotItem7 :SaveSlotItemRenderer;
-		public var mcSaveSlotItem8 :SaveSlotItemRenderer;
-		public var mcSaveSlotItem9 :SaveSlotItemRenderer;
-		public var mcSaveSlotItem10:SaveSlotItemRenderer;
-		public var mcSaveSlotItem11:SaveSlotItemRenderer;
+		public static const SLOT_MODE_SAVES : int = 0;
+		public static const SLOT_MODE_LOAD : int = 1;
+		public static const SLOT_MODE_IMPORT : int = 2;
+		public static const SLOT_MODE_NEWGAME_PLUS : int = 3;
 		
-		public static const SLOT_MODE_SAVES:int = 0;
-		public static const SLOT_MODE_LOAD:int = 1;
-		public static const SLOT_MODE_IMPORT:int = 2;
-		public static const SLOT_MODE_NEWGAME_PLUS:int = 3;
-		
-		public static const CST_CLOUD = 30;
-		
-		public var mcSlotPreview:W3UILoader;
+		public static const CST_CLOUD : int = 30;
+
+		public var mcScrollingList : W3ScrollingList;
+		public var mcSaveSlotItem1 : SaveSlotItemRenderer;
+		public var mcSaveSlotItem2 : SaveSlotItemRenderer;
+		public var mcSaveSlotItem3 : SaveSlotItemRenderer;
+		public var mcSaveSlotItem4 : SaveSlotItemRenderer;
+		public var mcSaveSlotItem5 : SaveSlotItemRenderer;
+		public var mcSaveSlotItem6 : SaveSlotItemRenderer;
+		public var mcSaveSlotItem7 : SaveSlotItemRenderer;
+		public var mcSaveSlotItem8 : SaveSlotItemRenderer;
+		public var mcSaveSlotItem9 : SaveSlotItemRenderer;
+		public var mcSaveSlotItem10 : SaveSlotItemRenderer;
+		public var mcSaveSlotItem11 : SaveSlotItemRenderer;
+		public var mcSaveTooltip : MovieClip;
+		public var mcSlotPreview : W3UILoader;
+		public var mcModioBorder : MovieClip;
 		public var mcScrollbar : ScrollBar;
 		
-		public var slotMode:int;
-		
+		public var slotMode : int;
 		protected var saveImageTimer : Timer;
 		protected var loadingSaveImageTimer : Timer;
 		protected var _lastRequestedSaveImage : String;
 		protected var _lastRequestedSaveImageTag : int;
-		protected var _isLoadingScreenshot : Boolean = false;
-		
-		public var _lastMoveWasMouse:Boolean = false;
-		
-		public function get lastMoveWasMouse():Boolean { return _lastMoveWasMouse; }
+		protected var _isLoadingScreenshot : Boolean;
+		public var _lastMoveWasMouse : Boolean;
+		protected var _lastMouseOveredItem : int;
+		private var _panYAccumulator : Number;
+		private var _selectedIndex : int;
+
+		public function SaveSlotListModule()
+		{
+			_isLoadingScreenshot = false;
+			_lastMoveWasMouse = false;
+			_lastMouseOveredItem = -1;
+
+			clearTouchState();
+		}
+
+		private function clearTouchState() : void
+		{
+			_panYAccumulator = 0;
+			_selectedIndex = -1;
+		}
+
+		public function get lastMoveWasMouse() : Boolean 
+		{ 
+			return _lastMoveWasMouse; 
+		}
+
 		public function set lastMoveWasMouse(value:Boolean):void
 		{
 			_lastMoveWasMouse = value;
@@ -94,15 +127,15 @@ package red.game.witcher3.menus.mainmenu
 				}
 			}
 		}
-		
+
 		override protected function configUI():void
 		{
 			super.configUI();
-			
+
 			enabled = false;
 			visible = false;
 			alpha = 0;
-			
+
 			if (mcScrollingList)
 			{
 				mcScrollingList.focusable = false;
@@ -113,9 +146,34 @@ package red.game.witcher3.menus.mainmenu
 			{
 				mcScrollbar.addEventListener( Event.SCROLL, handleScroll, false, 1, true) ;
 			}
+
+			if (mcSaveTooltip)
+			{
+				dispatchEvent( new GameEvent( GameEvent.REGISTER, "mainmenu.saves.tooltip", [setSaveTooltip]))
+			}
+		}
+
+		public function setSaveTooltip(text:String)
+		{
+			if(text == "")
+			{
+				mcSaveTooltip.visible = false;
+			}
+
+			if(CoreComponent.isArabicAligmentMode)
+				text = "<p align=\"right\">" + text + "</p>";
+
+			mcSaveTooltip.textField.htmlText = text;
+		}
+
+		public function tryShowingSaveTooltip(trophies:Boolean)
+		{
+			if (mcSaveTooltip.textField.text != "")
+				mcSaveTooltip.visible = trophies;
+			else mcSaveTooltip.visible = false;
 		}
 		
-		public function registerMouseEvents():void
+		public function registerMouseAndTouchEvents():void
 		{
 			registerMouseEventsForItem(mcSaveSlotItem1); 
 			registerMouseEventsForItem(mcSaveSlotItem2); 
@@ -129,11 +187,14 @@ package red.game.witcher3.menus.mainmenu
 			registerMouseEventsForItem(mcSaveSlotItem10);
 			registerMouseEventsForItem(mcSaveSlotItem11);
 			
-			
 			InputManager.getInstance().addEventListener(ControllerChangeEvent.CONTROLLER_CHANGE, handleControllerChange, false, 0, true);
+
+			mcScrollingList.enableTouch( true );
+			addEventListener( TransformGestureEvent.GESTURE_PAN, handleGesturePan, false, 0, true );
+			clearTouchState();
 		}
 		
-		public function unregisteredMouseEvents():void
+		public function unregisterMouseAndTouchEvents():void
 		{
 			unregisterMouseEventsForItem(mcSaveSlotItem1); 
 			unregisterMouseEventsForItem(mcSaveSlotItem2); 
@@ -148,6 +209,13 @@ package red.game.witcher3.menus.mainmenu
 			unregisterMouseEventsForItem(mcSaveSlotItem11);
 			
 			InputManager.getInstance().removeEventListener(ControllerChangeEvent.CONTROLLER_CHANGE, handleControllerChange);
+
+			mcScrollingList.enableTouch( false );
+			removeEventListener( TransformGestureEvent.GESTURE_PAN, handleGesturePan, false );
+			removeEventListener( GestureEventEx.GESTURE_PRESS, onItemTapOrPress, false );
+			removeEventListener( GestureEventEx.GESTURE_TAP, onItemTapOrPress, false );
+			removeEventListener( GestureEventEx.GESTURE_DOUBLE_TAP, onItemTapOrPress, false );
+			clearTouchState();
 		}
 		
 		protected function registerMouseEventsForItem(item:SaveSlotItemRenderer):void
@@ -173,7 +241,6 @@ package red.game.witcher3.menus.mainmenu
 			}
 		}
 		
-		protected var _lastMouseOveredItem:int = -1;
 		protected function onItemMouseOver(event:MouseEvent):void
 		{
 			var currentTarget:SaveSlotItemRenderer = event.currentTarget as SaveSlotItemRenderer;
@@ -213,27 +280,67 @@ package red.game.witcher3.menus.mainmenu
 		
 		protected function handleControllerChange(event:ControllerChangeEvent):void
 		{
-			if (event.isGamepad)
-			{
-				if (mcScrollingList.selectedIndex == -1)
-				{
-					mcScrollingList.selectedIndex = 0;
-				}
-			}
-			else
+			if (event.isMouse)
 			{
 				if (_lastMoveWasMouse)
 				{
 					mcScrollingList.selectedIndex = _lastMouseOveredItem;
 				}
 			}
+			else
+			{
+				if (mcScrollingList.selectedIndex == -1)
+				{
+					mcScrollingList.selectedIndex = 0;
+				}
+			}
 		}
-		
+
+		protected function handleGesturePan( event : TransformGestureEvent ) : void
+		{	
+			var rowHeight : Number = mcSaveSlotItem1.height;
+			var result : Object = CommonUtils.stagePanToRowScroll( _panYAccumulator, rowHeight, event );
+
+			mcScrollbar.position -= result.outRowsToScroll;
+			_panYAccumulator = result.outPanYAccumulator;
+		}
+
+		protected function onItemTapOrPress( event : GestureEvent ) : void
+		{	
+			if ( _selectedIndex >= 0 )
+			{
+				var selectedRenderer : SaveSlotItemRenderer = mcScrollingList.getRendererAt( _selectedIndex, mcScrollingList.scrollPosition ) as SaveSlotItemRenderer;
+				if ( selectedRenderer )
+				{
+					var hitTestResult : Boolean = selectedRenderer.hitTestPoint( event.stageX, event.stageY );
+					if ( hitTestResult )
+					{
+						switch (event.type)
+						{
+							//Delete the save if selected is pressed
+							case GestureEventEx.GESTURE_PRESS : 
+								if ( event.phase == "begin" )
+								{
+									tryDeleteSlot();
+								}
+							break;
+							//Load game if selected is tapped
+							case GestureEventEx.GESTURE_DOUBLE_TAP : 
+							case GestureEventEx.GESTURE_TAP : 
+								activateSelectedSlot();
+							break;
+						}
+					}
+				}
+			}
+		}
+
 		public function showWithData(data:Array, targetSlotMode:int):void
 		{
 			slotMode = targetSlotMode;
-			
+
 			mcSlotPreview.visible = false;
+			mcModioBorder.visible = false;
 			
 			visible = true;
 			GTweener.removeTweens(this);
@@ -252,7 +359,7 @@ package red.game.witcher3.menus.mainmenu
 				mcScrollingList.selectedIndex = 0;
 			}
 			
-			registerMouseEvents();
+			registerMouseAndTouchEvents();
 			
 			displaySelectedSavesScreenshot();
 		}
@@ -266,7 +373,7 @@ package red.game.witcher3.menus.mainmenu
 				enabled = false;
 				GTweener.to(this, 0.2, { alpha:0.0 }, { onComplete:onHideComplete } );
 				
-				unregisteredMouseEvents();
+				unregisterMouseAndTouchEvents();
 				
 				if (saveImageTimer)
 				{
@@ -278,6 +385,16 @@ package red.game.witcher3.menus.mainmenu
 					mcSlotPreview.visible = false;
 					dispatchEvent( new GameEvent( GameEvent.CALL, "OnLoadSaveImageCancelled"));
 				}
+
+				if(mcModioBorder.visible)
+				{
+					mcModioBorder.visible = false;
+				}
+
+				//Important, set the selectedIndex to invalid. So when show is called and it sets the selectedIndex to 0, 
+				//INDEX_CHANGE will fire. If you dont do this then INDEX_CHANGE will not fire when you change between load game
+				//and save game menus.
+				mcScrollingList.selectedIndex = -1;
 			}
 		}
 
@@ -294,6 +411,7 @@ package red.game.witcher3.menus.mainmenu
 			{
 				var details:InputDetails = event.details;
 				var keyUp:Boolean = (details.value == InputValue.KEY_UP);
+				var isSwitchPlatform : Boolean = InputManager.getInstance().isSwitchPlatform();
 				
 				if ( keyUp && !event.handled )
 				{
@@ -312,6 +430,9 @@ package red.game.witcher3.menus.mainmenu
 						}
 						break;
 					case NavigationCode.GAMEPAD_X:
+					case NavigationCode.GAMEPAD_Y:
+						if ((isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_Y) ||		// Y on switch
+							(!isSwitchPlatform && details.navEquivalent == NavigationCode.GAMEPAD_X))		// X on other platforms
 						{
 							tryDeleteSlot();
 							event.handled = true;
@@ -374,6 +495,11 @@ package red.game.witcher3.menus.mainmenu
 				if (ingameMenu) {
 					if (ingameMenu.isCloudUserSignedIn) {
 						dispatchEvent( new GameEvent( GameEvent.CALL, "OnShowCloudModalCalled" ) );
+					}
+					else
+					{
+						handleNavigateBack();
+						dispatchEvent( new GameEvent( GameEvent.CALL, "OnCloudOffRequest" ) );
 					}
 				}
 			}
@@ -444,18 +570,55 @@ package red.game.witcher3.menus.mainmenu
 			}
 		}
 
+		public function onTap(event:GestureEvent):void
+		{
+			if (visible)
+			{
+				handleNavigateBack();
+			}
+		}
+
 		protected function handleNavigateBack():void
 		{
 			dispatchEvent( new Event(IngameMenu.OnOptionPanelClosed, false, false) );
 		}
-		
-		protected function onSaveSlotSelected( event:ListEvent ):void
+
+		private function addTapAndPressListener() : void
 		{
+			addEventListener( GestureEventEx.GESTURE_PRESS, onItemTapOrPress, false, 0, true );
+			addEventListener( GestureEventEx.GESTURE_TAP, onItemTapOrPress, false, 0, true );
+			addEventListener( GestureEventEx.GESTURE_DOUBLE_TAP, onItemTapOrPress, false, 0, true );
+		}
+		
+		protected function onSaveSlotSelected( event:ListEvent ) : void
+		{
+			//WARN : cant add Tap listener directly to the ListItemRenderer, since it will be reused on list scroll. 
+			//Used selected index and hit detection instead.
+			if (_selectedIndex != event.index )
+			{
+				removeEventListener( GestureEventEx.GESTURE_PRESS, onItemTapOrPress, false );
+				removeEventListener( GestureEventEx.GESTURE_TAP, onItemTapOrPress, false );
+				removeEventListener( GestureEventEx.GESTURE_DOUBLE_TAP, onItemTapOrPress, false );
+				//Delay the event listener registration, to avoid triggering immediately
+				setTimeout( addTapAndPressListener, 0 );
+			}
+
+			_selectedIndex = event.index;
+
 			// screenshot
 			if (slotMode != SLOT_MODE_IMPORT /*&& slotMode != SLOT_MODE_NEWGAME_PLUS*/ )
 			{
 				displaySelectedSavesScreenshot();
 			}
+
+			displaySaveTooltip();
+		}
+
+		protected function displaySaveTooltip():void
+		{
+			var item:SaveSlotItemRenderer = mcScrollingList.getSelectedRenderer() as SaveSlotItemRenderer;
+			if(item && item.data)
+				tryShowingSaveTooltip(item.data.trophiesDisabled);
 		}
 		
 		protected function displaySelectedSavesScreenshot():void
@@ -467,22 +630,26 @@ package red.game.witcher3.menus.mainmenu
 				if (item.data.tag == -1) //EMPTY save slot
 				{
 					mcSlotPreview.visible = false;
+					mcModioBorder.visible = false;
 				}
 				else
 				{
 					setSelectedSaveSlotImage(item.data.filename, item.data.tag);
 				}
 				mcSlotPreview.y = item.y;
+				mcModioBorder.y = item.y;
 			}
 			else
 			{
 				mcSlotPreview.visible = false;
+				mcModioBorder.visible = false;
 			}
 		}
 		
 		protected function setSelectedSaveSlotImage( filename : String, tag : int ):void
 		{
 			mcSlotPreview.visible = false;
+			mcModioBorder.visible = false;
 			
 			if (filename != "")
 			{
@@ -553,6 +720,11 @@ package red.game.witcher3.menus.mainmenu
 					loadingSaveImageTimer.stop();
 				}
 			}
+		}
+
+		public function onSetModioBorderVisibility(value:Boolean):void
+		{
+			mcModioBorder.visible = value;
 		}
 	}
 }

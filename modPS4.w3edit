@@ -1,8 +1,8 @@
 {
     "name": "modps4",
     "modName": "modPS4",
-    "version": "v2.6.0",
-    "gameVersion": "",
+    "version": "v2.70",
+    "gameVersion": "29",
     "description": "Shows PS icons in all areas of the game! For gamers who use DS3/4 controllers instead of Xbox ones",
     "thumbnail": "",
     "author": "uacvax",
@@ -10,6 +10,7 @@
     "workshopId": 0,
     "succesfullyCooked": true,
     "dependencies": [],
+    "useLooseScripts": false,
     "excludedDlc": [
         "dlc1",
         "dlc2",

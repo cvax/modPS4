@@ -65,6 +65,8 @@
 		
 		protected var _loadAssets:Boolean = true;
 
+		private var _enableForeignInputEvent = true;
+
 		public function CoreMenu()
 		{
 			super();
@@ -333,19 +335,24 @@
 			visible = true;
 			y = SHOW_ANIM_OFFSET;
 			alpha = 0;
-			GTweener.to(this, SHOW_ANIM_DURATION, { y:0, alpha:1 },  { ease: Exponential.easeOut, onComplete:handleShowAnimComplete } );
+			GTweener.to(this, SHOW_ANIM_DURATION, { y:0, alpha:1 },  { ease: Exponential.easeOut, onComplete:handleShowAnimComplete, onChange:handleAnimChange } );
 		}
 
-		protected function hideAnimation():void
+		public function hideAnimation():void
 		{
 			if (!closingMenu)
 			{
 				GTweener.removeTweens(this);
 
-				GTweener.to(this, 0.3, { y:200, alpha:0 },  { ease: Exponential.easeOut, onComplete:handleHideAnimComplete } );
+				GTweener.to(this, 0.3, { y:200, alpha:0 },  { ease: Exponential.easeOut, onComplete:handleHideAnimComplete, onChange:handleAnimChange } );
 				
 				closingMenu = true;
 			}
+		}
+
+		protected function handleAnimChange():void
+		{
+			dispatchEvent( new GameEvent( GameEvent.CALL, 'OnFadeAnimationPercentageChanged', [alpha] ) );
 		}
 
 		protected function handleHideAnimComplete(instTween:GTween):void
@@ -408,7 +415,7 @@
 			trace("SAVESYSTEM handleControllerChanged "+currentModuleIdx+" new "+0+" "+menuName);
 			//currentModuleIdx = 0; // #Y Disabled to prevent OnModuleSelected call; TODO: Check it
 
-			if (!event.isGamepad)
+			if (event.isMouse)
 			{
 				if (_modules.length > 0 && _modules[0].mcHighlight)
 				{
@@ -421,7 +428,7 @@
 				}
 			}
 			
-			if (_lastMoveWasMouse && event.isGamepad)
+			if (_lastMoveWasMouse && !event.isMouse)
 			{
 				_lastMoveWasMouse = false;
 				onLastMoveStatusChanged();
@@ -676,12 +683,33 @@
 				onLastMoveStatusChanged();
 			}
 		}
+
+		//Called from WitcherScript. Handle InputEvent from an other flash VM. (Usually CommonMenu)
+		public function handleForeignInputEvent(type:String, keyCode:int, inputValue:String, navEquivalent:String) : void
+		{
+			if ( _enableForeignInputEvent )
+			{
+				trace("CoreMenu::handleForeignInputEvent : ", type, keyCode, inputValue, navEquivalent);
+				
+				var fakeInputDetails:InputDetails = new InputDetails( type, keyCode, inputValue, navEquivalent );
+				var fakeInputEvent:InputEvent = new InputEvent(InputEvent.INPUT, fakeInputDetails);
+				InputDelegate.getInstance().dispatchEvent(fakeInputEvent);
+			}
+		}
+
+		public function enableForeignInputEvent( enable : Boolean ) : void
+		{
+			_enableForeignInputEvent = enable;
+		}
 		
-		public function enableDebugInput()
+		public function enableDebugInput() : void
 		{
 			InputDelegate.getInstance().addEventListener(InputEvent.INPUT, handleDebugInput, false, 1000, true);
 		}
 		
-		public function handleDebugInput(event:InputEvent) { }
+		public function handleDebugInput(event:InputEvent) : void 
+		{ 
+			
+		}
 	}
 }
