@@ -104,17 +104,11 @@ import class CInputManager
 				return IDT_Tablet;
 				break;
 			default:
-				// modPS4++
 				return IDT_Unknown;
-				// return IDT_PS4;
-				// modPS4--
 				break;
 		}
 		
-		// modPS4++
 		return IDT_Unknown;
-		// return IDT_PS4;
-		// modPS4--
 	}
 	
 	import final function UsesPlaystationPad() : bool;	
