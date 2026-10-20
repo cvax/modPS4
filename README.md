@@ -21,6 +21,12 @@ You will need the [REDkit](https://www.thewitcher.com/us/en/redkit) to completel
 7. In REDkit main window, `Publish > Save and publish mod project > Next > Start cooking`
 
 # Changelog
+v2.81
+- Improved: Script Merger compatibility
+
+v2.80
+- Added: Witcher 3 v5.01 support
+
 v2.70
 - Added: Witcher 3 v5.00c support
 
